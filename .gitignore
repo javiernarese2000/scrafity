@@ -1,0 +1,28 @@
+# deps
+node_modules/
+.pnpm-store/
+
+# builds
+.next/
+dist/
+out/
+*.tsbuildinfo
+
+# env
+.env
+.env.local
+.env*.local
+
+# drizzle
+.drizzle/
+
+# logs / os
+*.log
+.DS_Store
+Thumbs.db
+
+# turbo
+.turbo/
+
+# codebase memory artifacts
+.codebase-memory/

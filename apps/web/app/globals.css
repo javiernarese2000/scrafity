@@ -1,0 +1,64 @@
+@import "tailwindcss";
+
+/* Modo oscuro por clase (.dark) — ver memory/05-ux-premium.md */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ---------------------------------------------------------------------------
+   Paleta "Editorial Premium" — tokens de marca.
+   Las fuentes (--font-fraunces, --font-geist, --font-geist-mono) las inyecta
+   next/font desde app/layout.tsx.
+--------------------------------------------------------------------------- */
+@theme {
+  --font-display: var(--font-fraunces), Georgia, serif;
+  --font-sans: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+  /* Acentos de marca */
+  --color-ink: #3e5c76;
+  --color-ink-fg: #ffffff;
+  --color-ochre: #c0883e;
+
+  /* Semánticos */
+  --color-success: #5f8a6a;
+  --color-warning: #c99a3c;
+  --color-danger: #b0524a;
+
+  /* Data-viz categórica */
+  --color-viz-1: #4a6e8a;
+  --color-viz-2: #c9963f;
+  --color-viz-3: #7c9070;
+  --color-viz-4: #b5715a;
+  --color-viz-5: #7e6080;
+  --color-viz-6: #8a8d93;
+
+  /* Superficies — light (papel) por defecto */
+  --color-bg: #faf8f4;
+  --color-surface: #ffffff;
+  --color-surface-2: #f4f1ea;
+  --color-border: #e8e3d9;
+  --color-text: #1e1c18;
+  --color-text-muted: #6b6862;
+}
+
+/* Superficies — dark (tinta) */
+.dark {
+  --color-bg: #15140f;
+  --color-surface: #1f1e19;
+  --color-surface-2: #28261f;
+  --color-border: #34322b;
+  --color-text: #f3efe7;
+  --color-text-muted: #a8a39b;
+  --color-ink: #6e8cae;
+  --color-ochre: #d7a85c;
+}
+
+html {
+  color-scheme: light dark;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
