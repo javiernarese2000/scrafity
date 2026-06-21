@@ -59,6 +59,22 @@ export function AreaTrend({ data }: { data: Point[] }) {
         }}
         onPointerLeave={() => setHover(null)}
       >
+        <defs>
+          {SERIES.map((s) => (
+            <linearGradient
+              key={s.key}
+              id={`area-${s.key}`}
+              x1="0"
+              y1="0"
+              x2="0"
+              y2="1"
+            >
+              <stop offset="0%" stopColor={s.color} stopOpacity={0.18} />
+              <stop offset="100%" stopColor={s.color} stopOpacity={0} />
+            </linearGradient>
+          ))}
+        </defs>
+
         {[0, 0.25, 0.5, 0.75, 1].map((t) => (
           <line
             key={t}
@@ -68,17 +84,18 @@ export function AreaTrend({ data }: { data: Point[] }) {
             y2={PAD.t + innerH * t}
             stroke="var(--color-line)"
             strokeWidth={1}
+            opacity={0.6}
           />
         ))}
 
         {SERIES.map((s) => (
           <g key={s.key}>
-            <path d={areaPath(s.key)} fill={s.color} opacity={0.08} />
+            <path d={areaPath(s.key)} fill={`url(#area-${s.key})`} />
             <motion.path
               d={linePath(s.key)}
               fill="none"
               stroke={s.color}
-              strokeWidth={2}
+              strokeWidth={1.75}
               strokeLinecap="round"
               strokeLinejoin="round"
               initial={{ pathLength: 0 }}

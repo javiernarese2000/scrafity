@@ -5,8 +5,8 @@ import { useState } from "react";
 
 type Segment = { label: string; value: number; color: string };
 
-const SIZE = 180;
-const STROKE = 22;
+const SIZE = 184;
+const STROKE = 15;
 const R = (SIZE - STROKE) / 2;
 const C = 2 * Math.PI * R;
 
@@ -36,7 +36,7 @@ export function Donut({ data }: { data: Segment[] }) {
               r={R}
               fill="none"
               stroke={a.color}
-              strokeWidth={hover === i ? STROKE + 4 : STROKE}
+              strokeWidth={hover === i ? STROKE + 3 : STROKE}
               strokeDasharray={`${a.len} ${C - a.len}`}
               strokeDashoffset={-a.offset}
               initial={{ opacity: 0 }}

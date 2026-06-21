@@ -9,7 +9,7 @@ export function Card({
   return (
     <div
       className={cn(
-        "rounded-[var(--radius)] border border-line bg-surface",
+        "rounded-[var(--radius-lg)] border border-line/70 bg-surface shadow-soft",
         className,
       )}
       {...props}
@@ -24,7 +24,7 @@ export function CardHeader({
   return (
     <div
       className={cn(
-        "flex items-center justify-between gap-3 px-5 pt-5",
+        "flex items-center justify-between gap-3 px-6 pt-6",
         className,
       )}
       {...props}
@@ -48,5 +48,5 @@ export function CardBody({
   className,
   ...props
 }: ComponentPropsWithoutRef<"div">) {
-  return <div className={cn("p-5", className)} {...props} />;
+  return <div className={cn("p-6", className)} {...props} />;
 }

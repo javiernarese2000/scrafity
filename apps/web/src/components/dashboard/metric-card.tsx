@@ -17,9 +17,9 @@ export function MetricCard({
   hint?: string;
 }) {
   return (
-    <Card className="p-5">
-      <p className="text-xs text-muted">{label}</p>
-      <p className="mt-2 font-mono text-3xl font-medium tracking-tight text-fg">
+    <Card className="p-6">
+      <p className="text-xs tracking-wide text-muted">{label}</p>
+      <p className="mt-2.5 font-mono text-[1.75rem] font-medium tracking-tight text-fg">
         {value}
       </p>
       {(delta || hint) && (

@@ -41,13 +41,13 @@ export default function DashboardPage() {
   const costoTotal = costoProveedor.reduce((a, c) => a + c.costo, 0);
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
+    <div className="mx-auto max-w-7xl space-y-8">
       <Reveal className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="font-mono text-xs uppercase tracking-widest text-accent">
             Viernes 21 de junio
           </p>
-          <h2 className="mt-1 font-display text-3xl font-semibold text-fg">
+          <h2 className="mt-1 font-display text-[2rem] font-medium tracking-tight text-fg">
             Buen día, Javier
           </h2>
           <p className="mt-1 text-sm text-muted">
@@ -64,7 +64,7 @@ export default function DashboardPage() {
       </Reveal>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-5 lg:grid-cols-5">
         {[
           <MetricCard
             key="1"
