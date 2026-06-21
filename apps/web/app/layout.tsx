@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Fraunces, Geist, Geist_Mono } from "next/font/google";
 
+import { AppShell } from "@/components/shell/app-shell";
+import { ThemeScript } from "@/components/theme/theme-script";
 import "./globals.css";
 
 const fraunces = Fraunces({
@@ -34,9 +36,15 @@ export default function RootLayout({
   return (
     <html
       lang="es"
+      suppressHydrationWarning
       className={`${fraunces.variable} ${geist.variable} ${geistMono.variable}`}
     >
-      <body>{children}</body>
+      <head>
+        <ThemeScript />
+      </head>
+      <body>
+        <AppShell>{children}</AppShell>
+      </body>
     </html>
   );
 }

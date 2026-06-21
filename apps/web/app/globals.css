@@ -4,19 +4,27 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* ---------------------------------------------------------------------------
-   Paleta "Editorial Premium" — tokens de marca.
-   Las fuentes (--font-fraunces, --font-geist, --font-geist-mono) las inyecta
-   next/font desde app/layout.tsx.
+   Paleta "Editorial Premium". Definir los tokens en @theme hace que Tailwind
+   genere utilidades: bg-canvas, text-fg, bg-brand, border-line, text-accent…
+   Las fuentes las inyecta next/font desde app/layout.tsx.
 --------------------------------------------------------------------------- */
 @theme {
   --font-display: var(--font-fraunces), Georgia, serif;
   --font-sans: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 
-  /* Acentos de marca */
-  --color-ink: #3e5c76;
-  --color-ink-fg: #ffffff;
-  --color-ochre: #c0883e;
+  /* Superficies — light (papel) */
+  --color-canvas: #faf8f4;
+  --color-surface: #ffffff;
+  --color-elevated: #f4f1ea;
+  --color-line: #e8e3d9;
+  --color-fg: #1e1c18;
+  --color-muted: #6b6862;
+
+  /* Marca y acento */
+  --color-brand: #3e5c76;
+  --color-brand-foreground: #ffffff;
+  --color-accent: #c0883e;
 
   /* Semánticos */
   --color-success: #5f8a6a;
@@ -31,34 +39,39 @@
   --color-viz-5: #7e6080;
   --color-viz-6: #8a8d93;
 
-  /* Superficies — light (papel) por defecto */
-  --color-bg: #faf8f4;
-  --color-surface: #ffffff;
-  --color-surface-2: #f4f1ea;
-  --color-border: #e8e3d9;
-  --color-text: #1e1c18;
-  --color-text-muted: #6b6862;
+  --radius: 0.75rem;
 }
 
 /* Superficies — dark (tinta) */
 .dark {
-  --color-bg: #15140f;
+  --color-canvas: #15140f;
   --color-surface: #1f1e19;
-  --color-surface-2: #28261f;
-  --color-border: #34322b;
-  --color-text: #f3efe7;
-  --color-text-muted: #a8a39b;
-  --color-ink: #6e8cae;
-  --color-ochre: #d7a85c;
+  --color-elevated: #28261f;
+  --color-line: #34322b;
+  --color-fg: #f3efe7;
+  --color-muted: #a8a39b;
+  --color-brand: #6e8cae;
+  --color-brand-foreground: #15140f;
+  --color-accent: #d7a85c;
 }
 
-html {
-  color-scheme: light dark;
-}
-
-body {
-  background-color: var(--color-bg);
-  color: var(--color-text);
-  font-family: var(--font-sans);
-  -webkit-font-smoothing: antialiased;
+@layer base {
+  html {
+    color-scheme: light dark;
+  }
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  ::selection {
+    background-color: color-mix(in oklab, var(--color-accent) 30%, transparent);
+  }
+  /* Scrollbar sutil acorde a la paleta */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-line) transparent;
+  }
 }

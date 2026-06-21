@@ -14,8 +14,11 @@ Estado del proyecto y decisiones. Leer esto primero al retomar contexto.
 - [`08-scaffold.md`](08-scaffold.md) — estructura del monorepo, versiones y quirks descubiertos.
 
 ## Estado actual
-**Fase:** Fase 1 — scaffold del monorepo creado y verificado (typecheck + build OK).
-Falta: `.env` real (Supabase + claves), migraciones, auth, ingesta y UI real.
+**Fase:** Fase 1 — UI en construcción (con datos mock; backend desconectado a propósito).
+Hecho: scaffold + Supabase (8 tablas) + **app shell** (sidebar, topbar, tema claro/oscuro)
++ **Dashboard** (KPIs, gráficos SVG animados, salud de fuentes, actividad) + stubs de rutas.
+Kit de componentes propio + Framer Motion. Falta: pantallas reales (pegar URL, moderación),
+conexión de IA/ingesta, auth.
 **Última actualización:** 2026-06-21.
 
 ## Decisiones tomadas (resumen)
