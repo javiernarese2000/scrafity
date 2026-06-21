@@ -1,13 +1,5 @@
-import { Newspaper } from "lucide-react";
-
-import { EmptyState } from "@/components/ui/empty-state";
+import { ModerationBoard } from "@/components/moderacion/moderation-board";
 
 export default function ModeracionPage() {
-  return (
-    <EmptyState
-      icon={Newspaper}
-      title="Cola de moderación"
-      description="Revisá, editá y aprobá las versiones generadas por IA con el diff contra el original antes de publicarlas."
-    />
-  );
+  return <ModerationBoard />;
 }

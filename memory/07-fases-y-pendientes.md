@@ -26,8 +26,28 @@
 - ~~Dirección visual~~ → DEFINIDA: editorial premium, tonos suaves, muchos gráficos, mucha
   interacción y detalle, paleta muy cuidada (ver `05-ux-premium.md`).
 - **Política editorial/legal** sobre reescritura de notas de terceros (copyright).
-- Neon vs Supabase para Postgres.
-- Better-Auth vs Clerk para auth.
+- ~~Neon vs Supabase~~ → RESUELTO: **Supabase** (Postgres + Auth + Storage).
+- ~~Better-Auth vs Clerk~~ → RESUELTO: **Supabase Auth** (login interno, sin sign-ups públicos).
+
+## Backlog de features futuros (no desarrollar aún)
+
+### Escenarios (motor de reglas de enrutamiento) — IDEA DEL USUARIO (2026)
+Automatizar el flujo con "escenarios": reglas que, cuando una nota cumple ciertas
+**condiciones**, disparan un **procesamiento y enrutamiento** definido. Evita configurar
+cada nota a mano.
+
+- **Condiciones** (ej.): categoría/tema (ej. "Política"), fuente de origen, palabras clave,
+  idioma, score de similitud máximo, rango horario, etc.
+- **Acciones / config**: cuántas versiones generar, tono, proveedor de IA, a qué **destinos**
+  va (WordPress de clientes / sitios propios), y si **auto-publica** o **requiere moderación**.
+- Modelo mental: `SI (tema = Política Y fuente ∈ {...}) ENTONCES generar 3 versiones (tono
+  formal, DeepSeek) → destinos {SitioA, ClienteB} → requiere moderación`.
+- Conecta las tres patas del sistema (fuentes → procesamiento → destinos) vía reglas.
+- Implica nuevas tablas (ej. `scenarios`, `scenario_conditions`, `scenario_actions`) y un
+  paso de "evaluación de escenarios" en el pipeline de ingesta/reescritura.
+- Requiere **tagging/categorización automática** (ya previsto) para que las condiciones por
+  tema funcionen.
 
 ## Próximo paso sugerido
-Armar el scaffold del monorepo + esquema Drizzle de la Fase 1.
+Construir la **cola de moderación** (pantalla estrella) con datos mock, al nivel de
+terminación del dashboard.

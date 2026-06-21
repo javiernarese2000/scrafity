@@ -16,9 +16,11 @@ Estado del proyecto y decisiones. Leer esto primero al retomar contexto.
 ## Estado actual
 **Fase:** Fase 1 — UI en construcción (con datos mock; backend desconectado a propósito).
 Hecho: scaffold + Supabase (8 tablas) + **app shell** (sidebar, topbar, tema claro/oscuro)
-+ **Dashboard** (KPIs, gráficos SVG animados, salud de fuentes, actividad) + stubs de rutas.
-Kit de componentes propio + Framer Motion. Falta: pantallas reales (pegar URL, moderación),
-conexión de IA/ingesta, auth.
++ **Dashboard** (KPIs, gráficos SVG animados, salud de fuentes, actividad)
++ **Cola de moderación** (maestro-detalle, tabs de versiones, diff real por palabras vs
+  original, indicador de similitud, acciones aprobar/editar/rechazar, toast) + stubs de rutas.
+Kit propio + Framer Motion. Pasada de refinamiento aplicada (sombras suaves, más fino).
+Falta: pantalla Pegar URL, conexión de IA/ingesta, auth, mover UI de mock a queries reales.
 **Última actualización:** 2026-06-21.
 
 ## Decisiones tomadas (resumen)
