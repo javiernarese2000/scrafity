@@ -1,4 +1,8 @@
+import { config } from "dotenv";
 import { defineConfig } from "drizzle-kit";
+
+// El .env vive en la raíz del monorepo.
+config({ path: "../../.env" });
 
 export default defineConfig({
   schema: "./src/schema.ts",

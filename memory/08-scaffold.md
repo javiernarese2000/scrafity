@@ -40,9 +40,18 @@ drizzle-orm **0.45**, drizzle-kit **0.31**, postgres **3.4**, TypeScript **6.0**
 - `next lint` está deprecado en Next 16 (el script `lint` quedará pendiente de migrar a ESLint).
 - pnpm pide aprobar build scripts: habilitados en `pnpm-workspace.yaml > allowBuilds`.
 
+## Infra conectada (2026-06-21)
+- **Git/GitHub**: repo en https://github.com/javiernarese2000/scrafity (rama `main`).
+- **Supabase**: proyecto ref `ygmjxlhkxykmrlqclbgo`. Claves nuevas (`sb_publishable_*` /
+  `sb_secret_*`) en `.env` (gitignored). **Migración aplicada → 8 tablas creadas.**
+- **Puerto dev = 5555** (`next dev -p 5555`). Verificado: HTTP 200.
+- **Env en monorepo**: `.env` único en la raíz. Drizzle lo carga con `dotenv` en
+  `drizzle.config.ts`; Next lo carga con `process.loadEnvFile()` en `next.config.ts`.
+- **Conexión DB**: por ahora **conexión directa** (`db.<ref>.supabase.co:5432`, sin región).
+  Falta la **región** para pasar al pooler transaction (6543) recomendado en producción.
+
 ## Pendiente inmediato (lo que NO está aún)
-- No hay `.env` real → para correr jobs/DB hay que crear proyecto Supabase y cargar claves.
-- No se corrieron migraciones (`pnpm db:generate` + `db:push`) — falta DATABASE_URL.
+- Región de Supabase → migrar `DATABASE_URL` al pooler transaction (puerto 6543).
+- Claves de IA (DEEPSEEK_API_KEY, ANTHROPIC_API_KEY) y FIRECRAWL_API_KEY vacías en `.env`.
 - Auth (Supabase Auth) sin implementar. Ingesta (Firecrawl/RSS) sin implementar.
 - UI real (pegar URL, cola de moderación) sin implementar — solo placeholder.
-- `git init` no ejecutado (el repo no está versionado todavía).
