@@ -2,6 +2,7 @@
 
 import { LayoutGroup, motion } from "framer-motion";
 import { Check, ExternalLink, Pencil, X } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,110 +17,143 @@ export function ReviewPanel({
   nota,
   versionIdx,
   view,
+  editing,
   onVersion,
   onView,
   onAction,
+  onSaveEdit,
+  onCancelEdit,
 }: {
   nota: NotaModeracion;
   versionIdx: number;
   view: "diff" | "limpio";
+  editing: boolean;
   onVersion: (idx: number) => void;
   onView: (v: "diff" | "limpio") => void;
   onAction: (a: ReviewAction) => void;
+  onSaveEdit: (titulo: string, contenido: string) => void;
+  onCancelEdit: () => void;
 }) {
   const version = nota.versiones[versionIdx] ?? nota.versiones[0]!;
   const sim = simTone(version.similarity);
   const palabras = version.contenido.split(/\s+/).filter(Boolean).length;
 
+  const [titulo, setTitulo] = useState(version.titulo);
+  const [contenido, setContenido] = useState(version.contenido);
+
+  useEffect(() => {
+    if (editing) {
+      setTitulo(version.titulo);
+      setContenido(version.contenido);
+    }
+  }, [editing, version.titulo, version.contenido]);
+
   return (
     <div className="flex h-full flex-col">
       {/* Encabezado */}
       <div className="border-b border-line/70 p-6">
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <div className="mb-2 flex items-center gap-2">
-              <Badge>{nota.tema}</Badge>
-              <Badge tone={sim.tone}>
-                Similitud {pct(version.similarity)} · {sim.label}
-              </Badge>
-            </div>
-            <h2 className="font-display text-2xl font-medium leading-tight text-fg">
-              {version.titulo}
-            </h2>
-            <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
-              <span>{nota.fuente}</span>
-              <span>·</span>
-              <span>{nota.autor}</span>
-              <span>·</span>
-              <span>{nota.fecha}</span>
-              <a
-                href={nota.urlOriginal}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1 text-brand hover:underline"
-              >
-                ver original <ExternalLink className="size-3" />
-              </a>
-            </p>
-          </div>
+        <div className="mb-2 flex items-center gap-2">
+          <Badge>{nota.tema}</Badge>
+          <Badge tone={sim.tone}>
+            Similitud {pct(version.similarity)} · {sim.label}
+          </Badge>
+          {editing && <Badge tone="accent">Editando V{versionIdx + 1}</Badge>}
         </div>
+        <h2 className="font-display text-2xl font-medium leading-tight text-fg">
+          {version.titulo}
+        </h2>
+        <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
+          <span>{nota.fuente}</span>
+          <span>·</span>
+          <span>{nota.autor}</span>
+          <span>·</span>
+          <span>{nota.fecha}</span>
+          <a
+            href={nota.urlOriginal}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 text-brand hover:underline"
+          >
+            ver original <ExternalLink className="size-3" />
+          </a>
+        </p>
 
-        {/* Tabs de versiones */}
-        <div className="mt-5 flex items-center gap-2">
-          <LayoutGroup id="versiones">
-            {nota.versiones.map((v, i) => {
-              const active = i === versionIdx;
-              return (
+        {/* Tabs de versiones + toggle de vista (ocultos al editar) */}
+        {!editing && (
+          <div className="mt-5 flex items-center gap-2">
+            <LayoutGroup id="versiones">
+              {nota.versiones.map((v, i) => {
+                const active = i === versionIdx;
+                return (
+                  <button
+                    key={v.id}
+                    type="button"
+                    onClick={() => onVersion(i)}
+                    className={cn(
+                      "relative rounded-lg px-3 py-1.5 text-sm transition-colors",
+                      active ? "text-fg" : "text-muted hover:text-fg",
+                    )}
+                  >
+                    {active && (
+                      <motion.span
+                        layoutId="version-pill"
+                        className="absolute inset-0 rounded-lg bg-elevated"
+                        transition={{
+                          type: "spring",
+                          stiffness: 400,
+                          damping: 32,
+                        }}
+                      />
+                    )}
+                    <span className="relative">
+                      V{i + 1}
+                      <span className="ml-1.5 text-xs text-muted">
+                        {v.proveedor}
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
+            </LayoutGroup>
+
+            <div className="ml-auto flex rounded-lg border border-line p-0.5">
+              {(["diff", "limpio"] as const).map((v) => (
                 <button
-                  key={v.id}
+                  key={v}
                   type="button"
-                  onClick={() => onVersion(i)}
+                  onClick={() => onView(v)}
                   className={cn(
-                    "relative rounded-lg px-3 py-1.5 text-sm transition-colors",
-                    active ? "text-fg" : "text-muted hover:text-fg",
+                    "rounded-md px-3 py-1 text-xs font-medium capitalize transition-colors",
+                    view === v ? "bg-elevated text-fg" : "text-muted hover:text-fg",
                   )}
                 >
-                  {active && (
-                    <motion.span
-                      layoutId="version-pill"
-                      className="absolute inset-0 rounded-lg bg-elevated"
-                      transition={{ type: "spring", stiffness: 400, damping: 32 }}
-                    />
-                  )}
-                  <span className="relative">
-                    V{i + 1}
-                    <span className="ml-1.5 text-xs text-muted">
-                      {v.proveedor}
-                    </span>
-                  </span>
+                  {v}
                 </button>
-              );
-            })}
-          </LayoutGroup>
-
-          <div className="ml-auto flex rounded-lg border border-line p-0.5">
-            {(["diff", "limpio"] as const).map((v) => (
-              <button
-                key={v}
-                type="button"
-                onClick={() => onView(v)}
-                className={cn(
-                  "rounded-md px-3 py-1 text-xs font-medium capitalize transition-colors",
-                  view === v
-                    ? "bg-elevated text-fg"
-                    : "text-muted hover:text-fg",
-                )}
-              >
-                {v}
-              </button>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Contenido */}
       <div className="flex-1 overflow-auto p-6">
-        {view === "diff" ? (
+        {editing ? (
+          <div className="mx-auto max-w-2xl space-y-3">
+            <input
+              value={titulo}
+              onChange={(e) => setTitulo(e.target.value)}
+              className="w-full rounded-lg border border-line bg-surface px-3 py-2 font-display text-xl font-medium text-fg focus:outline-none focus:ring-2 focus:ring-brand/40"
+            />
+            <textarea
+              value={contenido}
+              onChange={(e) => setContenido(e.target.value)}
+              className="min-h-[16rem] w-full rounded-[var(--radius)] border border-line bg-surface p-3 text-[15px] leading-relaxed text-fg focus:outline-none focus:ring-2 focus:ring-brand/40"
+            />
+            <p className="font-mono text-xs text-muted">
+              {contenido.split(/\s+/).filter(Boolean).length} palabras
+            </p>
+          </div>
+        ) : view === "diff" ? (
           <DiffView original={nota.original} revised={version.contenido} />
         ) : (
           <article className="mx-auto max-w-2xl">
@@ -135,32 +169,44 @@ export function ReviewPanel({
 
       {/* Metadatos + acciones */}
       <div className="border-t border-line/70 p-4">
-        <div className="mb-3 flex flex-wrap items-center gap-x-5 gap-y-1 px-2 font-mono text-xs text-muted">
-          <span>{palabras} palabras</span>
-          <span>{version.proveedor}</span>
-          <span>
-            {version.tokensIn + version.tokensOut} tokens
-          </span>
-          <span>${version.costo.toFixed(4)}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="danger" onClick={() => onAction("rechazar")}>
-            <X className="size-4" />
-            Rechazar
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => onAction("editar")}
-            className="ml-auto"
-          >
-            <Pencil className="size-4" />
-            Editar
-          </Button>
-          <Button onClick={() => onAction("aprobar")}>
-            <Check className="size-4" />
-            Aprobar versión
-          </Button>
-        </div>
+        {editing ? (
+          <div className="flex items-center justify-end gap-2">
+            <Button variant="ghost" onClick={onCancelEdit}>
+              Cancelar
+            </Button>
+            <Button onClick={() => onSaveEdit(titulo, contenido)}>
+              <Check className="size-4" />
+              Guardar cambios
+            </Button>
+          </div>
+        ) : (
+          <>
+            <div className="mb-3 flex flex-wrap items-center gap-x-5 gap-y-1 px-2 font-mono text-xs text-muted">
+              <span>{palabras} palabras</span>
+              <span>{version.proveedor}</span>
+              <span>{version.tokensIn + version.tokensOut} tokens</span>
+              <span>${version.costo.toFixed(4)}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="danger" onClick={() => onAction("rechazar")}>
+                <X className="size-4" />
+                Rechazar
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => onAction("editar")}
+                className="ml-auto"
+              >
+                <Pencil className="size-4" />
+                Editar
+              </Button>
+              <Button onClick={() => onAction("aprobar")}>
+                <Check className="size-4" />
+                Aprobar versión
+              </Button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

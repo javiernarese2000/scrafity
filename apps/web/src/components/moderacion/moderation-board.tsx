@@ -6,20 +6,23 @@ import { useMemo, useState } from "react";
 
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Toast, useToast } from "@/components/ui/toast";
 import { colaModeracion } from "@/data/moderacion";
 import { QueueList } from "./queue-list";
 import { ReviewPanel, type ReviewAction } from "./review-panel";
 
 export function ModerationBoard() {
+  const [notas, setNotas] = useState(colaModeracion);
   const [resueltas, setResueltas] = useState<Set<string>>(new Set());
   const [selectedId, setSelectedId] = useState(colaModeracion[0]!.id);
   const [versionIdx, setVersionIdx] = useState(0);
   const [view, setView] = useState<"diff" | "limpio">("diff");
-  const [toast, setToast] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+  const { message, show } = useToast();
 
   const pendientes = useMemo(
-    () => colaModeracion.filter((n) => !resueltas.has(n.id)),
-    [resueltas],
+    () => notas.filter((n) => !resueltas.has(n.id)),
+    [notas, resueltas],
   );
   const nota = pendientes.find((n) => n.id === selectedId) ?? pendientes[0];
 
@@ -27,28 +30,43 @@ export function ModerationBoard() {
     setSelectedId(id);
     setVersionIdx(0);
     setView("diff");
-  }
-
-  function showToast(msg: string) {
-    setToast(msg);
-    window.setTimeout(() => setToast(null), 2600);
+    setEditing(false);
   }
 
   function handleAction(a: ReviewAction) {
     if (!nota) return;
     if (a === "editar") {
-      showToast("Edición en el editor — próximamente");
+      setEditing(true);
       return;
     }
     const idx = pendientes.findIndex((n) => n.id === nota.id);
     const next = pendientes[idx + 1] ?? pendientes[idx - 1];
     setResueltas((prev) => new Set(prev).add(nota.id));
     if (next) select(next.id);
-    showToast(
+    show(
       a === "aprobar"
         ? "Versión aprobada y enviada a publicación"
         : "Nota rechazada",
     );
+  }
+
+  function saveEdit(titulo: string, contenido: string) {
+    if (!nota) return;
+    setNotas((prev) =>
+      prev.map((n) =>
+        n.id === nota.id
+          ? {
+              ...n,
+              versiones: n.versiones.map((v, i) =>
+                i === versionIdx ? { ...v, titulo, contenido } : v,
+              ),
+            }
+          : n,
+      ),
+    );
+    setEditing(false);
+    setView("diff");
+    show("Versión actualizada");
   }
 
   if (!nota) {
@@ -89,29 +107,19 @@ export function ModerationBoard() {
                 nota={nota}
                 versionIdx={versionIdx}
                 view={view}
+                editing={editing}
                 onVersion={setVersionIdx}
                 onView={setView}
                 onAction={handleAction}
+                onSaveEdit={saveEdit}
+                onCancelEdit={() => setEditing(false)}
               />
             </motion.div>
           </AnimatePresence>
         </Card>
       </div>
 
-      <AnimatePresence>
-        {toast && (
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 16 }}
-            transition={{ type: "spring", stiffness: 400, damping: 30 }}
-            className="fixed inset-x-0 bottom-6 z-50 mx-auto flex w-fit items-center gap-2 rounded-full border border-line bg-surface px-4 py-2.5 text-sm font-medium text-fg shadow-float"
-          >
-            <CheckCheck className="size-4 text-success" />
-            {toast}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <Toast message={message} />
     </div>
   );
 }
