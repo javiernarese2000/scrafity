@@ -1,13 +1,5 @@
-import { Send } from "lucide-react";
-
-import { EmptyState } from "@/components/ui/empty-state";
+import { DestinosBoard } from "@/components/destinos/destinos-board";
 
 export default function DestinosPage() {
-  return (
-    <EmptyState
-      icon={Send}
-      title="Destinos"
-      description="Gestioná los sitios destino: WordPress de clientes (vía API) y tus sitios propios headless que consumen el feed."
-    />
-  );
+  return <DestinosBoard />;
 }

@@ -19,8 +19,10 @@ Hecho: scaffold + Supabase (8 tablas) + **app shell** (sidebar, topbar, tema cla
 + **Dashboard** (KPIs, gráficos SVG animados, salud de fuentes, actividad)
 + **Cola de moderación** (maestro-detalle, tabs de versiones, diff real por palabras vs
   original, indicador de similitud, acciones aprobar/editar/rechazar, toast) + stubs de rutas.
-Kit propio + Framer Motion. Pasada de refinamiento aplicada (sombras suaves, más fino).
-Falta: pantalla Pegar URL, conexión de IA/ingesta, auth, mover UI de mock a queries reales.
++ **Pegar URL** (extracción mock + config + destinos) + **Fuentes** (toggle activar/pausar)
++ **Destinos** (lista WP/propios). Kit propio + Framer Motion; refinamiento aplicado.
+Falta: editor inline en moderación, pantalla Ajustes, **conexión de backend** (IA/ingesta/auth),
+y mover la UI de mock a queries reales.
 **Última actualización:** 2026-06-21.
 
 ## Decisiones tomadas (resumen)
