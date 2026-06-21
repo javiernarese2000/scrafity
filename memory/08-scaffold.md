@@ -50,8 +50,19 @@ drizzle-orm **0.45**, drizzle-kit **0.31**, postgres **3.4**, TypeScript **6.0**
 - **Conexión DB**: por ahora **conexión directa** (`db.<ref>.supabase.co:5432`, sin región).
   Falta la **región** para pasar al pooler transaction (6543) recomendado en producción.
 
+## Auth (Supabase Auth) — IMPLEMENTADO (2026-06)
+- `@supabase/ssr` + `@supabase/supabase-js`. Clientes en `src/lib/supabase/{client,server}.ts`.
+- **`apps/web/proxy.ts`** protege todas las rutas y refresca sesión (sin sesión → `/login`).
+  OJO: en Next 16 `middleware.ts` está deprecado → se usa **`proxy.ts`** con `export function proxy`.
+- `app/login/page.tsx`: email+password (sin signup público). Menú de usuario con cerrar
+  sesión en la topbar (`components/shell/user-menu.tsx`). El shell se oculta en `/login`.
+- Crear usuarios: `pnpm --filter @scrapify/web seed:user <email> <password>` (script
+  `scripts/seed-user.mjs`, usa service role + email_confirm). Ya existe el primer usuario
+  admin (narese@gmail.com); la contraseña NO se guarda acá — cambiar desde el dashboard.
+- Verificado: `/` sin sesión → 307 a `/login`; login real devuelve token.
+
 ## Pendiente inmediato (lo que NO está aún)
 - Región de Supabase → migrar `DATABASE_URL` al pooler transaction (puerto 6543).
 - Claves de IA (DEEPSEEK_API_KEY, ANTHROPIC_API_KEY) y FIRECRAWL_API_KEY vacías en `.env`.
-- Auth (Supabase Auth) sin implementar. Ingesta (Firecrawl/RSS) sin implementar.
-- UI real (pegar URL, cola de moderación) sin implementar — solo placeholder.
+- Ingesta (Firecrawl/RSS) e IA sin conectar. UI todavía con datos mock.
+- Pantalla Ajustes (a propósito, para el final).

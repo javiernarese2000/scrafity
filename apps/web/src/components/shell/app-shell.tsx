@@ -2,6 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { X } from "lucide-react";
+import { usePathname } from "next/navigation";
 import { useState } from "react";
 
 import { SidebarContent } from "./sidebar";
@@ -9,6 +10,10 @@ import { Topbar } from "./topbar";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const pathname = usePathname();
+
+  // El login se muestra sin el armazón de la app.
+  if (pathname === "/login") return <>{children}</>;
 
   return (
     <div className="flex min-h-dvh">

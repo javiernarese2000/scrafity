@@ -21,8 +21,9 @@ Hecho: scaffold + Supabase (8 tablas) + **app shell** (sidebar, topbar, tema cla
   original, indicador de similitud, acciones aprobar/editar/rechazar, toast) + stubs de rutas.
 + **Pegar URL** (extracción mock + config + destinos) + **Fuentes** (toggle activar/pausar)
 + **Destinos** (lista WP/propios). Kit propio + Framer Motion; refinamiento aplicado.
-Falta: editor inline en moderación, pantalla Ajustes, **conexión de backend** (IA/ingesta/auth),
-y mover la UI de mock a queries reales.
++ **editor inline** en moderación + **Auth (Supabase) funcionando** (login, proxy que protege
+rutas, menú de usuario, seed de usuarios). Falta: pantalla Ajustes (para el final),
+**conexión de IA/ingesta** (Firecrawl + DeepSeek/Claude), y mover la UI de mock a queries reales.
 **Última actualización:** 2026-06-21.
 
 ## Decisiones tomadas (resumen)

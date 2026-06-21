@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { titleForPath } from "./nav";
+import { UserMenu } from "./user-menu";
 
 export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
   const pathname = usePathname();
@@ -33,9 +34,7 @@ export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
           />
         </div>
         <ThemeToggle />
-        <div className="grid size-9 place-items-center rounded-full bg-brand/15 text-sm font-medium text-brand">
-          JN
-        </div>
+        <UserMenu />
       </div>
     </header>
   );
