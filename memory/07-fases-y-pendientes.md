@@ -48,6 +48,50 @@ cada nota a mano.
 - Requiere **tagging/categorización automática** (ya previsto) para que las condiciones por
   tema funcionen.
 
-## Próximo paso sugerido
-Construir la **cola de moderación** (pantalla estrella) con datos mock, al nivel de
-terminación del dashboard.
+## Revisión de lógica end-to-end (2026-06) — IMPORTANTE
+
+Repaso crítico de cómo funcionaría en un escenario real. Hallazgos:
+
+**El círculo está ABIERTO.** Hoy funciona el tramo central (Pegar URL → generar con Claude →
+moderar), pero faltan las dos puntas:
+- **Ingesta automática** (RSS/API): las fuentes se cargan pero nada las lee. Solo "Pegar URL" manual.
+- **Publicación**: al aprobar, la versión queda en la DB y muere. No va a WordPress ni a feed.
+- **Escenarios NO ejecutan**: el canvas guarda el grafo pero no hay motor que lo use.
+
+**Problemas de coherencia detectados:**
+1. Dos "cerebros" que no se hablan: el flujo manual (Pegar URL, con su propia config) y los
+   Escenarios (que no corren). 
+2. Inngest está "enchufado pero apagado": la generación real usa un server action SÍNCRONO,
+   no el job `rewriteArticle`. Para volumen hay que mover la generación a Inngest.
+3. Extracción (Readability) es el eslabón débil → producción necesita Firecrawl / fetch autenticado.
+4. Falta **dedup en ingesta** (RSS repite ítems; el índice único de `hash` tiraría error sin manejar).
+5. `cupoDiario` se configura pero no se aplica; no hay tope de costo real.
+6. Credenciales de destino: campo existe pero **sin cifrado** implementado.
+
+## DECISIONES del usuario (2026-06)
+- **Versiones↔Destinos = MIXTO/configurable**: por defecto se aprueba UNA versión y va a todos
+  los destinos del escenario; pero se puede asignar versiones distintas por destino cuando haga
+  falta. (La tabla `publications` (versionId, destinationId) ya soporta esto.)
+- **Flujo = LOS DOS EN SERIO**: automático (por escenarios) Y manual (pegar URL), ambos
+  compartiendo la **misma config y el mismo motor de generación**.
+
+## Pipeline unificado objetivo
+```
+[Manual] Pegar URL ─┐
+                    ├─► crear article ─► [motor compartido] generar N versiones ─► versions(en_revision)
+[Auto] cron RSS/API ─► dedup ─► crear article ─► matchear escenario ─┘
+   ─► moderación ─► aprobar + elegir destinos/versiones ─► [job] publicar ─► WordPress / feed propio
+```
+
+## Plan para cerrar el círculo (orden sugerido)
+- **A. Unificar motor**: extraer `generarVersionesCore(articleId, params)` usado por el flujo
+  manual (síncrono) y por el job Inngest (auto). Base de "los dos en serio".
+- **B. Publicación** (cierra la salida):
+  - Paso de moderación "elegir destinos / versión por destino" (mixto) → crea `publications`.
+  - Conector **feed/Content API para sitios propios** (no necesita credenciales externas → primero).
+  - Conector **WordPress REST API** (credenciales cifradas por destino) cuando haya un WP de prueba.
+- **C. Ingesta automática** (cierra la entrada): cron Inngest que lee fuentes activas, dedup por
+  URL/hash, crea artículos, matchea escenarios (por tema/keywords) y dispara el motor con cupo.
+- **D. Monitoreo en vivo** en el canvas (contadores reales por ruta).
+
+Transversal: Firecrawl (extracción robusta), cifrado de credenciales, tope de costos.
