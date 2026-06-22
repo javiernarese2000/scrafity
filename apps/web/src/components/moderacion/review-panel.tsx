@@ -7,9 +7,9 @@ import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
-import type { NotaModeracion } from "@/data/moderacion";
 import { DiffView } from "./diff-view";
 import { pct, simTone } from "./similarity";
+import { proveedorLabel, type NotaView } from "./types";
 
 export type ReviewAction = "aprobar" | "editar" | "rechazar";
 
@@ -24,7 +24,7 @@ export function ReviewPanel({
   onSaveEdit,
   onCancelEdit,
 }: {
-  nota: NotaModeracion;
+  nota: NotaView;
   versionIdx: number;
   view: "diff" | "limpio";
   editing: boolean;
@@ -37,6 +37,10 @@ export function ReviewPanel({
   const version = nota.versiones[versionIdx] ?? nota.versiones[0]!;
   const sim = simTone(version.similarity);
   const palabras = version.contenido.split(/\s+/).filter(Boolean).length;
+  const tokens =
+    version.tokensIn != null && version.tokensOut != null
+      ? version.tokensIn + version.tokensOut
+      : null;
 
   const [titulo, setTitulo] = useState(version.titulo);
   const [contenido, setContenido] = useState(version.contenido);
@@ -50,13 +54,12 @@ export function ReviewPanel({
 
   return (
     <div className="flex h-full flex-col">
-      {/* Encabezado */}
       <div className="border-b border-line/70 p-6">
         <div className="mb-2 flex items-center gap-2">
-          <Badge>{nota.tema}</Badge>
           <Badge tone={sim.tone}>
             Similitud {pct(version.similarity)} · {sim.label}
           </Badge>
+          <Badge>{proveedorLabel(version.proveedor)}</Badge>
           {editing && <Badge tone="accent">Editando V{versionIdx + 1}</Badge>}
         </div>
         <h2 className="font-display text-2xl font-medium leading-tight text-fg">
@@ -64,8 +67,12 @@ export function ReviewPanel({
         </h2>
         <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted">
           <span>{nota.fuente}</span>
-          <span>·</span>
-          <span>{nota.autor}</span>
+          {nota.autor && (
+            <>
+              <span>·</span>
+              <span>{nota.autor}</span>
+            </>
+          )}
           <span>·</span>
           <span>{nota.fecha}</span>
           <a
@@ -78,7 +85,6 @@ export function ReviewPanel({
           </a>
         </p>
 
-        {/* Tabs de versiones + toggle de vista (ocultos al editar) */}
         {!editing && (
           <div className="mt-5 flex items-center gap-2">
             <LayoutGroup id="versiones">
@@ -105,12 +111,7 @@ export function ReviewPanel({
                         }}
                       />
                     )}
-                    <span className="relative">
-                      V{i + 1}
-                      <span className="ml-1.5 text-xs text-muted">
-                        {v.proveedor}
-                      </span>
-                    </span>
+                    <span className="relative">V{i + 1}</span>
                   </button>
                 );
               })}
@@ -135,7 +136,6 @@ export function ReviewPanel({
         )}
       </div>
 
-      {/* Contenido */}
       <div className="flex-1 overflow-auto p-6">
         {editing ? (
           <div className="mx-auto max-w-2xl space-y-3">
@@ -160,14 +160,13 @@ export function ReviewPanel({
             <h3 className="font-display text-xl font-medium text-fg">
               {version.titulo}
             </h3>
-            <p className="mt-3 text-[15px] leading-relaxed text-fg">
+            <p className="mt-3 whitespace-pre-line text-[15px] leading-relaxed text-fg">
               {version.contenido}
             </p>
           </article>
         )}
       </div>
 
-      {/* Metadatos + acciones */}
       <div className="border-t border-line/70 p-4">
         {editing ? (
           <div className="flex items-center justify-end gap-2">
@@ -183,9 +182,8 @@ export function ReviewPanel({
           <>
             <div className="mb-3 flex flex-wrap items-center gap-x-5 gap-y-1 px-2 font-mono text-xs text-muted">
               <span>{palabras} palabras</span>
-              <span>{version.proveedor}</span>
-              <span>{version.tokensIn + version.tokensOut} tokens</span>
-              <span>${version.costo.toFixed(4)}</span>
+              <span>{proveedorLabel(version.proveedor)}</span>
+              {tokens != null && <span>{tokens} tokens</span>}
             </div>
             <div className="flex items-center gap-2">
               <Button variant="danger" onClick={() => onAction("rechazar")}>

@@ -2,29 +2,29 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { CheckCheck } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useState, useTransition } from "react";
 
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Toast, useToast } from "@/components/ui/toast";
-import { colaModeracion } from "@/data/moderacion";
+import {
+  aprobarVersion,
+  guardarEdicion,
+  rechazarNota,
+} from "@/server/moderacion";
 import { QueueList } from "./queue-list";
 import { ReviewPanel, type ReviewAction } from "./review-panel";
+import type { NotaView } from "./types";
 
-export function ModerationBoard() {
-  const [notas, setNotas] = useState(colaModeracion);
-  const [resueltas, setResueltas] = useState<Set<string>>(new Set());
-  const [selectedId, setSelectedId] = useState(colaModeracion[0]!.id);
+export function ModerationBoard({ notas }: { notas: NotaView[] }) {
+  const [pending, startTransition] = useTransition();
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [versionIdx, setVersionIdx] = useState(0);
   const [view, setView] = useState<"diff" | "limpio">("diff");
   const [editing, setEditing] = useState(false);
   const { message, show } = useToast();
 
-  const pendientes = useMemo(
-    () => notas.filter((n) => !resueltas.has(n.id)),
-    [notas, resueltas],
-  );
-  const nota = pendientes.find((n) => n.id === selectedId) ?? pendientes[0];
+  const nota = notas.find((n) => n.id === selectedId) ?? notas[0];
 
   function select(id: string) {
     setSelectedId(id);
@@ -35,38 +35,33 @@ export function ModerationBoard() {
 
   function handleAction(a: ReviewAction) {
     if (!nota) return;
+    const version = nota.versiones[versionIdx] ?? nota.versiones[0]!;
     if (a === "editar") {
       setEditing(true);
       return;
     }
-    const idx = pendientes.findIndex((n) => n.id === nota.id);
-    const next = pendientes[idx + 1] ?? pendientes[idx - 1];
-    setResueltas((prev) => new Set(prev).add(nota.id));
-    if (next) select(next.id);
-    show(
-      a === "aprobar"
-        ? "Versión aprobada y enviada a publicación"
-        : "Nota rechazada",
-    );
+    startTransition(async () => {
+      if (a === "aprobar") {
+        await aprobarVersion(version.id, nota.id);
+        show("Versión aprobada");
+      } else {
+        await rechazarNota(nota.id);
+        show("Nota rechazada");
+      }
+      setSelectedId(null);
+      setVersionIdx(0);
+    });
   }
 
   function saveEdit(titulo: string, contenido: string) {
     if (!nota) return;
-    setNotas((prev) =>
-      prev.map((n) =>
-        n.id === nota.id
-          ? {
-              ...n,
-              versiones: n.versiones.map((v, i) =>
-                i === versionIdx ? { ...v, titulo, contenido } : v,
-              ),
-            }
-          : n,
-      ),
-    );
-    setEditing(false);
-    setView("diff");
-    show("Versión actualizada");
+    const version = nota.versiones[versionIdx] ?? nota.versiones[0]!;
+    startTransition(async () => {
+      await guardarEdicion(version.id, titulo, contenido);
+      setEditing(false);
+      setView("diff");
+      show("Versión actualizada");
+    });
   }
 
   if (!nota) {
@@ -74,7 +69,7 @@ export function ModerationBoard() {
       <EmptyState
         icon={CheckCheck}
         title="Cola vacía"
-        description="No quedan notas esperando moderación. Buen trabajo."
+        description="No hay versiones esperando moderación. Generá notas desde «Pegar URL»."
       />
     );
   }
@@ -86,14 +81,19 @@ export function ModerationBoard() {
           Cola de moderación
         </h2>
         <p className="mt-1 text-sm text-muted">
-          {pendientes.length} notas esperando revisión
+          {notas.length} {notas.length === 1 ? "nota" : "notas"} esperando
+          revisión
         </p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
-        <QueueList notes={pendientes} selectedId={nota.id} onSelect={select} />
+        <QueueList notes={notas} selectedId={nota.id} onSelect={select} />
 
-        <Card className="flex min-h-[40rem] flex-col overflow-hidden">
+        <Card
+          className={`flex min-h-[40rem] flex-col overflow-hidden ${
+            pending ? "opacity-70" : ""
+          }`}
+        >
           <AnimatePresence mode="wait">
             <motion.div
               key={nota.id}

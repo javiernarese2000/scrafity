@@ -22,10 +22,11 @@ Hecho: scaffold + Supabase (8 tablas) + **app shell** (sidebar, topbar, tema cla
 + **Pegar URL** (extracción mock + config + destinos) + **Fuentes** (toggle activar/pausar)
 + **Destinos** (lista WP/propios). Kit propio + Framer Motion; refinamiento aplicado.
 + **editor inline** en moderación + **Auth (Supabase) funcionando** (login, proxy, menú de
-usuario, seed). **Fuentes y Destinos ya van contra la DB real** (Server Components para leer +
-Server Actions para alta/estado/borrado; modal de alta). Falta: pantalla Ajustes (al final),
-**conexión de IA/ingesta** (Firecrawl + DeepSeek/Claude), y migrar Dashboard + Moderación + Pegar
-URL de mock a queries reales.
+usuario, seed). **Fuentes y Destinos** contra la DB real. **Pegar URL → extracción real (Readability/linkedom,
+keyless) → generación con Claude → guarda en DB**, y **Moderación lee de la DB** (aprobar/
+rechazar/editar persisten; al aprobar se descartan las hermanas). API key de Claude cargada en
+`.env`. Falta: pantalla Ajustes (al final), Firecrawl (extracción robusta), DeepSeek key,
+mover Dashboard de mock a real, y publicación a destinos (WordPress/feed).
 **Última actualización:** 2026-06-21.
 
 ## Decisiones tomadas (resumen)

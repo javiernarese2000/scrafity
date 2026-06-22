@@ -44,7 +44,19 @@ drizzle-orm **0.45**, drizzle-kit **0.31**, postgres **3.4**, TypeScript **6.0**
   y reiniciar `pnpm dev`.
 - **Patrón datos reales**: páginas server (`export const dynamic = "force-dynamic"`) leen con
   Drizzle; mutaciones en `src/server/*.ts` con `"use server"` + `revalidatePath`. El board
-  cliente llama las actions con `useTransition`. Ejemplo: Fuentes y Destinos.
+  cliente llama las actions con `useTransition`. Ejemplo: Fuentes, Destinos, Moderación.
+
+## Pipeline IA (Pegar URL → generación) — IMPLEMENTADO (Claude)
+- `src/server/notas.ts`: `extraerNota(url)` (fetch + `@mozilla/readability` + `linkedom`,
+  keyless; falla si el sitio bloquea bots o requiere JS → ahí entrará Firecrawl) y
+  `generarVersiones(...)` (inserta article, genera N versiones en paralelo con la capa
+  `src/ai`, calcula similitud con `computeSimilarity`, inserta versions en estado `en_revision`).
+- `src/ai/prompt.ts`: prompt de reescritura (pide JSON) + `parseRewrite` tolerante.
+- Generación **síncrona** dentro del Server Action (Promise.all). Para producción/volumen
+  conviene mover a Inngest (`rewriteArticle` ya existe) por timeouts de serverless.
+- `src/server/moderacion.ts`: `aprobarVersion` (aprueba una y rechaza hermanas),
+  `rechazarNota`, `guardarEdicion` (recalcula similitud).
+- Modelo Claude usado: `claude-sonnet-4-6` (verificado).
 
 ## Infra conectada (2026-06-21)
 - **Git/GitHub**: repo en https://github.com/javiernarese2000/scrafity (rama `main`).

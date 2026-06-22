@@ -51,3 +51,22 @@ export function wordDiff(original: string, revised: string): DiffSeg[] {
 
   return segs;
 }
+
+/**
+ * Similitud del texto reescrito respecto del original (0..1).
+ * Proporción de palabras del texto reescrito que aparecen textuales en el
+ * original (mayor = más riesgo de plagio). Usa el LCS del wordDiff.
+ */
+export function computeSimilarity(original: string, revised: string): number {
+  const segs = wordDiff(original, revised);
+  let equal = 0;
+  let added = 0;
+  for (const s of segs) {
+    const words = s.text.split(/\s+/).filter(Boolean).length;
+    if (s.type === "equal") equal += words;
+    else if (s.type === "added") added += words;
+  }
+  const revisedWords = equal + added;
+  if (revisedWords === 0) return 0;
+  return equal / revisedWords;
+}

@@ -1,27 +1,25 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import {
-  Check,
-  FileText,
-  Globe,
-  Link2,
-  Loader2,
-  Send,
-  Sparkles,
-} from "lucide-react";
-import { useState } from "react";
+import { FileText, Link2, Loader2, Sparkles } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/cn";
-import {
-  destinosDisponibles,
-  proveedores,
-  sampleExtract,
-  tonos,
-} from "@/data/pegar";
+import { proveedores, tonos } from "@/data/pegar";
+import { extraerNota, generarVersiones } from "@/server/notas";
+import type { ProviderName } from "@/ai";
+
+const provMap: Record<string, ProviderName | "auto"> = {
+  Auto: "auto",
+  DeepSeek: "deepseek",
+  Claude: "claude",
+};
+
+type Extracted = { titulo: string; contenido: string; fuente: string };
 
 function Chip({
   active,
@@ -49,38 +47,54 @@ function Chip({
 }
 
 export function PasteForm() {
+  const router = useRouter();
   const [url, setUrl] = useState("");
-  const [estado, setEstado] = useState<"idle" | "extrayendo" | "listo">("idle");
+  const [extracted, setExtracted] = useState<Extracted | null>(null);
+  const [extracting, startExtract] = useTransition();
+  const [generating, startGenerate] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
   const [nVersiones, setNVersiones] = useState(3);
   const [tono, setTono] = useState<string>("Neutro");
-  const [proveedor, setProveedor] = useState<string>("Auto");
-  const [destinos, setDestinos] = useState<Set<string>>(new Set());
-  const [toast, setToast] = useState<string | null>(null);
-
-  const listo = estado === "listo";
+  const [proveedor, setProveedor] = useState<string>("Claude");
 
   function extraer() {
     if (!url.trim()) return;
-    setEstado("extrayendo");
-    window.setTimeout(() => setEstado("listo"), 1200);
-  }
-
-  function toggleDestino(id: string) {
-    setDestinos((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
+    setError(null);
+    startExtract(async () => {
+      const res = await extraerNota(url.trim());
+      if (!res.ok) {
+        setExtracted(null);
+        setError(res.error);
+        return;
+      }
+      setExtracted({
+        titulo: res.titulo,
+        contenido: res.contenido,
+        fuente: res.fuente,
+      });
     });
   }
 
   function generar() {
-    setToast(
-      `Encolada la generación de ${nVersiones} ${
-        nVersiones === 1 ? "versión" : "versiones"
-      } para ${destinos.size} ${destinos.size === 1 ? "destino" : "destinos"}`,
-    );
-    window.setTimeout(() => setToast(null), 2800);
+    if (!extracted) return;
+    setError(null);
+    startGenerate(async () => {
+      try {
+        await generarVersiones({
+          url: url.trim(),
+          fuente: extracted.fuente,
+          titulo: extracted.titulo,
+          contenido: extracted.contenido,
+          nVersiones,
+          tono,
+          proveedor: provMap[proveedor] ?? "claude",
+        });
+        router.push("/moderacion");
+      } catch {
+        setError("Falló la generación. Revisá la API key del proveedor.");
+      }
+    });
   }
 
   return (
@@ -90,12 +104,11 @@ export function PasteForm() {
           Pegar URL
         </h2>
         <p className="mt-1 text-sm text-muted">
-          Extraé una nota, elegí cuántas versiones querés y a dónde van.
+          Extraé una nota y generá versiones reescritas con IA para moderar.
         </p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Columna de configuración */}
         <div className="space-y-6">
           <Card>
             <CardBody>
@@ -107,28 +120,26 @@ export function PasteForm() {
                     value={url}
                     onChange={(e) => {
                       setUrl(e.target.value);
-                      if (estado === "listo") setEstado("idle");
+                      setExtracted(null);
                     }}
                     placeholder="https://medio.com/nota…"
                     className="h-10 w-full bg-transparent text-sm text-fg placeholder:text-muted focus:outline-none"
                   />
                 </div>
-                <Button
-                  onClick={extraer}
-                  disabled={!url.trim() || estado === "extrayendo"}
-                >
-                  {estado === "extrayendo" ? (
+                <Button onClick={extraer} disabled={!url.trim() || extracting}>
+                  {extracting ? (
                     <Loader2 className="size-4 animate-spin" />
                   ) : (
                     "Extraer"
                   )}
                 </Button>
               </div>
+              {error && <p className="mt-3 text-sm text-danger">{error}</p>}
             </CardBody>
           </Card>
 
           <AnimatePresence>
-            {listo && (
+            {extracted && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -191,91 +202,43 @@ export function PasteForm() {
                           </button>
                         ))}
                       </div>
+                      <p className="mt-2 text-xs text-muted">
+                        DeepSeek requiere su API key; sin ella se usa Claude.
+                      </p>
                     </div>
-                  </CardBody>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Destinos</CardTitle>
-                    <Badge>{destinos.size} seleccionados</Badge>
-                  </CardHeader>
-                  <CardBody className="space-y-2">
-                    {destinosDisponibles.map((d) => {
-                      const sel = destinos.has(d.id);
-                      return (
-                        <button
-                          key={d.id}
-                          type="button"
-                          onClick={() => toggleDestino(d.id)}
-                          className={cn(
-                            "flex w-full items-center gap-3 rounded-[var(--radius)] border p-3 text-left transition-colors",
-                            sel
-                              ? "border-brand/40 bg-brand/8"
-                              : "border-line hover:bg-elevated/60",
-                          )}
-                        >
-                          <span
-                            className={cn(
-                              "grid size-9 shrink-0 place-items-center rounded-lg",
-                              sel
-                                ? "bg-brand/15 text-brand"
-                                : "bg-elevated text-muted",
-                            )}
-                          >
-                            {d.tipo === "wordpress_cliente" ? (
-                              <Globe className="size-4" />
-                            ) : (
-                              <Send className="size-4" />
-                            )}
-                          </span>
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-medium text-fg">
-                              {d.nombre}
-                            </p>
-                            <p className="text-xs text-muted">
-                              {d.tipo === "wordpress_cliente"
-                                ? "WordPress · cliente"
-                                : "Sitio propio · headless"}
-                            </p>
-                          </div>
-                          <span
-                            className={cn(
-                              "ml-auto grid size-5 place-items-center rounded-full border transition-colors",
-                              sel
-                                ? "border-brand bg-brand text-brand-foreground"
-                                : "border-line",
-                            )}
-                          >
-                            {sel && <Check className="size-3.5" />}
-                          </span>
-                        </button>
-                      );
-                    })}
                   </CardBody>
                 </Card>
 
                 <Button
                   onClick={generar}
-                  disabled={destinos.size === 0}
+                  disabled={generating}
                   className="w-full"
-                  size="md"
                 >
-                  <Sparkles className="size-4" />
-                  Generar {nVersiones}{" "}
-                  {nVersiones === 1 ? "versión" : "versiones"}
+                  {generating ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin" />
+                      Generando {nVersiones}{" "}
+                      {nVersiones === 1 ? "versión" : "versiones"}…
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="size-4" />
+                      Generar {nVersiones}{" "}
+                      {nVersiones === 1 ? "versión" : "versiones"}
+                    </>
+                  )}
                 </Button>
               </motion.div>
             )}
           </AnimatePresence>
         </div>
 
-        {/* Columna de preview */}
+        {/* Preview */}
         <div className="lg:sticky lg:top-24 lg:self-start">
           <Card className="min-h-[24rem]">
-            {!listo ? (
+            {!extracted ? (
               <div className="flex min-h-[24rem] flex-col items-center justify-center p-8 text-center">
-                {estado === "extrayendo" ? (
+                {extracting ? (
                   <>
                     <Loader2 className="size-7 animate-spin text-brand" />
                     <p className="mt-4 text-sm text-muted">
@@ -295,42 +258,23 @@ export function PasteForm() {
               </div>
             ) : (
               <CardBody>
-                <div className="mb-3 flex items-center gap-2">
-                  <Badge tone="accent">{sampleExtract.fuente}</Badge>
-                  <span className="text-xs text-muted">
-                    {sampleExtract.autor} · {sampleExtract.fecha}
-                  </span>
-                </div>
-                <h3 className="font-display text-2xl font-medium leading-tight text-fg">
-                  {sampleExtract.titulo}
+                <Badge tone="accent">{extracted.fuente}</Badge>
+                <h3 className="mt-3 font-display text-2xl font-medium leading-tight text-fg">
+                  {extracted.titulo}
                 </h3>
-                <p className="mt-4 text-[15px] leading-relaxed text-fg">
-                  {sampleExtract.contenido}
+                <p className="mt-4 whitespace-pre-line text-[15px] leading-relaxed text-fg">
+                  {extracted.contenido.slice(0, 1400)}
+                  {extracted.contenido.length > 1400 ? "…" : ""}
                 </p>
                 <p className="mt-5 border-t border-line/70 pt-3 font-mono text-xs text-muted">
-                  {sampleExtract.contenido.split(/\s+/).length} palabras
-                  extraídas
+                  {extracted.contenido.split(/\s+/).filter(Boolean).length}{" "}
+                  palabras extraídas
                 </p>
               </CardBody>
             )}
           </Card>
         </div>
       </div>
-
-      <AnimatePresence>
-        {toast && (
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 16 }}
-            transition={{ type: "spring", stiffness: 400, damping: 30 }}
-            className="fixed inset-x-0 bottom-6 z-50 mx-auto flex w-fit items-center gap-2 rounded-full border border-line bg-surface px-4 py-2.5 text-sm font-medium text-fg shadow-float"
-          >
-            <Sparkles className="size-4 text-accent" />
-            {toast}
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }

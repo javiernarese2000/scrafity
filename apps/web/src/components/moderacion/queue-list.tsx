@@ -2,15 +2,15 @@
 
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/cn";
-import type { NotaModeracion } from "@/data/moderacion";
 import { pct, simTone } from "./similarity";
+import type { NotaView } from "./types";
 
 export function QueueList({
   notes,
   selectedId,
   onSelect,
 }: {
-  notes: NotaModeracion[];
+  notes: NotaView[];
   selectedId: string;
   onSelect: (id: string) => void;
 }) {
@@ -44,10 +44,10 @@ export function QueueList({
               {n.fuente} · {n.fecha}
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-1.5">
-              <Badge>{n.tema}</Badge>
               <Badge tone={sim.tone}>{pct(mejor.similarity)}</Badge>
               <span className="ml-auto text-xs text-muted">
-                {n.versiones.length} versiones
+                {n.versiones.length}{" "}
+                {n.versiones.length === 1 ? "versión" : "versiones"}
               </span>
             </div>
           </button>
