@@ -61,6 +61,7 @@ export default async function NotaPage({
     original: art.snapshotOriginal ?? art.contenido ?? "",
     contenido: chosen?.contenido ?? art.contenido ?? "",
     nVersiones: vs.length,
+    imagenes: art.imagenes ?? [],
   };
 
   return <NotaDetalle data={data} />;

@@ -18,6 +18,7 @@ import { Card, CardBody } from "@/components/ui/card";
 import { Markdown } from "@/components/ui/markdown";
 import { Toast, useToast } from "@/components/ui/toast";
 import { setArchivada, setTags } from "@/server/biblioteca";
+import { Galeria } from "./galeria";
 import { estadoInfo, type NotaDetalleData } from "./types";
 
 export function NotaDetalle({ data }: { data: NotaDetalleData }) {
@@ -154,14 +155,11 @@ export function NotaDetalle({ data }: { data: NotaDetalleData }) {
         </span>
       </div>
 
-      {data.imagenUrl && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={data.imagenUrl}
-          alt=""
-          className="mt-6 max-h-80 w-full rounded-[var(--radius-lg)] object-cover"
-        />
-      )}
+      <Galeria
+        articleId={data.id}
+        cover={data.imagenUrl}
+        imagenes={data.imagenes}
+      />
 
       <Card className="mt-6">
         <CardBody>

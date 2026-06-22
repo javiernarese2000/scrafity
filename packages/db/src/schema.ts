@@ -94,6 +94,11 @@ export const articles = pgTable(
     snapshotOriginal: text("snapshot_original"),
     // Imagen principal de la nota (puede dejarse, eliminarse o reemplazarse).
     imagenUrl: text("imagen_url"),
+    // Galería de imágenes subidas para usar como portadas.
+    imagenes: text("imagenes")
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
     // Biblioteca: archivado (evergreen) y etiquetas (IA sugiere + edición manual).
     archivada: boolean("archivada").notNull().default(false),
     tags: text("tags")

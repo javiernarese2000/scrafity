@@ -34,6 +34,7 @@ export type NotaDetalleData = {
   original: string;
   contenido: string;
   nVersiones: number;
+  imagenes: string[];
 };
 
 export function deriveEstado(
