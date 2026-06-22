@@ -21,20 +21,28 @@ export function PulseEdge({
     targetPosition,
   });
   const color = (data?.color as string) ?? "var(--color-brand)";
+  const dim = data?.dim === true;
 
   return (
     <>
       <BaseEdge
         id={id}
         path={path}
-        style={{ stroke: color, strokeWidth: 2, opacity: 0.45 }}
+        style={{
+          stroke: color,
+          strokeWidth: 2,
+          opacity: dim ? 0.08 : 0.45,
+          transition: "opacity .2s",
+        }}
       />
-      <circle r={4} fill={color}>
+      <circle r={4} fill={color} opacity={dim ? 0.12 : 1}>
         <animateMotion dur="2.4s" repeatCount="indefinite" path={path} />
       </circle>
-      <circle r={8} fill={color} opacity={0.18}>
-        <animateMotion dur="2.4s" repeatCount="indefinite" path={path} />
-      </circle>
+      {!dim && (
+        <circle r={8} fill={color} opacity={0.18}>
+          <animateMotion dur="2.4s" repeatCount="indefinite" path={path} />
+        </circle>
+      )}
     </>
   );
 }

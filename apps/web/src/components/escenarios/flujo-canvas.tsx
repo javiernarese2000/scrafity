@@ -16,7 +16,7 @@ import {
 import "@xyflow/react/dist/style.css";
 import { AnimatePresence } from "framer-motion";
 import { Plus, Workflow } from "lucide-react";
-import { useCallback, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Toast, useToast } from "@/components/ui/toast";
@@ -108,7 +108,22 @@ function buildEdges(data: GraphData): Edge[] {
   return edges;
 }
 
+function useThemeMode(): "light" | "dark" {
+  const [mode, setMode] = useState<"light" | "dark">("light");
+  useEffect(() => {
+    const el = document.documentElement;
+    const update = () =>
+      setMode(el.classList.contains("dark") ? "dark" : "light");
+    update();
+    const obs = new MutationObserver(update);
+    obs.observe(el, { attributes: true, attributeFilter: ["class"] });
+    return () => obs.disconnect();
+  }, []);
+  return mode;
+}
+
 export function FlujoCanvas({ data }: { data: GraphData }) {
+  const mode = useThemeMode();
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>(buildNodes(data));
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>(buildEdges(data));
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -201,6 +216,43 @@ export function FlujoCanvas({ data }: { data: GraphData }) {
     (n) => n.id === selectedId && n.type === "escenario",
   );
 
+  // Modo foco: al seleccionar un nodo, resaltar su cadena y atenuar el resto.
+  const focus = useMemo(() => {
+    if (!selectedId) return null;
+    const ids = new Set<string>([selectedId]);
+    const edgeIds = new Set<string>();
+    for (const e of edges) {
+      if (e.source === selectedId || e.target === selectedId) {
+        edgeIds.add(e.id);
+        ids.add(e.source);
+        ids.add(e.target);
+      }
+    }
+    return { ids, edgeIds };
+  }, [selectedId, edges]);
+
+  const displayNodes = useMemo(
+    () =>
+      nodes.map((n) => ({
+        ...n,
+        style: {
+          ...n.style,
+          opacity: focus && !focus.ids.has(n.id) ? 0.3 : 1,
+          transition: "opacity .2s",
+        },
+      })),
+    [nodes, focus],
+  );
+
+  const displayEdges = useMemo(
+    () =>
+      edges.map((e) => ({
+        ...e,
+        data: { ...e.data, dim: focus ? !focus.edgeIds.has(e.id) : false },
+      })),
+    [edges, focus],
+  );
+
   function patchSelected(patch: Partial<EscenarioConfig>) {
     if (!selected) return;
     const realId = selected.id.split(":")[1]!;
@@ -244,21 +296,19 @@ export function FlujoCanvas({ data }: { data: GraphData }) {
 
       <div className="relative h-[calc(100dvh-13rem)] min-h-[560px] overflow-hidden rounded-[var(--radius-lg)] border border-line bg-canvas">
         <ReactFlow
-          nodes={nodes}
-          edges={edges}
+          nodes={displayNodes}
+          edges={displayEdges}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
+          colorMode={mode}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
           onEdgesDelete={onEdgesDelete}
           onNodesDelete={onNodesDelete}
           onNodeDragStop={onNodeDragStop}
-          onNodeClick={(_, node) =>
-            setSelectedId(node.type === "escenario" ? node.id : null)
-          }
+          onNodeClick={(_, node) => setSelectedId(node.id)}
           onPaneClick={() => setSelectedId(null)}
-          colorMode="system"
           fitView
           proOptions={{ hideAttribution: true }}
           defaultEdgeOptions={{ type: "pulse" }}
