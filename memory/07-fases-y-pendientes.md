@@ -48,6 +48,32 @@ cada nota a mano.
 - Requiere **tagging/categorización automática** (ya previsto) para que las condiciones por
   tema funcionen.
 
+### Research Agent (IA + búsqueda web) — IDEA DEL USUARIO (2026)
+Agente que investiga en la web y produce contenido con fuentes. Base: Claude trae herramientas
+server-side **`web_search` + `web_fetch`** (devuelven citas), en un agentic loop (SDK que ya
+usamos). No requiere Tavily/Firecrawl/SerpAPI para investigar. Correr async con Inngest (tarda
+minutos). Niveles: (1) enriquecer/fact-check una nota, (2) **nota original desde un tema con
+fuentes** (lo más jugoso, más transformador y legalmente más seguro), (3) Managed Agents para
+investigaciones largas con stream a la UI. Costos: agentic = más tokens + costo por búsqueda →
+usar cupos; Sonnet para volumen, Opus para profundidad.
+
+### Motor de tendencias (trend score) — IDEA DEL USUARIO (2026)
+Agente que mira N fuentes, agrupa por tema y puntúa "tendencia" para generar contenido de lo que
+explota. Pipeline: ingesta continua (= Paso C) → clustering por tags/keywords (v1) o embeddings →
+**trendScore** combinando volumen + velocidad/aceleración + diversidad de fuentes + recencia +
+novedad (no repetir lo ya cubierto) → el agente genera para los temas top no cubiertos (con
+cupos). Ingesta/scoring barato; lo caro es la generación (controlable). Inspiración: proyecto
+"Escalade".
+
+### Procedencia / "verifiable AI execution" — IDEA DEL USUARIO (2026)
+Dejar "recibo" de cómo se generó cada contenido (qué nota lo disparó, qué agente/modelo, cuándo).
+Niveles, de menos a más: (0) **audit_log** + ya guardamos proveedor/tokens/fecha/artículo (casi
+listo); (1) **recibo firmado**: hash de (entrada+salida+modelo+hora) firmado con clave propia →
+a prueba de manipulación, sin blockchain; (2) **C2PA / Content Credentials** (estándar de la
+industria para procedencia); (3) **anclaje on-chain** (lo de Escalade con 0G Compute) → verificación
+descentralizada por terceros. RECOMENDACIÓN: blockchain es over-engineering para MVP; arrancar en
+nivel 0–1; on-chain/C2PA solo si la audiencia/marca/regulación lo exige.
+
 ## Revisión de lógica end-to-end (2026-06) — IMPORTANTE
 
 Repaso crítico de cómo funcionaría en un escenario real. Hallazgos:
