@@ -7,6 +7,7 @@ import {
   numeric,
   pgEnum,
   pgTable,
+  primaryKey,
   real,
   text,
   timestamp,
@@ -185,6 +186,60 @@ export const auditLog = pgTable("audit_log", {
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .default(sql`now()`),
+});
+
+// ---------------------------------------------------------------------------
+// Escenarios (canvas de flujo) — ver memory/07
+// ---------------------------------------------------------------------------
+export const escenarios = pgTable("escenarios", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  nombre: text("nombre").notNull(),
+  tema: text("tema"),
+  keywords: text("keywords")
+    .array()
+    .notNull()
+    .default(sql`'{}'::text[]`),
+  nVersiones: integer("n_versiones").notNull().default(3),
+  tono: text("tono").notNull().default("Neutro"),
+  proveedor: aiProvider("proveedor").notNull().default("auto"),
+  moderacion: boolean("moderacion").notNull().default(true),
+  cupoDiario: integer("cupo_diario"),
+  activo: boolean("activo").notNull().default(true),
+  posX: real("pos_x").notNull().default(0),
+  posY: real("pos_y").notNull().default(0),
+  ...timestamps,
+});
+
+export const escenarioFuentes = pgTable(
+  "escenario_fuentes",
+  {
+    escenarioId: uuid("escenario_id")
+      .notNull()
+      .references(() => escenarios.id, { onDelete: "cascade" }),
+    sourceId: uuid("source_id")
+      .notNull()
+      .references(() => sources.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.escenarioId, t.sourceId] })],
+);
+
+export const escenarioDestinos = pgTable(
+  "escenario_destinos",
+  {
+    escenarioId: uuid("escenario_id")
+      .notNull()
+      .references(() => escenarios.id, { onDelete: "cascade" }),
+    destinationId: uuid("destination_id")
+      .notNull()
+      .references(() => destinations.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.escenarioId, t.destinationId] })],
+);
+
+export const nodePositions = pgTable("node_positions", {
+  key: text("key").primaryKey(),
+  x: real("x").notNull().default(0),
+  y: real("y").notNull().default(0),
 });
 
 // ---------------------------------------------------------------------------

@@ -6,6 +6,7 @@ import {
   Radio,
   Send,
   Settings,
+  Workflow,
   type LucideIcon,
 } from "lucide-react";
 
@@ -20,6 +21,7 @@ export const navItems: NavItem[] = [
   { href: "/biblioteca", label: "Biblioteca", icon: Library },
   { href: "/pegar", label: "Pegar URL", icon: Link2 },
   { href: "/moderacion", label: "Moderación", icon: Newspaper },
+  { href: "/escenarios", label: "Escenarios", icon: Workflow },
   { href: "/fuentes", label: "Fuentes", icon: Radio },
   { href: "/destinos", label: "Destinos", icon: Send },
   { href: "/ajustes", label: "Ajustes", icon: Settings },

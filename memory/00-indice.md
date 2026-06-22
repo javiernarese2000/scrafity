@@ -27,8 +27,12 @@ keyless) → generación con Claude → guarda en DB**, y **Moderación lee de l
 rechazar/editar persisten; al aprobar se descartan las hermanas). API key de Claude cargada en
 `.env`. **Biblioteca** (`/biblioteca`): grilla de cards con filtros por estado (en revisión/aprobada/
 publicada/archivada), búsqueda, archivar/desarchivar y detalle (`/biblioteca/[id]`) con render
-Markdown, editor de tags (IA sugiere + manual) y ver original. Falta: pantalla Ajustes (al final),
-Firecrawl, DeepSeek key, Dashboard real, y **publicación a destinos (WordPress/feed) — el último paso**.
+Markdown, editor de tags (IA sugiere + manual) y ver original. **Escenarios** (`/escenarios`): canvas interactivo (React Flow) — nodos Fuente/Escenario/Destino,
+conexiones arrastrables animadas que se persisten, panel de config del escenario (tema, Nº
+versiones, tono, proveedor, cupo, moderación, activo), drag con posiciones guardadas. FASE 1
+(editor visual; el motor que ejecuta el grafo es fase 2). Falta: pantalla Ajustes (al final),
+Firecrawl, DeepSeek key, Dashboard real, **motor de escenarios (ejecución)** y **publicación a
+destinos — el último paso**.
 **Última actualización:** 2026-06-21.
 
 ## Decisiones tomadas (resumen)

@@ -68,6 +68,18 @@ drizzle-orm **0.45**, drizzle-kit **0.31**, postgres **3.4**, TypeScript **6.0**
 - **Pendiente (pedido usuario)**: borrado de "contenido filtrado" más fino. Por ahora el editor
   Markdown (textarea) permite borrar cualquier línea manualmente.
 
+## Canvas de Escenarios (React Flow) — FASE 1 (2026-06)
+- `@xyflow/react`. Página `/escenarios` (server arma el grafo) → `flujo-canvas.tsx` (client).
+- Nodos custom en `nodes.tsx` (Fuente/Escenario/Destino) con Handles. Estado local con
+  `useNodesState`/`useEdgesState` (source of truth en sesión) + persistencia por Server Actions
+  (`src/server/flujo.ts`): crear/actualizar/eliminar escenario, conectar/desconectar,
+  guardarPosicion (upsert en `node_positions`).
+- Tablas (migración 0003): `escenarios`, `escenario_fuentes`, `escenario_destinos`,
+  `node_positions`.
+- Conexiones animadas (`animated:true`). Panel de config `config-panel.tsx`. colorMode="system".
+- IMPORTANTE: es solo el EDITOR visual. El **motor que ejecuta el grafo** (rutear ingesta según
+  escenarios) es Fase 2; la publicación a destinos, el último paso.
+
 ## Infra conectada (2026-06-21)
 - **Git/GitHub**: repo en https://github.com/javiernarese2000/scrafity (rama `main`).
 - **Supabase**: proyecto ref `ygmjxlhkxykmrlqclbgo`. Claves nuevas (`sb_publishable_*` /
