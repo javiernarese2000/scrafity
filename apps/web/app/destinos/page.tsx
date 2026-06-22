@@ -1,5 +1,36 @@
-import { DestinosBoard } from "@/components/destinos/destinos-board";
+import { db, destinations, publications } from "@scrapify/db";
+import { count } from "drizzle-orm";
 
-export default function DestinosPage() {
-  return <DestinosBoard />;
+import {
+  DestinosBoard,
+  type DestinoRow,
+} from "@/components/destinos/destinos-board";
+
+export const dynamic = "force-dynamic";
+
+export default async function DestinosPage() {
+  const rows = await db
+    .select()
+    .from(destinations)
+    .orderBy(destinations.createdAt);
+
+  const counts = await db
+    .select({ destinationId: publications.destinationId, n: count() })
+    .from(publications)
+    .groupBy(publications.destinationId);
+  const byDest = new Map(counts.map((c) => [c.destinationId, Number(c.n)]));
+
+  const destinos: DestinoRow[] = rows.map((r) => {
+    const cfg = (r.configApi ?? {}) as { url?: string };
+    return {
+      id: r.id,
+      nombre: r.nombre,
+      tipo: r.tipo,
+      endpoint: cfg.url ?? "—",
+      activo: r.estado === "activa",
+      publicadas: byDest.get(r.id) ?? 0,
+    };
+  });
+
+  return <DestinosBoard destinos={destinos} />;
 }

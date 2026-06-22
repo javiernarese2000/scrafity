@@ -1,19 +1,64 @@
 "use client";
 
-import { Globe, Plus, Send } from "lucide-react";
+import { Globe, Plus, Send, Trash2 } from "lucide-react";
+import { useState, useTransition } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Field, Modal, inputCls } from "@/components/ui/modal";
 import { PageHeader, Stat } from "@/components/ui/page-header";
 import { Toast, useToast } from "@/components/ui/toast";
-import { destinosData } from "@/data/destinos";
+import { cn } from "@/lib/cn";
+import {
+  createDestino,
+  deleteDestino,
+  type DestinoTipo,
+} from "@/server/destinos";
 
-export function DestinosBoard() {
+export type DestinoRow = {
+  id: string;
+  nombre: string;
+  tipo: DestinoTipo;
+  endpoint: string;
+  activo: boolean;
+  publicadas: number;
+};
+
+export function DestinosBoard({ destinos }: { destinos: DestinoRow[] }) {
+  const [pending, startTransition] = useTransition();
   const { message, show } = useToast();
+  const [openAdd, setOpenAdd] = useState(false);
+  const [nombre, setNombre] = useState("");
+  const [tipo, setTipo] = useState<DestinoTipo>("wordpress_cliente");
+  const [endpoint, setEndpoint] = useState("");
 
-  const wp = destinosData.filter((d) => d.tipo === "wordpress_cliente").length;
-  const propios = destinosData.filter((d) => d.tipo === "sitio_propio").length;
+  const wp = destinos.filter((d) => d.tipo === "wordpress_cliente").length;
+  const propios = destinos.filter((d) => d.tipo === "sitio_propio").length;
+
+  function remove(d: DestinoRow) {
+    startTransition(async () => {
+      await deleteDestino(d.id);
+      show(`${d.nombre} eliminado`);
+    });
+  }
+
+  function submitAdd() {
+    if (!nombre.trim() || !endpoint.trim()) return;
+    startTransition(async () => {
+      await createDestino({
+        nombre: nombre.trim(),
+        tipo,
+        endpoint: endpoint.trim(),
+      });
+      setNombre("");
+      setEndpoint("");
+      setTipo("wordpress_cliente");
+      setOpenAdd(false);
+      show("Destino agregado");
+    });
+  }
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -21,7 +66,7 @@ export function DestinosBoard() {
         title="Destinos"
         subtitle="WordPress de clientes (push) y sitios propios headless (pull)."
         action={
-          <Button onClick={() => show("Alta de destino — próximamente")}>
+          <Button onClick={() => setOpenAdd(true)}>
             <Plus className="size-4" />
             Agregar destino
           </Button>
@@ -29,52 +74,115 @@ export function DestinosBoard() {
       />
 
       <div className="mb-6 grid grid-cols-3 gap-4">
-        <Stat label="Total" value={String(destinosData.length)} />
+        <Stat label="Total" value={String(destinos.length)} />
         <Stat label="WordPress" value={String(wp)} />
         <Stat label="Sitios propios" value={String(propios)} />
       </div>
 
-      <Card className="overflow-hidden">
-        <div className="divide-y divide-line/60">
-          {destinosData.map((d) => {
-            const esWp = d.tipo === "wordpress_cliente";
-            return (
-              <div key={d.id} className="flex items-center gap-4 p-4">
-                <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-elevated text-muted">
-                  {esWp ? (
-                    <Globe className="size-4" />
-                  ) : (
-                    <Send className="size-4" />
-                  )}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-fg">
-                    {d.nombre}
-                  </p>
-                  <p className="truncate font-mono text-xs text-muted">
-                    {d.endpoint}
-                  </p>
+      {destinos.length === 0 ? (
+        <EmptyState
+          icon={Send}
+          title="Sin destinos todavía"
+          description="Agregá un WordPress de cliente o un sitio propio para publicar las notas."
+        />
+      ) : (
+        <Card className="overflow-hidden">
+          <div className={cn("divide-y divide-line/60", pending && "opacity-60")}>
+            {destinos.map((d) => {
+              const esWp = d.tipo === "wordpress_cliente";
+              return (
+                <div key={d.id} className="flex items-center gap-4 p-4">
+                  <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-elevated text-muted">
+                    {esWp ? (
+                      <Globe className="size-4" />
+                    ) : (
+                      <Send className="size-4" />
+                    )}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-fg">
+                      {d.nombre}
+                    </p>
+                    <p className="truncate font-mono text-xs text-muted">
+                      {d.endpoint}
+                    </p>
+                  </div>
+                  <Badge className="hidden sm:inline-flex">
+                    {esWp ? "WordPress" : "Sitio propio"}
+                  </Badge>
+                  <div className="hidden w-24 text-right md:block">
+                    <p className="font-mono text-sm text-fg">
+                      {d.publicadas.toLocaleString("es")}
+                    </p>
+                    <p className="text-xs text-muted">publicadas</p>
+                  </div>
+                  <Badge tone={d.activo ? "success" : "danger"}>
+                    {d.activo ? "activo" : "error"}
+                  </Badge>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => remove(d)}
+                    disabled={pending}
+                    aria-label="Eliminar"
+                  >
+                    <Trash2 className="size-4 text-muted" />
+                  </Button>
                 </div>
-                <Badge className="hidden sm:inline-flex">
-                  {esWp ? "WordPress" : "Sitio propio"}
-                </Badge>
-                <div className="hidden w-24 text-right md:block">
-                  <p className="font-mono text-sm text-fg">
-                    {d.publicadas.toLocaleString("es")}
-                  </p>
-                  <p className="text-xs text-muted">publicadas</p>
-                </div>
-                <span className="hidden w-20 text-right text-xs text-muted lg:block">
-                  {d.ultimaPublicacion}
-                </span>
-                <Badge tone={d.estado === "activo" ? "success" : "danger"}>
-                  {d.estado === "activo" ? "activo" : "error"}
-                </Badge>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
+        </Card>
+      )}
+
+      <Modal
+        open={openAdd}
+        onClose={() => setOpenAdd(false)}
+        title="Agregar destino"
+      >
+        <div className="space-y-4">
+          <Field label="Nombre">
+            <input
+              value={nombre}
+              onChange={(e) => setNombre(e.target.value)}
+              placeholder="Diario Cliente A"
+              className={inputCls}
+            />
+          </Field>
+          <Field label="Tipo">
+            <select
+              value={tipo}
+              onChange={(e) => setTipo(e.target.value as DestinoTipo)}
+              className={inputCls}
+            >
+              <option value="wordpress_cliente">WordPress · cliente</option>
+              <option value="sitio_propio">Sitio propio · headless</option>
+            </select>
+          </Field>
+          <Field
+            label={tipo === "wordpress_cliente" ? "Endpoint REST API" : "Slug / feed"}
+          >
+            <input
+              value={endpoint}
+              onChange={(e) => setEndpoint(e.target.value)}
+              placeholder={
+                tipo === "wordpress_cliente"
+                  ? "https://diario.com/wp-json"
+                  : "feed/economia"
+              }
+              className={inputCls}
+            />
+          </Field>
+          <div className="flex justify-end gap-2 pt-1">
+            <Button variant="ghost" onClick={() => setOpenAdd(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={submitAdd} disabled={pending}>
+              Agregar
+            </Button>
+          </div>
         </div>
-      </Card>
+      </Modal>
 
       <Toast message={message} />
     </div>

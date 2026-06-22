@@ -39,6 +39,12 @@ drizzle-orm **0.45**, drizzle-kit **0.31**, postgres **3.4**, TypeScript **6.0**
   no debe romper `next build`.
 - `next lint` está deprecado en Next 16 (el script `lint` quedará pendiente de migrar a ESLint).
 - pnpm pide aprobar build scripts: habilitados en `pnpm-workspace.yaml > allowBuilds`.
+- **Caché de dev de Turbopack puede quedar stale** y devolver 404 en rutas que SÍ existen
+  (ej. `/login` daba 404 en dev pero estaba en el build). Solución: borrar `apps/web/.next`
+  y reiniciar `pnpm dev`.
+- **Patrón datos reales**: páginas server (`export const dynamic = "force-dynamic"`) leen con
+  Drizzle; mutaciones en `src/server/*.ts` con `"use server"` + `revalidatePath`. El board
+  cliente llama las actions con `useTransition`. Ejemplo: Fuentes y Destinos.
 
 ## Infra conectada (2026-06-21)
 - **Git/GitHub**: repo en https://github.com/javiernarese2000/scrafity (rama `main`).
