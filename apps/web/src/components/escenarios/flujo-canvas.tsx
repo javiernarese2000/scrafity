@@ -29,12 +29,20 @@ import {
   guardarPosicion,
 } from "@/server/flujo";
 import { ConfigPanel } from "./config-panel";
+import { edgeTypes } from "./edges";
 import { nodeTypes } from "./nodes";
 import type { EscenarioConfig, GraphData } from "./types";
 
-type EdgeData = { escenarioId: string; lado: "fuente" | "destino"; refId: string };
+type EdgeData = {
+  escenarioId: string;
+  lado: "fuente" | "destino";
+  refId: string;
+  color: string;
+};
 
-const EDGE_STYLE = { stroke: "var(--color-brand)", strokeWidth: 2 };
+const COL_FUENTE = "var(--color-success)";
+const COL_DESTINO = "var(--color-accent)";
+const CONNECTION_STYLE = { stroke: "var(--color-brand)", strokeWidth: 2 };
 
 function buildNodes(data: GraphData): Node[] {
   return [
@@ -78,9 +86,8 @@ function buildEdges(data: GraphData): Edge[] {
         id: `e-${e.id}-fuente-${fid}`,
         source: `fuente:${fid}`,
         target: `escenario:${e.id}`,
-        animated: true,
-        style: EDGE_STYLE,
-        data: { escenarioId: e.id, lado: "fuente", refId: fid },
+        type: "pulse",
+        data: { escenarioId: e.id, lado: "fuente", refId: fid, color: COL_FUENTE },
       });
     }
     for (const did of e.destinoIds) {
@@ -88,9 +95,13 @@ function buildEdges(data: GraphData): Edge[] {
         id: `e-${e.id}-destino-${did}`,
         source: `escenario:${e.id}`,
         target: `destino:${did}`,
-        animated: true,
-        style: EDGE_STYLE,
-        data: { escenarioId: e.id, lado: "destino", refId: did },
+        type: "pulse",
+        data: {
+          escenarioId: e.id,
+          lado: "destino",
+          refId: did,
+          color: COL_DESTINO,
+        },
       });
     }
   }
@@ -114,18 +125,16 @@ export function FlujoCanvas({ data }: { data: GraphData }) {
           id: `e-${tid}-fuente-${sid}`,
           source: c.source,
           target: c.target,
-          animated: true,
-          style: EDGE_STYLE,
-          data: { escenarioId: tid!, lado: "fuente", refId: sid! },
+          type: "pulse",
+          data: { escenarioId: tid!, lado: "fuente", refId: sid!, color: COL_FUENTE },
         };
       } else if (stype === "escenario" && ttype === "destino") {
         edge = {
           id: `e-${sid}-destino-${tid}`,
           source: c.source,
           target: c.target,
-          animated: true,
-          style: EDGE_STYLE,
-          data: { escenarioId: sid!, lado: "destino", refId: tid! },
+          type: "pulse",
+          data: { escenarioId: sid!, lado: "destino", refId: tid!, color: COL_DESTINO },
         };
       }
       if (!edge) return;
@@ -238,6 +247,7 @@ export function FlujoCanvas({ data }: { data: GraphData }) {
           nodes={nodes}
           edges={edges}
           nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
@@ -251,8 +261,8 @@ export function FlujoCanvas({ data }: { data: GraphData }) {
           colorMode="system"
           fitView
           proOptions={{ hideAttribution: true }}
-          defaultEdgeOptions={{ animated: true, style: EDGE_STYLE }}
-          connectionLineStyle={EDGE_STYLE}
+          defaultEdgeOptions={{ type: "pulse" }}
+          connectionLineStyle={CONNECTION_STYLE}
         >
           <Background variant={BackgroundVariant.Dots} gap={20} size={1} />
           <Controls showInteractive={false} />
