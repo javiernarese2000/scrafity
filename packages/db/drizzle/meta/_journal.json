@@ -43,6 +43,13 @@
       "when": 1782138853921,
       "tag": "0005_shallow_ronan",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1782139778153,
+      "tag": "0006_huge_ricochet",
+      "breakpoints": true
     }
   ]
 }

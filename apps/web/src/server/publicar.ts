@@ -4,7 +4,11 @@ import { db, destinations, publications, versions } from "@scrapify/db";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
-export type Asignacion = { destinationId: string; versionId: string };
+export type Asignacion = {
+  destinationId: string;
+  versionId: string;
+  imagenUrl: string | null;
+};
 
 /**
  * Publica una nota: por cada asignación destino→versión crea una publicación.
@@ -26,6 +30,7 @@ export async function publicar(articleId: string, asignaciones: Asignacion[]) {
         versionId: a.versionId,
         destinationId: a.destinationId,
         estado: esPropio ? "publicada" : "pendiente",
+        imagenUrl: a.imagenUrl,
         idempotencyKey: `${a.versionId}:${a.destinationId}`,
       })
       .onConflictDoNothing();
@@ -33,20 +38,26 @@ export async function publicar(articleId: string, asignaciones: Asignacion[]) {
 
   const publicadas = new Set(asignaciones.map((a) => a.versionId));
   const vers = await db
-    .select({ id: versions.id })
+    .select({ id: versions.id, estado: versions.estado })
     .from(versions)
     .where(eq(versions.articleId, articleId));
 
   for (const v of vers) {
-    await db
-      .update(versions)
-      .set({
-        estado: publicadas.has(v.id) ? "publicada" : "rechazada",
-        updatedAt: new Date(),
-      })
-      .where(eq(versions.id, v.id));
+    if (publicadas.has(v.id)) {
+      await db
+        .update(versions)
+        .set({ estado: "publicada", updatedAt: new Date() })
+        .where(eq(versions.id, v.id));
+    } else if (v.estado === "en_revision") {
+      // Solo descarta borradores no usados; no toca versiones ya publicadas.
+      await db
+        .update(versions)
+        .set({ estado: "rechazada", updatedAt: new Date() })
+        .where(eq(versions.id, v.id));
+    }
   }
 
   revalidatePath("/moderacion");
   revalidatePath("/biblioteca");
+  revalidatePath(`/biblioteca/${articleId}`);
 }

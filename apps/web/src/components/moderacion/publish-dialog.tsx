@@ -7,40 +7,48 @@ import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { cn } from "@/lib/cn";
 import type { Asignacion } from "@/server/publicar";
-import type { DestinoLite, NotaView } from "./types";
+import type { DestinoLite } from "./types";
+
+type Sel = { versionId: string; imagenUrl: string | null };
 
 export function PublishDialog({
   open,
   onClose,
-  nota,
+  pending,
+  versiones,
+  covers,
   destinos,
   defaultVersionId,
-  pending,
   onConfirm,
 }: {
   open: boolean;
   onClose: () => void;
-  nota: NotaView;
+  pending: boolean;
+  versiones: { id: string; titulo: string }[];
+  covers: string[];
   destinos: DestinoLite[];
   defaultVersionId: string;
-  pending: boolean;
   onConfirm: (asignaciones: Asignacion[]) => void;
 }) {
-  // destinoId -> versionId (presencia = seleccionado)
-  const [sel, setSel] = useState<Record<string, string>>({});
+  const defaultCover = covers[0] ?? null;
+  const [sel, setSel] = useState<Record<string, Sel>>({});
 
   function toggle(id: string) {
     setSel((prev) => {
       const next = { ...prev };
       if (next[id]) delete next[id];
-      else next[id] = defaultVersionId;
+      else next[id] = { versionId: defaultVersionId, imagenUrl: defaultCover };
       return next;
     });
   }
+  function patch(id: string, p: Partial<Sel>) {
+    setSel((prev) => ({ ...prev, [id]: { ...prev[id]!, ...p } }));
+  }
 
-  const asignaciones = Object.entries(sel).map(([destinationId, versionId]) => ({
+  const asignaciones: Asignacion[] = Object.entries(sel).map(([destinationId, s]) => ({
     destinationId,
-    versionId,
+    versionId: s.versionId,
+    imagenUrl: s.imagenUrl,
   }));
 
   return (
@@ -53,56 +61,87 @@ export function PublishDialog({
         ) : (
           <>
             <p className="text-sm text-muted">
-              Elegí a qué destinos va y, si querés, una versión distinta para
-              cada uno.
+              Elegí a qué diarios va; podés definir versión y portada por cada uno.
             </p>
             <div className="space-y-2">
               {destinos.map((d) => {
-                const selected = d.id in sel;
+                const s = sel[d.id];
+                const selected = !!s;
                 const esWp = d.tipo === "wordpress_cliente";
                 return (
                   <div
                     key={d.id}
                     className={cn(
-                      "flex items-center gap-3 rounded-[var(--radius)] border p-3 transition-colors",
+                      "rounded-[var(--radius)] border p-3 transition-colors",
                       selected ? "border-brand/40 bg-brand/8" : "border-line",
                     )}
                   >
-                    <input
-                      type="checkbox"
-                      checked={selected}
-                      onChange={() => toggle(d.id)}
-                      className="size-4 accent-[var(--color-brand)]"
-                    />
-                    <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-elevated text-muted">
-                      {esWp ? (
-                        <Globe className="size-4" />
-                      ) : (
-                        <Send className="size-4" />
-                      )}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-fg">
-                        {d.nombre}
-                      </p>
-                      <p className="text-xs text-muted">
-                        {esWp ? "WordPress" : "Sitio propio"}
-                      </p>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={selected}
+                        onChange={() => toggle(d.id)}
+                        className="size-4 accent-[var(--color-brand)]"
+                      />
+                      <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-elevated text-muted">
+                        {esWp ? (
+                          <Globe className="size-4" />
+                        ) : (
+                          <Send className="size-4" />
+                        )}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-fg">
+                          {d.nombre}
+                        </p>
+                        <p className="text-xs text-muted">
+                          {esWp ? "WordPress" : "Sitio propio"}
+                        </p>
+                      </div>
                     </div>
-                    {selected && nota.versiones.length > 1 && (
-                      <select
-                        value={sel[d.id]}
-                        onChange={(e) =>
-                          setSel((prev) => ({ ...prev, [d.id]: e.target.value }))
-                        }
-                        className="rounded-lg border border-line bg-surface px-2 py-1 text-xs text-fg focus:outline-none"
-                      >
-                        {nota.versiones.map((v, i) => (
-                          <option key={v.id} value={v.id}>
-                            V{i + 1}
-                          </option>
-                        ))}
-                      </select>
+
+                    {selected && (versiones.length > 1 || covers.length > 0) && (
+                      <div className="mt-2 flex flex-wrap items-center gap-2 pl-7">
+                        {versiones.length > 1 && (
+                          <label className="flex items-center gap-1.5 text-xs text-muted">
+                            Versión
+                            <select
+                              value={s!.versionId}
+                              onChange={(e) =>
+                                patch(d.id, { versionId: e.target.value })
+                              }
+                              className="rounded-lg border border-line bg-surface px-2 py-1 text-xs text-fg focus:outline-none"
+                            >
+                              {versiones.map((v, i) => (
+                                <option key={v.id} value={v.id}>
+                                  V{i + 1}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        )}
+                        {covers.length > 0 && (
+                          <label className="flex items-center gap-1.5 text-xs text-muted">
+                            Portada
+                            <select
+                              value={s!.imagenUrl ?? ""}
+                              onChange={(e) =>
+                                patch(d.id, {
+                                  imagenUrl: e.target.value || null,
+                                })
+                              }
+                              className="rounded-lg border border-line bg-surface px-2 py-1 text-xs text-fg focus:outline-none"
+                            >
+                              {covers.map((url, i) => (
+                                <option key={url} value={url}>
+                                  {i === 0 ? "Por defecto" : `Imagen ${i + 1}`}
+                                </option>
+                              ))}
+                              <option value="">Sin imagen</option>
+                            </select>
+                          </label>
+                        )}
+                      </div>
                     )}
                   </div>
                 );

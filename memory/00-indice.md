@@ -35,6 +35,18 @@ Firecrawl, DeepSeek key, Dashboard real, **motor de escenarios (ejecución)** y 
 destinos — el último paso**.
 **Última actualización:** 2026-06-21.
 
+## Imágenes + Biblioteca workspace (2026-06)
+- **Storage**: bucket público `imagenes` (Supabase). `src/server/imagenes.ts` (subir/portada/quitar),
+  galería por nota (`articles.imagenes`, migración 0005). Componente `Galeria` en el detalle.
+- **Biblioteca = workspace**: el detalle muestra **todas las versiones lado a lado** y tiene
+  **Publicar / Republicar** (mismo diálogo que Moderación). Resuelve los 2 bugs (ver las N
+  versiones, republicar).
+- **Portada por destino**: `publications.imagen_url` (migración 0006); el diálogo de publicar
+  permite elegir versión Y portada por cada diario. El feed usa esa portada (fallback a la de la nota).
+- `publicar()` corregido: al publicar, solo descarta borradores **en revisión**; no pisa versiones
+  ya publicadas (clave para republicar).
+- Pendiente imágenes: **Multimedia** (biblioteca global reutilizable) — sección aparte, después.
+
 ## Publicación (Paso B) — parcial (2026-06)
 - Moderación: el botón pasa a **"Publicar…"** → diálogo para elegir **destinos** y **versión por
   destino** (modelo mixto). Crea filas en `publications` (`src/server/publicar.ts`).

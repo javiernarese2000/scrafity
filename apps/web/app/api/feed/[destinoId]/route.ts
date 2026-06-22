@@ -13,7 +13,8 @@ export async function GET(
     .select({
       titulo: versions.titulo,
       contenido: versions.contenido,
-      imagenUrl: articles.imagenUrl,
+      imagenUrl: publications.imagenUrl,
+      imagenNota: articles.imagenUrl,
       urlOriginal: articles.urlOriginal,
       publicadaEn: publications.createdAt,
     })
@@ -28,9 +29,13 @@ export async function GET(
     )
     .orderBy(desc(publications.createdAt));
 
-  return Response.json({
-    destino: destinoId,
-    total: rows.length,
-    items: rows,
-  });
+  const items = rows.map((r) => ({
+    titulo: r.titulo,
+    contenido: r.contenido,
+    imagenUrl: r.imagenUrl ?? r.imagenNota,
+    urlOriginal: r.urlOriginal,
+    publicadaEn: r.publicadaEn,
+  }));
+
+  return Response.json({ destino: destinoId, total: items.length, items });
 }

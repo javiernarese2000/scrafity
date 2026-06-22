@@ -169,6 +169,8 @@ export const publications = pgTable(
       .notNull()
       .references(() => destinations.id, { onDelete: "cascade" }),
     estado: publicationStatus("estado").notNull().default("pendiente"),
+    // Portada elegida para este destino (cae a articles.imagen_url si es null).
+    imagenUrl: text("imagen_url"),
     urlPublicada: text("url_publicada"),
     externalId: text("external_id"),
     // Evita publicar dos veces si un job se reintenta.

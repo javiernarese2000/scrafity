@@ -1,4 +1,13 @@
 import type { BadgeProps } from "@/components/ui/badge";
+import type { DestinoLite } from "@/components/moderacion/types";
+
+export type VersionLite = {
+  id: string;
+  titulo: string;
+  contenido: string;
+  similarity: number;
+  estado: string;
+};
 
 export type EstadoNota =
   | "en_revision"
@@ -35,6 +44,8 @@ export type NotaDetalleData = {
   contenido: string;
   nVersiones: number;
   imagenes: string[];
+  versiones: VersionLite[];
+  destinos: DestinoLite[];
 };
 
 export function deriveEstado(

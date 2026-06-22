@@ -1,9 +1,10 @@
-import { articles, db, versions } from "@scrapify/db";
+import { articles, db, destinations, versions } from "@scrapify/db";
 import { desc, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 
 import { NotaDetalle } from "@/components/biblioteca/nota-detalle";
 import { deriveEstado, type NotaDetalleData } from "@/components/biblioteca/types";
+import type { DestinoLite } from "@/components/moderacion/types";
 
 export const dynamic = "force-dynamic";
 
@@ -62,6 +63,21 @@ export default async function NotaPage({
     contenido: chosen?.contenido ?? art.contenido ?? "",
     nVersiones: vs.length,
     imagenes: art.imagenes ?? [],
+    versiones: vs.map((v) => ({
+      id: v.id,
+      titulo: v.titulo ?? art.titulo ?? "(sin título)",
+      contenido: v.contenido,
+      similarity: v.similarityScore ?? 0,
+      estado: v.estado,
+    })),
+    destinos: (await db
+      .select({
+        id: destinations.id,
+        nombre: destinations.nombre,
+        tipo: destinations.tipo,
+      })
+      .from(destinations)
+      .orderBy(destinations.createdAt)) as DestinoLite[],
   };
 
   return <NotaDetalle data={data} />;

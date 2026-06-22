@@ -146,10 +146,13 @@ export function ModerationBoard({
       <PublishDialog
         open={publishOpen}
         onClose={() => setPublishOpen(false)}
-        nota={nota}
+        pending={pending}
+        versiones={nota.versiones.map((v) => ({ id: v.id, titulo: v.titulo }))}
+        covers={[nota.imagenUrl, ...nota.imagenes].filter(
+          (u): u is string => !!u,
+        )}
         destinos={destinos}
         defaultVersionId={(nota.versiones[versionIdx] ?? nota.versiones[0]!).id}
-        pending={pending}
         onConfirm={doPublicar}
       />
 

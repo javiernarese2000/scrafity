@@ -36,6 +36,7 @@ export default async function ModeracionPage() {
       aOriginal: articles.snapshotOriginal,
       aContenido: articles.contenido,
       aImagen: articles.imagenUrl,
+      aImagenes: articles.imagenes,
       aCreated: articles.createdAt,
     })
     .from(versions)
@@ -62,6 +63,7 @@ export default async function ModeracionPage() {
         urlOriginal: r.aUrl,
         original: r.aOriginal ?? r.aContenido ?? "",
         imagenUrl: r.aImagen,
+        imagenes: r.aImagenes ?? [],
         versiones: [],
       };
       map.set(r.aId, nota);
