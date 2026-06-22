@@ -52,21 +52,33 @@ export function wordDiff(original: string, revised: string): DiffSeg[] {
   return segs;
 }
 
+function normalizar(texto: string): string[] {
+  return texto
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ") // saca puntuación, conserva letras/números
+    .split(/\s+/)
+    .filter(Boolean);
+}
+
+function trigramas(palabras: string[]): Set<string> {
+  const set = new Set<string>();
+  for (let i = 0; i + 2 < palabras.length; i++) {
+    set.add(`${palabras[i]} ${palabras[i + 1]} ${palabras[i + 2]}`);
+  }
+  return set;
+}
+
 /**
  * Similitud del texto reescrito respecto del original (0..1).
- * Proporción de palabras del texto reescrito que aparecen textuales en el
- * original (mayor = más riesgo de plagio). Usa el LCS del wordDiff.
+ * Mide PLAGIO REAL: proporción de trigramas (frases de 3 palabras) del texto
+ * reescrito que aparecen textuales en el original. Ignorar palabras sueltas
+ * compartidas evita inflar el número con vocabulario en común.
  */
 export function computeSimilarity(original: string, revised: string): number {
-  const segs = wordDiff(original, revised);
-  let equal = 0;
-  let added = 0;
-  for (const s of segs) {
-    const words = s.text.split(/\s+/).filter(Boolean).length;
-    if (s.type === "equal") equal += words;
-    else if (s.type === "added") added += words;
-  }
-  const revisedWords = equal + added;
-  if (revisedWords === 0) return 0;
-  return equal / revisedWords;
+  const rev = trigramas(normalizar(revised));
+  if (rev.size === 0) return 0;
+  const orig = trigramas(normalizar(original));
+  let compartidos = 0;
+  for (const g of rev) if (orig.has(g)) compartidos++;
+  return compartidos / rev.size;
 }

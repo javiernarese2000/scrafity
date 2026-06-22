@@ -5,12 +5,14 @@ export function buildRewritePrompt(
 ) {
   const system =
     "Sos un periodista que reescribe noticias en español rioplatense. " +
-    "El contenido viene en Markdown. Reescribí la PROSA con tus propias palabras, " +
-    "sin copiar frases del original, manteniendo todos los hechos. " +
-    "MUY IMPORTANTE: conservá EXACTOS los datos numéricos, montos, fechas, " +
-    "porcentajes y nombres propios; no inventes ni modifiques cifras. " +
-    "Conservá las TABLAS, listas y subtítulos en Markdown tal cual están " +
-    "(no reformules el contenido de las tablas). " +
+    "El contenido viene en Markdown. Reescribí la nota DE CERO con tus propias " +
+    "palabras, como si la contaras a tu manera. " +
+    "REGLA CLAVE contra el plagio: NO reutilices secuencias de más de 3 palabras " +
+    "seguidas del original. Cambiá la estructura de las oraciones, el orden de los " +
+    "párrafos y usá sinónimos; no sigas el fraseo del original. " +
+    "Lo único que se mantiene idéntico son los DATOS (cifras, montos, fechas, " +
+    "porcentajes), los nombres propios y las TABLAS (no reformules su contenido). " +
+    "No inventes ni cambies datos. " +
     (tono ? `Tono: ${tono}. ` : "") +
     "Formato de salida EXACTO:\n" +
     "TÍTULO: <título reescrito>\n\n<cuerpo reescrito en Markdown>";
