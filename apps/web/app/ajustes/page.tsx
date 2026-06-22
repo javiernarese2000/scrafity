@@ -8,6 +8,7 @@ export default function AjustesPage() {
       icon={Settings}
       title="Ajustes"
       description="Equipo y roles, proveedores de IA, plantillas de prompt y preferencias de la plataforma."
+      proximamente
     />
   );
 }
