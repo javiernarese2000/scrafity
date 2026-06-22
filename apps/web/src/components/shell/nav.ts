@@ -1,5 +1,6 @@
 import {
   LayoutDashboard,
+  Library,
   Link2,
   Newspaper,
   Radio,
@@ -16,6 +17,7 @@ export type NavItem = {
 
 export const navItems: NavItem[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/biblioteca", label: "Biblioteca", icon: Library },
   { href: "/pegar", label: "Pegar URL", icon: Link2 },
   { href: "/moderacion", label: "Moderación", icon: Newspaper },
   { href: "/fuentes", label: "Fuentes", icon: Radio },

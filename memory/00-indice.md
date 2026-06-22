@@ -25,8 +25,10 @@ Hecho: scaffold + Supabase (8 tablas) + **app shell** (sidebar, topbar, tema cla
 usuario, seed). **Fuentes y Destinos** contra la DB real. **Pegar URL → extracción real (Readability/linkedom,
 keyless) → generación con Claude → guarda en DB**, y **Moderación lee de la DB** (aprobar/
 rechazar/editar persisten; al aprobar se descartan las hermanas). API key de Claude cargada en
-`.env`. Falta: pantalla Ajustes (al final), Firecrawl (extracción robusta), DeepSeek key,
-mover Dashboard de mock a real, y publicación a destinos (WordPress/feed).
+`.env`. **Biblioteca** (`/biblioteca`): grilla de cards con filtros por estado (en revisión/aprobada/
+publicada/archivada), búsqueda, archivar/desarchivar y detalle (`/biblioteca/[id]`) con render
+Markdown, editor de tags (IA sugiere + manual) y ver original. Falta: pantalla Ajustes (al final),
+Firecrawl, DeepSeek key, Dashboard real, y **publicación a destinos (WordPress/feed) — el último paso**.
 **Última actualización:** 2026-06-21.
 
 ## Decisiones tomadas (resumen)

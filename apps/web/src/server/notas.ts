@@ -105,6 +105,36 @@ export async function extraerNota(url: string): Promise<ExtractResult> {
   }
 }
 
+async function clasificarTags(
+  titulo: string,
+  contenido: string,
+  proveedor: ProviderName | "auto",
+): Promise<string[]> {
+  try {
+    const r = await generate(
+      {
+        system:
+          "Clasificá la noticia. Devolvé SOLO 2 a 4 etiquetas separadas por comas, " +
+          "en español y en minúsculas, sin numerar ni explicar. La primera debe ser la " +
+          "categoría general (economía, política, deportes, sociedad, tecnología, " +
+          "espectáculos, internacional, etc.). Si el contenido es atemporal/evergreen, " +
+          "agregá la etiqueta 'evergreen'.",
+        prompt: `Título: ${titulo}\n\n${contenido.slice(0, 1200)}`,
+        temperature: 0.2,
+        maxTokens: 60,
+      },
+      proveedor,
+    );
+    return r.text
+      .split(",")
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean)
+      .slice(0, 4);
+  } catch {
+    return [];
+  }
+}
+
 export async function generarVersiones(input: {
   url: string;
   fuente: string;
@@ -146,14 +176,21 @@ export async function generarVersiones(input: {
     input.tono,
   );
 
-  const results = await Promise.all(
-    Array.from({ length: input.nVersiones }, () =>
-      generate(
-        { system, prompt, temperature: 0.9, maxTokens: 3000 },
-        input.proveedor,
+  const [results, tags] = await Promise.all([
+    Promise.all(
+      Array.from({ length: input.nVersiones }, () =>
+        generate(
+          { system, prompt, temperature: 0.9, maxTokens: 3000 },
+          input.proveedor,
+        ),
       ),
     ),
-  );
+    clasificarTags(input.titulo, input.contenido, input.proveedor),
+  ]);
+
+  if (tags.length) {
+    await db.update(articles).set({ tags }).where(eq(articles.id, art!.id));
+  }
 
   for (const r of results) {
     const { titulo, contenido } = parseRewrite(r.text, input.titulo);
@@ -176,5 +213,6 @@ export async function generarVersiones(input: {
     .where(eq(rewriteJobs.id, job!.id));
 
   revalidatePath("/moderacion");
+  revalidatePath("/biblioteca");
   return { articleId: art!.id };
 }

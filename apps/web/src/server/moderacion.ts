@@ -12,6 +12,7 @@ export async function setImagen(articleId: string, url: string | null) {
     .set({ imagenUrl: url, updatedAt: new Date() })
     .where(eq(articles.id, articleId));
   revalidatePath("/moderacion");
+  revalidatePath("/biblioteca");
 }
 
 export async function aprobarVersion(versionId: string, articleId: string) {
@@ -31,6 +32,7 @@ export async function aprobarVersion(versionId: string, articleId: string) {
       ),
     );
   revalidatePath("/moderacion");
+  revalidatePath("/biblioteca");
 }
 
 export async function rechazarNota(articleId: string) {
@@ -41,6 +43,7 @@ export async function rechazarNota(articleId: string) {
       and(eq(versions.articleId, articleId), eq(versions.estado, "en_revision")),
     );
   revalidatePath("/moderacion");
+  revalidatePath("/biblioteca");
 }
 
 export async function guardarEdicion(
@@ -76,4 +79,5 @@ export async function guardarEdicion(
     })
     .where(eq(versions.id, versionId));
   revalidatePath("/moderacion");
+  revalidatePath("/biblioteca");
 }

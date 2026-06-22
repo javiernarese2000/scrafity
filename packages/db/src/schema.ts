@@ -1,6 +1,7 @@
 import { relations, sql } from "drizzle-orm";
 import {
   bigint,
+  boolean,
   integer,
   jsonb,
   numeric,
@@ -92,6 +93,12 @@ export const articles = pgTable(
     snapshotOriginal: text("snapshot_original"),
     // Imagen principal de la nota (puede dejarse, eliminarse o reemplazarse).
     imagenUrl: text("imagen_url"),
+    // Biblioteca: archivado (evergreen) y etiquetas (IA sugiere + edición manual).
+    archivada: boolean("archivada").notNull().default(false),
+    tags: text("tags")
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
     fechaOriginal: timestamp("fecha_original", { withTimezone: true }),
     ...timestamps,
   },
