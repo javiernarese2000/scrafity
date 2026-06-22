@@ -6,6 +6,7 @@ import {
   getBezierPath,
   type EdgeProps,
 } from "@xyflow/react";
+import { Plus } from "lucide-react";
 
 export function PulseEdge({
   id,
@@ -30,7 +31,7 @@ export function PulseEdge({
   const keywords = (data?.keywords as string[]) ?? [];
   const hasFiltros = keywords.length > 0;
   const onMenu = data?.onMenu as
-    | ((ev: { clientX: number; clientY: number }) => void)
+    | ((id: string, ev: { clientX: number; clientY: number }) => void)
     | undefined;
 
   return (
@@ -55,29 +56,35 @@ export function PulseEdge({
       )}
 
       <EdgeLabelRenderer>
-        <button
-          type="button"
-          title="Opciones de la conexión"
-          onClick={(e) => {
-            e.stopPropagation();
-            onMenu?.(e);
-          }}
-          className="nodrag nopan rounded-full transition-transform hover:scale-125"
+        <div
+          className="nodrag nopan"
           style={{
             position: "absolute",
             transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
             pointerEvents: "all",
-            width: 15,
-            height: 15,
-            background: color,
-            border: "2px solid var(--color-surface)",
             opacity: dim ? 0.3 : 1,
-            boxShadow: hasFiltros
-              ? `0 0 0 4px color-mix(in oklab, ${color} 30%, transparent)`
-              : "none",
-            cursor: "pointer",
           }}
-        />
+        >
+          <button
+            type="button"
+            title="Opciones de la conexión"
+            onClick={(e) => {
+              e.stopPropagation();
+              onMenu?.(id, e);
+            }}
+            className="grid place-items-center rounded-full border-2 transition-colors hover:brightness-95"
+            style={{
+              width: 20,
+              height: 20,
+              borderColor: color,
+              background: hasFiltros ? color : "var(--color-surface)",
+              color: hasFiltros ? "var(--color-surface)" : color,
+              cursor: "pointer",
+            }}
+          >
+            <Plus style={{ width: 12, height: 12 }} strokeWidth={3} />
+          </button>
+        </div>
       </EdgeLabelRenderer>
     </>
   );

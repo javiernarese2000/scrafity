@@ -145,8 +145,17 @@ export function FlujoCanvas({ data }: { data: GraphData }) {
   const mode = useThemeMode();
   const rf = useRef<ReactFlowInstance<Node, Edge> | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [menu, setMenu] = useState<{ edge: Edge; x: number; y: number } | null>(
+  const [menu, setMenu] = useState<{ edgeId: string; x: number; y: number } | null>(
     null,
+  );
+
+  const openMenuAt = useCallback(
+    (edgeId: string, ev: { clientX: number; clientY: number }) => {
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      setMenu({ edgeId, x: ev.clientX - rect.left, y: ev.clientY - rect.top });
+    },
+    [],
   );
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>(buildNodes(data));
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>(buildEdges(data));
@@ -302,6 +311,10 @@ export function FlujoCanvas({ data }: { data: GraphData }) {
     (n) => n.id === selectedId && n.type === "escenario",
   );
 
+  const menuEdge = menu
+    ? (edges.find((e) => e.id === menu.edgeId) ?? null)
+    : null;
+
   const focus = useMemo(() => {
     if (!selectedId) return null;
     const ids = new Set<string>([selectedId]);
@@ -358,14 +371,10 @@ export function FlujoCanvas({ data }: { data: GraphData }) {
         data: {
           ...e.data,
           dim: focus ? !focus.edgeIds.has(e.id) : false,
-          onMenu: (ev: { clientX: number; clientY: number }) => {
-            const rect = containerRef.current?.getBoundingClientRect();
-            if (!rect) return;
-            setMenu({ edge: e, x: ev.clientX - rect.left, y: ev.clientY - rect.top });
-          },
+          onMenu: openMenuAt,
         },
       })),
-    [edges, focus],
+    [edges, focus, openMenuAt],
   );
 
   function patchSelected(patch: Partial<EscenarioConfig>) {
@@ -473,7 +482,7 @@ export function FlujoCanvas({ data }: { data: GraphData }) {
           </div>
         )}
 
-        {menu && (
+        {menu && menuEdge && (
           <>
             <div
               className="absolute inset-0 z-30"
@@ -487,15 +496,15 @@ export function FlujoCanvas({ data }: { data: GraphData }) {
               <button
                 type="button"
                 onClick={() => {
-                  openFilter(menu.edge);
+                  openFilter(menuEdge);
                   setMenu(null);
                 }}
                 className="flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-sm text-fg transition-colors hover:bg-elevated"
               >
                 <span>Palabras clave</span>
-                {((menu.edge.data as EdgeData).keywords?.length ?? 0) > 0 && (
+                {((menuEdge.data as EdgeData).keywords?.length ?? 0) > 0 && (
                   <span className="rounded-md bg-elevated px-1.5 text-xs text-muted">
-                    {(menu.edge.data as EdgeData).keywords.length}
+                    {(menuEdge.data as EdgeData).keywords.length}
                   </span>
                 )}
               </button>
@@ -506,7 +515,7 @@ export function FlujoCanvas({ data }: { data: GraphData }) {
               <button
                 type="button"
                 onClick={() => {
-                  removeEdge(menu.edge);
+                  removeEdge(menuEdge);
                   setMenu(null);
                 }}
                 className="flex w-full items-center rounded-lg px-2.5 py-2 text-sm text-danger transition-colors hover:bg-danger/10"
