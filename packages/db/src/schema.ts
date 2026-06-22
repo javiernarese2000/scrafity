@@ -219,6 +219,10 @@ export const escenarioFuentes = pgTable(
     sourceId: uuid("source_id")
       .notNull()
       .references(() => sources.id, { onDelete: "cascade" }),
+    keywords: text("keywords")
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
   },
   (t) => [primaryKey({ columns: [t.escenarioId, t.sourceId] })],
 );
@@ -232,6 +236,10 @@ export const escenarioDestinos = pgTable(
     destinationId: uuid("destination_id")
       .notNull()
       .references(() => destinations.id, { onDelete: "cascade" }),
+    keywords: text("keywords")
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
   },
   (t) => [primaryKey({ columns: [t.escenarioId, t.destinationId] })],
 );

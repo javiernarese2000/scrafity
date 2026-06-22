@@ -29,6 +29,13 @@
       "when": 1782099192516,
       "tag": "0003_high_vindicator",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1782127756716,
+      "tag": "0004_wide_malcolm_colcord",
+      "breakpoints": true
     }
   ]
 }

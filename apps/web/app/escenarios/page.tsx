@@ -60,12 +60,12 @@ export default async function EscenariosPage() {
     moderacion: e.moderacion,
     cupoDiario: e.cupoDiario,
     activo: e.activo,
-    fuenteIds: efRows
+    linksFuente: efRows
       .filter((r) => r.escenarioId === e.id)
-      .map((r) => r.sourceId),
-    destinoIds: edRows
+      .map((r) => ({ refId: r.sourceId, keywords: r.keywords ?? [] })),
+    linksDestino: edRows
       .filter((r) => r.escenarioId === e.id)
-      .map((r) => r.destinationId),
+      .map((r) => ({ refId: r.destinationId, keywords: r.keywords ?? [] })),
     ...at(`escenario:${e.id}`, 480, 60 + i * 160),
   }));
 

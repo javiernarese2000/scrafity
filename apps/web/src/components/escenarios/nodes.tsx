@@ -1,7 +1,7 @@
 "use client";
 
 import { Handle, Position, type NodeProps } from "@xyflow/react";
-import { Globe, Radio, Send, Sparkles } from "lucide-react";
+import { AlertTriangle, Globe, Radio, Send, Sparkles } from "lucide-react";
 
 import { cn } from "@/lib/cn";
 
@@ -103,6 +103,7 @@ export function EscenarioNode({ data, selected }: NodeProps) {
     tono: string;
     moderacion: boolean;
     activo: boolean;
+    incompleto?: boolean;
   };
   return (
     <div
@@ -135,6 +136,15 @@ export function EscenarioNode({ data, selected }: NodeProps) {
           {d.nVersiones} versiones · {d.tono}
         </p>
         <p>{d.moderacion ? "requiere moderación" : "auto-publica"}</p>
+        {d.incompleto && (
+          <p
+            className="flex items-center gap-1 pt-0.5"
+            style={{ color: "var(--color-warning)" }}
+          >
+            <AlertTriangle className="size-3" />
+            falta fuente o destino
+          </p>
+        )}
       </div>
       <Handle type="target" position={Position.Left} style={handle(COLOR_ESCENARIO)} />
       <Handle type="source" position={Position.Right} style={handle(COLOR_ESCENARIO)} />

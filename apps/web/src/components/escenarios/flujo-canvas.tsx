@@ -12,14 +12,24 @@ import {
   type Connection,
   type Edge,
   type Node,
+  type ReactFlowInstance,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { AnimatePresence } from "framer-motion";
-import { Plus, Workflow } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { LayoutGrid, Plus, Workflow, X } from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 
 import { Button } from "@/components/ui/button";
+import { Field, Modal, inputCls } from "@/components/ui/modal";
 import { Toast, useToast } from "@/components/ui/toast";
+import { cn } from "@/lib/cn";
 import {
   actualizarEscenario,
   conectar,
@@ -27,6 +37,7 @@ import {
   desconectar,
   eliminarEscenario,
   guardarPosicion,
+  setEdgeKeywords,
 } from "@/server/flujo";
 import { ConfigPanel } from "./config-panel";
 import { edgeTypes } from "./edges";
@@ -38,6 +49,7 @@ type EdgeData = {
   lado: "fuente" | "destino";
   refId: string;
   color: string;
+  keywords: string[];
 };
 
 const COL_FUENTE = "var(--color-success)";
@@ -70,8 +82,8 @@ function buildNodes(data: GraphData): Node[] {
         nVersiones: e.nVersiones,
         tono: e.tono,
         proveedor: e.proveedor,
-        moderacion: e.moderacion,
         cupoDiario: e.cupoDiario,
+        moderacion: e.moderacion,
         activo: e.activo,
       },
     })),
@@ -81,26 +93,33 @@ function buildNodes(data: GraphData): Node[] {
 function buildEdges(data: GraphData): Edge[] {
   const edges: Edge[] = [];
   for (const e of data.escenarios) {
-    for (const fid of e.fuenteIds) {
+    for (const l of e.linksFuente) {
       edges.push({
-        id: `e-${e.id}-fuente-${fid}`,
-        source: `fuente:${fid}`,
+        id: `e-${e.id}-fuente-${l.refId}`,
+        source: `fuente:${l.refId}`,
         target: `escenario:${e.id}`,
         type: "pulse",
-        data: { escenarioId: e.id, lado: "fuente", refId: fid, color: COL_FUENTE },
+        data: {
+          escenarioId: e.id,
+          lado: "fuente",
+          refId: l.refId,
+          color: COL_FUENTE,
+          keywords: l.keywords,
+        },
       });
     }
-    for (const did of e.destinoIds) {
+    for (const l of e.linksDestino) {
       edges.push({
-        id: `e-${e.id}-destino-${did}`,
+        id: `e-${e.id}-destino-${l.refId}`,
         source: `escenario:${e.id}`,
-        target: `destino:${did}`,
+        target: `destino:${l.refId}`,
         type: "pulse",
         data: {
           escenarioId: e.id,
           lado: "destino",
-          refId: did,
+          refId: l.refId,
           color: COL_DESTINO,
+          keywords: l.keywords,
         },
       });
     }
@@ -124,11 +143,17 @@ function useThemeMode(): "light" | "dark" {
 
 export function FlujoCanvas({ data }: { data: GraphData }) {
   const mode = useThemeMode();
+  const rf = useRef<ReactFlowInstance<Node, Edge> | null>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>(buildNodes(data));
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>(buildEdges(data));
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
   const { message, show } = useToast();
+
+  // Filtro de keywords sobre una conexión
+  const [filterEdge, setFilterEdge] = useState<Edge | null>(null);
+  const [kw, setKw] = useState<string[]>([]);
+  const [kwInput, setKwInput] = useState("");
 
   const onConnect = useCallback(
     (c: Connection) => {
@@ -141,7 +166,13 @@ export function FlujoCanvas({ data }: { data: GraphData }) {
           source: c.source,
           target: c.target,
           type: "pulse",
-          data: { escenarioId: tid!, lado: "fuente", refId: sid!, color: COL_FUENTE },
+          data: {
+            escenarioId: tid!,
+            lado: "fuente",
+            refId: sid!,
+            color: COL_FUENTE,
+            keywords: [],
+          },
         };
       } else if (stype === "escenario" && ttype === "destino") {
         edge = {
@@ -149,7 +180,13 @@ export function FlujoCanvas({ data }: { data: GraphData }) {
           source: c.source,
           target: c.target,
           type: "pulse",
-          data: { escenarioId: sid!, lado: "destino", refId: tid!, color: COL_DESTINO },
+          data: {
+            escenarioId: sid!,
+            lado: "destino",
+            refId: tid!,
+            color: COL_DESTINO,
+            keywords: [],
+          },
         };
       }
       if (!edge) return;
@@ -160,6 +197,33 @@ export function FlujoCanvas({ data }: { data: GraphData }) {
     [setEdges],
   );
 
+  const removeEdge = useCallback(
+    (e: Edge) => {
+      const d = e.data as EdgeData;
+      setEdges((eds) => eds.filter((x) => x.id !== e.id));
+      startTransition(() => desconectar(d.escenarioId, d.lado, d.refId));
+    },
+    [setEdges],
+  );
+
+  const openFilter = useCallback((e: Edge) => {
+    setFilterEdge(e);
+    setKw(((e.data as EdgeData).keywords as string[]) ?? []);
+    setKwInput("");
+  }, []);
+
+  function saveFilter() {
+    if (!filterEdge) return;
+    const d = filterEdge.data as EdgeData;
+    setEdges((eds) =>
+      eds.map((x) =>
+        x.id === filterEdge.id ? { ...x, data: { ...x.data, keywords: kw } } : x,
+      ),
+    );
+    startTransition(() => setEdgeKeywords(d.escenarioId, d.lado, d.refId, kw));
+    setFilterEdge(null);
+  }
+
   const onEdgesDelete = useCallback((deleted: Edge[]) => {
     startTransition(() => {
       for (const e of deleted) {
@@ -169,19 +233,14 @@ export function FlujoCanvas({ data }: { data: GraphData }) {
     });
   }, []);
 
-  const onNodesDelete = useCallback(
-    (deleted: Node[]) => {
-      startTransition(() => {
-        for (const n of deleted) {
-          if (n.type === "escenario") {
-            void eliminarEscenario(n.id.split(":")[1]!);
-          }
-        }
-      });
-      setSelectedId(null);
-    },
-    [],
-  );
+  const onNodesDelete = useCallback((deleted: Node[]) => {
+    startTransition(() => {
+      for (const n of deleted) {
+        if (n.type === "escenario") void eliminarEscenario(n.id.split(":")[1]!);
+      }
+    });
+    setSelectedId(null);
+  }, []);
 
   const onNodeDragStop = useCallback((_: unknown, node: Node) => {
     void guardarPosicion(node.id, node.position.x, node.position.y);
@@ -212,11 +271,33 @@ export function FlujoCanvas({ data }: { data: GraphData }) {
     });
   }
 
+  function autoOrdenar() {
+    let fy = 40;
+    let ey = 40;
+    let dy = 40;
+    const next = nodes.map((n) => {
+      let position: { x: number; y: number };
+      if (n.type === "fuente") {
+        position = { x: 40, y: fy };
+        fy += 110;
+      } else if (n.type === "destino") {
+        position = { x: 920, y: dy };
+        dy += 110;
+      } else {
+        position = { x: 480, y: ey };
+        ey += 170;
+      }
+      return { ...n, position };
+    });
+    setNodes(next);
+    next.forEach((n) => void guardarPosicion(n.id, n.position.x, n.position.y));
+    window.setTimeout(() => rf.current?.fitView({ duration: 400 }), 60);
+  }
+
   const selected = nodes.find(
     (n) => n.id === selectedId && n.type === "escenario",
   );
 
-  // Modo foco: al seleccionar un nodo, resaltar su cadena y atenuar el resto.
   const focus = useMemo(() => {
     if (!selectedId) return null;
     const ids = new Set<string>([selectedId]);
@@ -231,26 +312,53 @@ export function FlujoCanvas({ data }: { data: GraphData }) {
     return { ids, edgeIds };
   }, [selectedId, edges]);
 
-  const displayNodes = useMemo(
+  // Marcar escenarios sin fuente o sin destino
+  const escMeta = useMemo(() => {
+    const m = new Map<string, { hasF: boolean; hasD: boolean }>();
+    for (const n of nodes) {
+      if (n.type === "escenario") m.set(n.id, { hasF: false, hasD: false });
+    }
+    for (const e of edges) {
+      const tgt = m.get(e.target);
+      if (tgt) tgt.hasF = true;
+      const src = m.get(e.source);
+      if (src) src.hasD = true;
+    }
+    return m;
+  }, [nodes, edges]);
+
+  const displayNodes = useMemo<Node[]>(
     () =>
-      nodes.map((n) => ({
-        ...n,
-        style: {
-          ...n.style,
-          opacity: focus && !focus.ids.has(n.id) ? 0.3 : 1,
-          transition: "opacity .2s",
-        },
-      })),
-    [nodes, focus],
+      nodes.map((n) => {
+        const meta = n.type === "escenario" ? escMeta.get(n.id) : undefined;
+        const incompleto =
+          n.type === "escenario" ? !meta || !meta.hasF || !meta.hasD : undefined;
+        return {
+          ...n,
+          data:
+            n.type === "escenario" ? { ...n.data, incompleto } : n.data,
+          style: {
+            ...n.style,
+            opacity: focus && !focus.ids.has(n.id) ? 0.3 : 1,
+            transition: "opacity .2s",
+          },
+        };
+      }),
+    [nodes, focus, escMeta],
   );
 
-  const displayEdges = useMemo(
+  const displayEdges = useMemo<Edge[]>(
     () =>
       edges.map((e) => ({
         ...e,
-        data: { ...e.data, dim: focus ? !focus.edgeIds.has(e.id) : false },
+        data: {
+          ...e.data,
+          dim: focus ? !focus.edgeIds.has(e.id) : false,
+          onFilter: () => openFilter(e),
+          onDelete: () => removeEdge(e),
+        },
       })),
-    [edges, focus],
+    [edges, focus, openFilter, removeEdge],
   );
 
   function patchSelected(patch: Partial<EscenarioConfig>) {
@@ -276,6 +384,13 @@ export function FlujoCanvas({ data }: { data: GraphData }) {
     show("Escenario eliminado");
   }
 
+  function addKw() {
+    const t = kwInput.trim().toLowerCase();
+    if (!t || kw.includes(t)) return;
+    setKw([...kw, t]);
+    setKwInput("");
+  }
+
   return (
     <div className="mx-auto max-w-[1400px]">
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
@@ -284,18 +399,27 @@ export function FlujoCanvas({ data }: { data: GraphData }) {
             Escenarios
           </h2>
           <p className="mt-1 text-sm text-muted">
-            Conectá fuentes → escenarios → destinos. Arrastrá entre los puntos
-            para enlazar.
+            Conectá fuentes → escenarios → destinos. El 🔎 en cada línea filtra
+            por palabras clave.
           </p>
         </div>
-        <Button onClick={addEscenario}>
-          <Plus className="size-4" />
-          Agregar escenario
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={autoOrdenar}>
+            <LayoutGrid className="size-4" />
+            Auto-ordenar
+          </Button>
+          <Button onClick={addEscenario}>
+            <Plus className="size-4" />
+            Agregar escenario
+          </Button>
+        </div>
       </div>
 
       <div className="relative h-[calc(100dvh-13rem)] min-h-[560px] overflow-hidden rounded-[var(--radius-lg)] border border-line bg-canvas">
         <ReactFlow
+          onInit={(inst) => {
+            rf.current = inst;
+          }}
           nodes={displayNodes}
           edges={displayEdges}
           nodeTypes={nodeTypes}
@@ -339,6 +463,57 @@ export function FlujoCanvas({ data }: { data: GraphData }) {
           </div>
         )}
       </div>
+
+      <Modal
+        open={!!filterEdge}
+        onClose={() => setFilterEdge(null)}
+        title="Filtro de keywords"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-muted">
+            Solo pasan por esta conexión las notas que contengan alguna de estas
+            palabras. Sin keywords, pasa todo.
+          </p>
+          <Field label="Palabras clave">
+            <div className="flex flex-wrap items-center gap-2">
+              {kw.map((t) => (
+                <span
+                  key={t}
+                  className="inline-flex items-center gap-1 rounded-md bg-elevated px-2 py-1 text-xs text-fg"
+                >
+                  {t}
+                  <button
+                    type="button"
+                    onClick={() => setKw(kw.filter((x) => x !== t))}
+                    aria-label={`Quitar ${t}`}
+                    className="text-muted hover:text-danger"
+                  >
+                    <X className="size-3" />
+                  </button>
+                </span>
+              ))}
+              <input
+                value={kwInput}
+                onChange={(e) => setKwInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addKw();
+                  }
+                }}
+                placeholder="agregar…"
+                className={cn(inputCls, "h-8 w-28")}
+              />
+            </div>
+          </Field>
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setFilterEdge(null)}>
+              Cancelar
+            </Button>
+            <Button onClick={saveFilter}>Guardar filtro</Button>
+          </div>
+        </div>
+      </Modal>
 
       <Toast message={message} />
     </div>

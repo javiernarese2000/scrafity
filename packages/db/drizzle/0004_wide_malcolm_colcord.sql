@@ -1,0 +1,2 @@
+ALTER TABLE "escenario_destinos" ADD COLUMN "keywords" text[] DEFAULT '{}'::text[] NOT NULL;--> statement-breakpoint
+ALTER TABLE "escenario_fuentes" ADD COLUMN "keywords" text[] DEFAULT '{}'::text[] NOT NULL;

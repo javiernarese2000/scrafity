@@ -92,6 +92,36 @@ export async function desconectar(
   revalidatePath("/escenarios");
 }
 
+export async function setEdgeKeywords(
+  escenarioId: string,
+  lado: "fuente" | "destino",
+  refId: string,
+  keywords: string[],
+) {
+  if (lado === "fuente") {
+    await db
+      .update(escenarioFuentes)
+      .set({ keywords })
+      .where(
+        and(
+          eq(escenarioFuentes.escenarioId, escenarioId),
+          eq(escenarioFuentes.sourceId, refId),
+        ),
+      );
+  } else {
+    await db
+      .update(escenarioDestinos)
+      .set({ keywords })
+      .where(
+        and(
+          eq(escenarioDestinos.escenarioId, escenarioId),
+          eq(escenarioDestinos.destinationId, refId),
+        ),
+      );
+  }
+  revalidatePath("/escenarios");
+}
+
 export async function guardarPosicion(key: string, x: number, y: number) {
   await db
     .insert(nodePositions)

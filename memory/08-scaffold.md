@@ -79,6 +79,11 @@ drizzle-orm **0.45**, drizzle-kit **0.31**, postgres **3.4**, TypeScript **6.0**
 - Conexiones animadas (`animated:true`). Panel de config `config-panel.tsx`. colorMode="system".
 - IMPORTANTE: es solo el EDITOR visual. El **motor que ejecuta el grafo** (rutear ingesta según
   escenarios) es Fase 2; la publicación a destinos, el último paso.
+- Pulido del editor (2026-06): pulsos atenuables + modo foco (resalta cadena del nodo
+  seleccionado), colorMode atado a la clase `.dark`. Filtro de **keywords por conexión**
+  (columna `keywords` en `escenario_fuentes`/`escenario_destinos`, migración 0004) editable
+  desde un control 🔎 en el medio del edge (+ botón ✕ para desconectar). Escenarios sin fuente
+  o sin destino se marcan "incompleto". Botón "Auto-ordenar" (layout en columnas).
 
 ## Infra conectada (2026-06-21)
 - **Git/GitHub**: repo en https://github.com/javiernarese2000/scrafity (rama `main`).

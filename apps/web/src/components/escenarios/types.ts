@@ -25,8 +25,8 @@ export type GraphEscenario = {
   moderacion: boolean;
   cupoDiario: number | null;
   activo: boolean;
-  fuenteIds: string[];
-  destinoIds: string[];
+  linksFuente: { refId: string; keywords: string[] }[];
+  linksDestino: { refId: string; keywords: string[] }[];
 } & Pos;
 
 export type GraphData = {
