@@ -6,7 +6,6 @@ import {
   getBezierPath,
   type EdgeProps,
 } from "@xyflow/react";
-import { Filter, X } from "lucide-react";
 
 export function PulseEdge({
   id,
@@ -29,8 +28,10 @@ export function PulseEdge({
   const color = (data?.color as string) ?? "var(--color-brand)";
   const dim = data?.dim === true;
   const keywords = (data?.keywords as string[]) ?? [];
-  const onFilter = data?.onFilter as (() => void) | undefined;
-  const onDelete = data?.onDelete as (() => void) | undefined;
+  const hasFiltros = keywords.length > 0;
+  const onMenu = data?.onMenu as
+    | ((ev: { clientX: number; clientY: number }) => void)
+    | undefined;
 
   return (
     <>
@@ -54,40 +55,29 @@ export function PulseEdge({
       )}
 
       <EdgeLabelRenderer>
-        <div
-          className="group nodrag nopan"
+        <button
+          type="button"
+          title="Opciones de la conexión"
+          onClick={(e) => {
+            e.stopPropagation();
+            onMenu?.(e);
+          }}
+          className="nodrag nopan rounded-full transition-transform hover:scale-125"
           style={{
             position: "absolute",
             transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
             pointerEvents: "all",
-            opacity: dim ? 0.25 : 1,
+            width: 15,
+            height: 15,
+            background: color,
+            border: "2px solid var(--color-surface)",
+            opacity: dim ? 0.3 : 1,
+            boxShadow: hasFiltros
+              ? `0 0 0 4px color-mix(in oklab, ${color} 30%, transparent)`
+              : "none",
+            cursor: "pointer",
           }}
-        >
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={onFilter}
-              title="Filtro de keywords"
-              className="flex items-center gap-1 rounded-full border border-line bg-surface px-2 py-1 text-[11px] shadow-soft transition-colors hover:bg-elevated"
-              style={{
-                color: keywords.length ? color : "var(--color-muted)",
-              }}
-            >
-              <Filter className="size-3" />
-              {keywords.length > 0 && (
-                <span className="font-medium">{keywords.length}</span>
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={onDelete}
-              title="Quitar conexión"
-              className="grid size-6 place-items-center rounded-full border border-line bg-surface text-muted opacity-0 shadow-soft transition-opacity hover:text-danger group-hover:opacity-100"
-            >
-              <X className="size-3" />
-            </button>
-          </div>
-        </div>
+        />
       </EdgeLabelRenderer>
     </>
   );

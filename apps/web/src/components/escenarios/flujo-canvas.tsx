@@ -144,6 +144,10 @@ function useThemeMode(): "light" | "dark" {
 export function FlujoCanvas({ data }: { data: GraphData }) {
   const mode = useThemeMode();
   const rf = useRef<ReactFlowInstance<Node, Edge> | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [menu, setMenu] = useState<{ edge: Edge; x: number; y: number } | null>(
+    null,
+  );
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>(buildNodes(data));
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>(buildEdges(data));
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -354,11 +358,14 @@ export function FlujoCanvas({ data }: { data: GraphData }) {
         data: {
           ...e.data,
           dim: focus ? !focus.edgeIds.has(e.id) : false,
-          onFilter: () => openFilter(e),
-          onDelete: () => removeEdge(e),
+          onMenu: (ev: { clientX: number; clientY: number }) => {
+            const rect = containerRef.current?.getBoundingClientRect();
+            if (!rect) return;
+            setMenu({ edge: e, x: ev.clientX - rect.left, y: ev.clientY - rect.top });
+          },
         },
       })),
-    [edges, focus, openFilter, removeEdge],
+    [edges, focus],
   );
 
   function patchSelected(patch: Partial<EscenarioConfig>) {
@@ -415,7 +422,10 @@ export function FlujoCanvas({ data }: { data: GraphData }) {
         </div>
       </div>
 
-      <div className="relative h-[calc(100dvh-13rem)] min-h-[560px] overflow-hidden rounded-[var(--radius-lg)] border border-line bg-canvas">
+      <div
+        ref={containerRef}
+        className="relative h-[calc(100dvh-13rem)] min-h-[560px] overflow-hidden rounded-[var(--radius-lg)] border border-line bg-canvas"
+      >
         <ReactFlow
           onInit={(inst) => {
             rf.current = inst;
@@ -461,6 +471,50 @@ export function FlujoCanvas({ data }: { data: GraphData }) {
               Agregá fuentes y destinos, y creá tu primer escenario.
             </p>
           </div>
+        )}
+
+        {menu && (
+          <>
+            <div
+              className="absolute inset-0 z-30"
+              onClick={() => setMenu(null)}
+            />
+            <div
+              className="absolute z-40 w-52 rounded-[var(--radius)] border border-line bg-surface p-1.5 shadow-float"
+              style={{ left: menu.x, top: menu.y }}
+            >
+              <p className="px-2.5 py-1.5 text-xs text-muted">Conexión</p>
+              <button
+                type="button"
+                onClick={() => {
+                  openFilter(menu.edge);
+                  setMenu(null);
+                }}
+                className="flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-sm text-fg transition-colors hover:bg-elevated"
+              >
+                <span>Palabras clave</span>
+                {((menu.edge.data as EdgeData).keywords?.length ?? 0) > 0 && (
+                  <span className="rounded-md bg-elevated px-1.5 text-xs text-muted">
+                    {(menu.edge.data as EdgeData).keywords.length}
+                  </span>
+                )}
+              </button>
+              <p className="px-2.5 pb-1 pt-0.5 text-[11px] text-muted">
+                Más filtros pronto
+              </p>
+              <div className="my-1 h-px bg-line" />
+              <button
+                type="button"
+                onClick={() => {
+                  removeEdge(menu.edge);
+                  setMenu(null);
+                }}
+                className="flex w-full items-center rounded-lg px-2.5 py-2 text-sm text-danger transition-colors hover:bg-danger/10"
+              >
+                Quitar conexión
+              </button>
+            </div>
+          </>
         )}
       </div>
 
