@@ -49,6 +49,6 @@ export async function proxy(request: NextRequest) {
 export const config = {
   // Excluye estáticos y el endpoint de Inngest (protegido por signing key).
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|api/inngest|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|api/inngest|api/feed|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

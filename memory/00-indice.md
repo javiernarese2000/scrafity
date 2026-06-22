@@ -35,6 +35,15 @@ Firecrawl, DeepSeek key, Dashboard real, **motor de escenarios (ejecución)** y 
 destinos — el último paso**.
 **Última actualización:** 2026-06-21.
 
+## Publicación (Paso B) — parcial (2026-06)
+- Moderación: el botón pasa a **"Publicar…"** → diálogo para elegir **destinos** y **versión por
+  destino** (modelo mixto). Crea filas en `publications` (`src/server/publicar.ts`).
+- **Sitios propios**: publicación queda `publicada` y se sirve por **feed público**
+  `GET /api/feed/[destinoId]` (sin auth; excluido en `proxy.ts`). Verificado.
+- **WordPress de clientes**: la publicación queda `pendiente` (falta el conector REST API).
+- Al publicar, las versiones elegidas → `publicada`, el resto → `rechazada` (sale de la cola).
+- Falta: conector WordPress (credenciales cifradas), e ingesta automática (Paso C).
+
 ## Decisiones tomadas (resumen)
 - Lenguaje: **TypeScript full-stack** (Next.js + Node, monorepo).
 - IA: **multi-proveedor** — DeepSeek (volumen/barato) + Claude (calidad). Con fallback.

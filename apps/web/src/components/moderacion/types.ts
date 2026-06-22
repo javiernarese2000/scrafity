@@ -22,6 +22,12 @@ export type NotaView = {
   versiones: VersionView[];
 };
 
+export type DestinoLite = {
+  id: string;
+  nombre: string;
+  tipo: "wordpress_cliente" | "sitio_propio";
+};
+
 export function proveedorLabel(p: ProveedorView | null): string {
   if (p === "deepseek") return "DeepSeek";
   if (p === "claude") return "Claude";

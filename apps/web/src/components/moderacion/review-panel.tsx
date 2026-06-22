@@ -1,7 +1,14 @@
 "use client";
 
 import { LayoutGroup, motion } from "framer-motion";
-import { Check, ExternalLink, Image as ImageIcon, Pencil, X } from "lucide-react";
+import {
+  Check,
+  ExternalLink,
+  Image as ImageIcon,
+  Pencil,
+  Send,
+  X,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +20,7 @@ import { DiffView } from "./diff-view";
 import { pct, simTone } from "./similarity";
 import { proveedorLabel, type NotaView } from "./types";
 
-export type ReviewAction = "aprobar" | "editar" | "rechazar";
+export type ReviewAction = "publicar" | "editar" | "rechazar";
 
 export function ReviewPanel({
   nota,
@@ -250,9 +257,9 @@ export function ReviewPanel({
                 <Pencil className="size-4" />
                 Editar
               </Button>
-              <Button onClick={() => onAction("aprobar")}>
-                <Check className="size-4" />
-                Aprobar versión
+              <Button onClick={() => onAction("publicar")}>
+                <Send className="size-4" />
+                Publicar…
               </Button>
             </div>
           </>

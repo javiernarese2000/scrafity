@@ -1,8 +1,12 @@
-import { articles, db, versions } from "@scrapify/db";
+import { articles, db, destinations, versions } from "@scrapify/db";
 import { desc, eq } from "drizzle-orm";
 
 import { ModerationBoard } from "@/components/moderacion/moderation-board";
-import type { NotaView, ProveedorView } from "@/components/moderacion/types";
+import type {
+  DestinoLite,
+  NotaView,
+  ProveedorView,
+} from "@/components/moderacion/types";
 
 export const dynamic = "force-dynamic";
 
@@ -73,5 +77,17 @@ export default async function ModeracionPage() {
     });
   }
 
-  return <ModerationBoard notas={[...map.values()]} />;
+  const destinosRows = await db
+    .select({
+      id: destinations.id,
+      nombre: destinations.nombre,
+      tipo: destinations.tipo,
+    })
+    .from(destinations)
+    .orderBy(destinations.createdAt);
+  const destinos: DestinoLite[] = destinosRows;
+
+  return (
+    <ModerationBoard notas={[...map.values()]} destinos={destinos} />
+  );
 }

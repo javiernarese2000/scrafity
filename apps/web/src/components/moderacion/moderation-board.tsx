@@ -8,21 +8,29 @@ import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Toast, useToast } from "@/components/ui/toast";
 import {
-  aprobarVersion,
   guardarEdicion,
   rechazarNota,
   setImagen,
 } from "@/server/moderacion";
+import { publicar, type Asignacion } from "@/server/publicar";
+import { PublishDialog } from "./publish-dialog";
 import { QueueList } from "./queue-list";
 import { ReviewPanel, type ReviewAction } from "./review-panel";
-import type { NotaView } from "./types";
+import type { DestinoLite, NotaView } from "./types";
 
-export function ModerationBoard({ notas }: { notas: NotaView[] }) {
+export function ModerationBoard({
+  notas,
+  destinos,
+}: {
+  notas: NotaView[];
+  destinos: DestinoLite[];
+}) {
   const [pending, startTransition] = useTransition();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [versionIdx, setVersionIdx] = useState(0);
   const [view, setView] = useState<"diff" | "limpio">("diff");
   const [editing, setEditing] = useState(false);
+  const [publishOpen, setPublishOpen] = useState(false);
   const { message, show } = useToast();
 
   const nota = notas.find((n) => n.id === selectedId) ?? notas[0];
@@ -36,21 +44,30 @@ export function ModerationBoard({ notas }: { notas: NotaView[] }) {
 
   function handleAction(a: ReviewAction) {
     if (!nota) return;
-    const version = nota.versiones[versionIdx] ?? nota.versiones[0]!;
     if (a === "editar") {
       setEditing(true);
       return;
     }
+    if (a === "publicar") {
+      setPublishOpen(true);
+      return;
+    }
     startTransition(async () => {
-      if (a === "aprobar") {
-        await aprobarVersion(version.id, nota.id);
-        show("Versión aprobada");
-      } else {
-        await rechazarNota(nota.id);
-        show("Nota rechazada");
-      }
+      await rechazarNota(nota.id);
+      show("Nota rechazada");
       setSelectedId(null);
       setVersionIdx(0);
+    });
+  }
+
+  function doPublicar(asignaciones: Asignacion[]) {
+    if (!nota) return;
+    startTransition(async () => {
+      await publicar(nota.id, asignaciones);
+      setPublishOpen(false);
+      setSelectedId(null);
+      setVersionIdx(0);
+      show(`Publicada en ${asignaciones.length}`);
     });
   }
 
@@ -125,6 +142,16 @@ export function ModerationBoard({ notas }: { notas: NotaView[] }) {
           </AnimatePresence>
         </Card>
       </div>
+
+      <PublishDialog
+        open={publishOpen}
+        onClose={() => setPublishOpen(false)}
+        nota={nota}
+        destinos={destinos}
+        defaultVersionId={(nota.versiones[versionIdx] ?? nota.versiones[0]!).id}
+        pending={pending}
+        onConfirm={doPublicar}
+      />
 
       <Toast message={message} />
     </div>
