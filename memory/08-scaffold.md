@@ -57,6 +57,16 @@ drizzle-orm **0.45**, drizzle-kit **0.31**, postgres **3.4**, TypeScript **6.0**
 - `src/server/moderacion.ts`: `aprobarVersion` (aprueba una y rechaza hermanas),
   `rechazarNota`, `guardarEdicion` (recalcula similitud).
 - Modelo Claude usado: `claude-sonnet-4-6` (verificado).
+- **Contenido en Markdown**: la extracción convierte el HTML (Readability `content`) a Markdown
+  con `turndown` + `turndown-plugin-gfm` (preserva tablas, listas, subtítulos). Verificado con
+  la nota de ANSES (tabla de montos exacta). El prompt instruye conservar tablas/cifras EXACTAS
+  y devolver `TÍTULO: ...\n\n<cuerpo md>` (más robusto que JSON para Markdown). Render con
+  `react-markdown` + `remark-gfm` (componente `ui/markdown.tsx`).
+- **Imágenes**: la extracción trae la imagen principal (`og:image` → fallback primer `<img>`),
+  guardada en `articles.imagen_url` (migración 0001). En moderación se puede dejar, eliminar o
+  reemplazar (por URL) vía `setImagen`. Subida a Storage = futuro.
+- **Pendiente (pedido usuario)**: borrado de "contenido filtrado" más fino. Por ahora el editor
+  Markdown (textarea) permite borrar cualquier línea manualmente.
 
 ## Infra conectada (2026-06-21)
 - **Git/GitHub**: repo en https://github.com/javiernarese2000/scrafity (rama `main`).

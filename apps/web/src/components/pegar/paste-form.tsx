@@ -8,6 +8,7 @@ import { useState, useTransition } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/card";
+import { Markdown } from "@/components/ui/markdown";
 import { cn } from "@/lib/cn";
 import { proveedores, tonos } from "@/data/pegar";
 import { extraerNota, generarVersiones } from "@/server/notas";
@@ -19,7 +20,12 @@ const provMap: Record<string, ProviderName | "auto"> = {
   Claude: "claude",
 };
 
-type Extracted = { titulo: string; contenido: string; fuente: string };
+type Extracted = {
+  titulo: string;
+  contenido: string;
+  fuente: string;
+  imagenUrl: string | null;
+};
 
 function Chip({
   active,
@@ -72,6 +78,7 @@ export function PasteForm() {
         titulo: res.titulo,
         contenido: res.contenido,
         fuente: res.fuente,
+        imagenUrl: res.imagenUrl,
       });
     });
   }
@@ -86,6 +93,7 @@ export function PasteForm() {
           fuente: extracted.fuente,
           titulo: extracted.titulo,
           contenido: extracted.contenido,
+          imagenUrl: extracted.imagenUrl,
           nVersiones,
           tono,
           proveedor: provMap[proveedor] ?? "claude",
@@ -259,13 +267,18 @@ export function PasteForm() {
             ) : (
               <CardBody>
                 <Badge tone="accent">{extracted.fuente}</Badge>
+                {extracted.imagenUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={extracted.imagenUrl}
+                    alt=""
+                    className="mt-3 max-h-56 w-full rounded-lg object-cover"
+                  />
+                )}
                 <h3 className="mt-3 font-display text-2xl font-medium leading-tight text-fg">
                   {extracted.titulo}
                 </h3>
-                <p className="mt-4 whitespace-pre-line text-[15px] leading-relaxed text-fg">
-                  {extracted.contenido.slice(0, 1400)}
-                  {extracted.contenido.length > 1400 ? "…" : ""}
-                </p>
+                <Markdown className="mt-4">{extracted.contenido}</Markdown>
                 <p className="mt-5 border-t border-line/70 pt-3 font-mono text-xs text-muted">
                   {extracted.contenido.split(/\s+/).filter(Boolean).length}{" "}
                   palabras extraídas

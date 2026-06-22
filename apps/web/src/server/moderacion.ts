@@ -6,6 +6,14 @@ import { revalidatePath } from "next/cache";
 
 import { computeSimilarity } from "@/lib/diff";
 
+export async function setImagen(articleId: string, url: string | null) {
+  await db
+    .update(articles)
+    .set({ imagenUrl: url, updatedAt: new Date() })
+    .where(eq(articles.id, articleId));
+  revalidatePath("/moderacion");
+}
+
 export async function aprobarVersion(versionId: string, articleId: string) {
   await db
     .update(versions)

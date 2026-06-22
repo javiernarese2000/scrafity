@@ -90,6 +90,8 @@ export const articles = pgTable(
     hashContenido: text("hash_contenido"),
     // Snapshot del original para atribución/trazabilidad legal.
     snapshotOriginal: text("snapshot_original"),
+    // Imagen principal de la nota (puede dejarse, eliminarse o reemplazarse).
+    imagenUrl: text("imagen_url"),
     fechaOriginal: timestamp("fecha_original", { withTimezone: true }),
     ...timestamps,
   },

@@ -11,6 +11,7 @@ import {
   aprobarVersion,
   guardarEdicion,
   rechazarNota,
+  setImagen,
 } from "@/server/moderacion";
 import { QueueList } from "./queue-list";
 import { ReviewPanel, type ReviewAction } from "./review-panel";
@@ -113,6 +114,12 @@ export function ModerationBoard({ notas }: { notas: NotaView[] }) {
                 onAction={handleAction}
                 onSaveEdit={saveEdit}
                 onCancelEdit={() => setEditing(false)}
+                onSetImagen={(url) =>
+                  startTransition(async () => {
+                    await setImagen(nota.id, url);
+                    show(url ? "Imagen actualizada" : "Imagen eliminada");
+                  })
+                }
               />
             </motion.div>
           </AnimatePresence>

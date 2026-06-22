@@ -9,6 +9,14 @@ Ideas para hacer la plataforma sólida. Priorizadas por fase en `07-fases-y-pend
   fuente. Si supera umbral, marcar en rojo en moderación (anti-plagio/copyright).
 - **Atribución y trazabilidad**: guardar siempre URL fuente, autor, fecha y snapshot del
   original por nota.
+- **Notas con muro de pago / login** (consulta del usuario, 2026): NO construir sobre
+  técnicas de bypass (UA Googlebot, deshabilitar JS, sitios de archivo) → riesgo legal
+  (copyright: DMCA §1201 / ley 11.723 AR; ToS) y frágil. Caminos legítimos: (1) licenciamiento/
+  sindicación, (2) APIs de agencias (Reuters/AP/AFP/Télam), (3) RSS full-text, (4) acceso
+  autenticado con suscripción propia válida (revisar ToS, suele prohibir automatización),
+  (5) agregadores con licencia. Soporte técnico: credenciales/cookies por fuente **cifradas**
+  + fetch autenticado (Firecrawl permite pasar headers/cookies de sesión). **Pendiente:
+  consulta legal antes de producción** por el modelo de reescribir+republicar.
 
 ## Operación
 - **Monitor de salud de fuentes**: si un RSS deja de responder o un scraping falla, alertar

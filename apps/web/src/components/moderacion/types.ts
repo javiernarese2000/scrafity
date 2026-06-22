@@ -18,6 +18,7 @@ export type NotaView = {
   fecha: string;
   urlOriginal: string;
   original: string;
+  imagenUrl: string | null;
   versiones: VersionView[];
 };
 

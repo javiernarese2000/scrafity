@@ -1,11 +1,13 @@
 "use client";
 
 import { LayoutGroup, motion } from "framer-motion";
-import { Check, ExternalLink, Pencil, X } from "lucide-react";
+import { Check, ExternalLink, Image as ImageIcon, Pencil, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Markdown } from "@/components/ui/markdown";
+import { Field, Modal, inputCls } from "@/components/ui/modal";
 import { cn } from "@/lib/cn";
 import { DiffView } from "./diff-view";
 import { pct, simTone } from "./similarity";
@@ -23,6 +25,7 @@ export function ReviewPanel({
   onAction,
   onSaveEdit,
   onCancelEdit,
+  onSetImagen,
 }: {
   nota: NotaView;
   versionIdx: number;
@@ -33,6 +36,7 @@ export function ReviewPanel({
   onAction: (a: ReviewAction) => void;
   onSaveEdit: (titulo: string, contenido: string) => void;
   onCancelEdit: () => void;
+  onSetImagen: (url: string | null) => void;
 }) {
   const version = nota.versiones[versionIdx] ?? nota.versiones[0]!;
   const sim = simTone(version.similarity);
@@ -44,6 +48,8 @@ export function ReviewPanel({
 
   const [titulo, setTitulo] = useState(version.titulo);
   const [contenido, setContenido] = useState(version.contenido);
+  const [openImg, setOpenImg] = useState(false);
+  const [imgUrl, setImgUrl] = useState("");
 
   useEffect(() => {
     if (editing) {
@@ -137,6 +143,54 @@ export function ReviewPanel({
       </div>
 
       <div className="flex-1 overflow-auto p-6">
+        {/* Imagen de la nota */}
+        {!editing && (
+          <div className="mb-5">
+            {nota.imagenUrl ? (
+              <>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={nota.imagenUrl}
+                  alt=""
+                  className="max-h-64 w-full rounded-[var(--radius)] object-cover"
+                />
+                <div className="mt-2 flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setImgUrl(nota.imagenUrl ?? "");
+                      setOpenImg(true);
+                    }}
+                  >
+                    Reemplazar
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-danger"
+                    onClick={() => onSetImagen(null)}
+                  >
+                    Eliminar imagen
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setImgUrl("");
+                  setOpenImg(true);
+                }}
+              >
+                <ImageIcon className="size-4" />
+                Agregar imagen
+              </Button>
+            )}
+          </div>
+        )}
+
         {editing ? (
           <div className="mx-auto max-w-2xl space-y-3">
             <input
@@ -147,22 +201,20 @@ export function ReviewPanel({
             <textarea
               value={contenido}
               onChange={(e) => setContenido(e.target.value)}
-              className="min-h-[16rem] w-full rounded-[var(--radius)] border border-line bg-surface p-3 text-[15px] leading-relaxed text-fg focus:outline-none focus:ring-2 focus:ring-brand/40"
+              className="min-h-[18rem] w-full rounded-[var(--radius)] border border-line bg-surface p-3 font-mono text-[13px] leading-relaxed text-fg focus:outline-none focus:ring-2 focus:ring-brand/40"
             />
             <p className="font-mono text-xs text-muted">
-              {contenido.split(/\s+/).filter(Boolean).length} palabras
+              Markdown · {contenido.split(/\s+/).filter(Boolean).length} palabras
             </p>
           </div>
         ) : view === "diff" ? (
           <DiffView original={nota.original} revised={version.contenido} />
         ) : (
           <article className="mx-auto max-w-2xl">
-            <h3 className="font-display text-xl font-medium text-fg">
+            <h3 className="mb-3 font-display text-xl font-medium text-fg">
               {version.titulo}
             </h3>
-            <p className="mt-3 whitespace-pre-line text-[15px] leading-relaxed text-fg">
-              {version.contenido}
-            </p>
+            <Markdown>{version.contenido}</Markdown>
           </article>
         )}
       </div>
@@ -206,6 +258,44 @@ export function ReviewPanel({
           </>
         )}
       </div>
+
+      <Modal
+        open={openImg}
+        onClose={() => setOpenImg(false)}
+        title="Imagen de la nota"
+      >
+        <div className="space-y-4">
+          <Field label="URL de la imagen">
+            <input
+              value={imgUrl}
+              onChange={(e) => setImgUrl(e.target.value)}
+              placeholder="https://…/imagen.jpg"
+              className={inputCls}
+            />
+          </Field>
+          {imgUrl.trim() && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={imgUrl.trim()}
+              alt=""
+              className="max-h-40 w-full rounded-lg object-cover"
+            />
+          )}
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setOpenImg(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => {
+                onSetImagen(imgUrl.trim() || null);
+                setOpenImg(false);
+              }}
+            >
+              Guardar
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
