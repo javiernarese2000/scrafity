@@ -1,14 +1,12 @@
-import { Settings } from "lucide-react";
+import { AjustesForm } from "@/components/ajustes/ajustes-form";
+import { estadoProveedores, getAjustes } from "@/server/ajustes";
 
-import { EmptyState } from "@/components/ui/empty-state";
+export const dynamic = "force-dynamic";
 
-export default function AjustesPage() {
-  return (
-    <EmptyState
-      icon={Settings}
-      title="Ajustes"
-      description="Equipo y roles, proveedores de IA, plantillas de prompt y preferencias de la plataforma."
-      proximamente
-    />
-  );
+export default async function AjustesPage() {
+  const [config, proveedores] = await Promise.all([
+    getAjustes(),
+    estadoProveedores(),
+  ]);
+  return <AjustesForm config={config} proveedores={proveedores} />;
 }

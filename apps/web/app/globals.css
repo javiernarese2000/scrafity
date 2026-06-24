@@ -30,6 +30,7 @@
   --color-success: #5f8a6a;
   --color-warning: #c99a3c;
   --color-danger: #b0524a;
+  --color-info: #5b8bb0;
 
   /* Data-viz categórica */
   --color-viz-1: #4a6e8a;
@@ -55,6 +56,7 @@
   --color-brand: #7e9bba;
   --color-brand-foreground: #14130f;
   --color-accent: #d7a85c;
+  --color-info: #7fb0d4;
 }
 
 @layer base {

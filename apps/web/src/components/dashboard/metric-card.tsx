@@ -1,45 +1,43 @@
-import { ArrowDownRight, ArrowUpRight } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
+import { Sparkline } from "@/components/charts/sparkline";
 import { Card } from "@/components/ui/card";
-import { cn } from "@/lib/cn";
 
 export function MetricCard({
   label,
   value,
-  delta,
-  trend,
   hint,
+  icon: Icon,
+  spark,
+  color = "var(--color-brand)",
 }: {
   label: string;
   value: string;
-  delta?: string;
-  trend?: "up" | "down";
   hint?: string;
+  icon: LucideIcon;
+  spark?: number[];
+  color?: string;
 }) {
   return (
-    <Card className="p-6">
-      <p className="text-xs tracking-wide text-muted">{label}</p>
-      <p className="mt-2.5 font-mono text-[1.75rem] font-medium tracking-tight text-fg">
-        {value}
-      </p>
-      {(delta || hint) && (
-        <div className="mt-2 flex items-center gap-1.5 text-xs">
-          {delta && trend && (
-            <span
-              className={cn(
-                "flex items-center gap-0.5 font-medium",
-                trend === "up" ? "text-success" : "text-danger",
-              )}
-            >
-              {trend === "up" ? (
-                <ArrowUpRight className="size-3.5" />
-              ) : (
-                <ArrowDownRight className="size-3.5" />
-              )}
-              {delta}
-            </span>
-          )}
-          {hint && <span className="text-muted">{hint}</span>}
+    <Card className="flex h-full flex-col p-5">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="truncate text-xs tracking-wide text-muted">{label}</p>
+          <p className="mt-2 font-mono text-[1.6rem] font-medium leading-none tracking-tight text-fg">
+            {value}
+          </p>
+          {hint && <p className="mt-1.5 text-[11px] text-muted">{hint}</p>}
+        </div>
+        <span
+          className="grid size-9 shrink-0 place-items-center rounded-lg bg-elevated"
+          style={{ color }}
+        >
+          <Icon className="size-[18px]" />
+        </span>
+      </div>
+      {spark && spark.length > 1 && (
+        <div className="mt-4 pt-1">
+          <Sparkline data={spark} color={color} />
         </div>
       )}
     </Card>

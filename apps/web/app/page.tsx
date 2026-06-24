@@ -1,58 +1,167 @@
-import { ArrowUpRight } from "lucide-react";
+import {
+  articles,
+  db,
+  escenarios,
+  publications,
+  sources,
+  versions,
+} from "@scrapify/db";
+import { and, count, desc, eq, gte, isNull } from "drizzle-orm";
+import {
+  ArrowUpRight,
+  CheckCircle2,
+  DownloadCloud,
+  Inbox,
+  Newspaper,
+  SendHorizontal,
+  Workflow,
+} from "lucide-react";
 import Link from "next/link";
 
-import { AreaTrend } from "@/components/charts/area-trend";
+import { AutoRefresh } from "@/components/dashboard/auto-refresh";
 import { Donut } from "@/components/charts/donut";
 import { MetricCard } from "@/components/dashboard/metric-card";
+import { Pulso, type Bucket } from "@/components/dashboard/pulso";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/card";
 import { Reveal } from "@/components/ui/reveal";
-import {
-  actividad,
-  costoProveedor,
-  estados,
-  fuentes,
-  kpis,
-  trend,
-} from "@/data/mock";
+import { nombreCategoria } from "@/lib/categorias";
 
-const fuenteTono = {
-  activa: "success",
-  lenta: "warning",
-  error: "danger",
-} as const;
+export const dynamic = "force-dynamic";
 
-const fuenteColor = {
+// 12 buckets de 2 h (últimas 24 h): columnas más anchas y legibles.
+const BUCKETS = 12;
+const VENTANA = 2 * 3_600_000;
+
+function bucketsDe(rows: { t: Date; cat: string | null }[]): Bucket[] {
+  const now = Date.now();
+  const buckets: Bucket[] = Array.from({ length: BUCKETS }, (_, i) => {
+    const d = new Date(now - (BUCKETS - 1 - i) * VENTANA);
+    return { label: `${String(d.getHours()).padStart(2, "0")}:00`, cats: [] as string[] };
+  });
+  for (const r of rows) {
+    const idx = BUCKETS - 1 - Math.floor((now - r.t.getTime()) / VENTANA);
+    if (idx >= 0 && idx < BUCKETS) buckets[idx]!.cats.push(nombreCategoria(r.cat));
+  }
+  return buckets;
+}
+
+function relativo(date: Date | null): string {
+  if (!date) return "—";
+  const min = Math.floor((Date.now() - date.getTime()) / 60000);
+  if (min < 1) return "recién";
+  if (min < 60) return `hace ${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `hace ${h} h`;
+  return `hace ${Math.floor(h / 24)} d`;
+}
+
+const estadoColor: Record<string, string> = {
   activa: "var(--color-success)",
-  lenta: "var(--color-warning)",
+  pausada: "var(--color-muted)",
   error: "var(--color-danger)",
-} as const;
+};
 
-const accionColor = {
-  aprobó: "text-success",
-  publicó: "text-brand",
-  editó: "text-accent",
-  rechazó: "text-danger",
-} as const;
+const ESTADO_DONUT: { estado: string; label: string; color: string }[] = [
+  { estado: "en_revision", label: "En revisión", color: "var(--color-warning)" },
+  { estado: "aprobada", label: "Aprobadas", color: "var(--color-brand)" },
+  { estado: "publicada", label: "Publicadas", color: "var(--color-success)" },
+  { estado: "rechazada", label: "Rechazadas", color: "var(--color-danger)" },
+];
 
-export default function DashboardPage() {
-  const costoMax = Math.max(...costoProveedor.map((c) => c.costo));
-  const costoTotal = costoProveedor.reduce((a, c) => a + c.costo, 0);
+export default async function DashboardPage() {
+  const inicioHoy = new Date();
+  inicioHoy.setHours(0, 0, 0, 0);
+  const hace24h = new Date(Date.now() - 24 * 3_600_000);
+
+  const n = (rows: { n: number }[]) => Number(rows[0]?.n ?? 0);
+
+  const [
+    ingestadasHoy,
+    enCuraduria,
+    enRevision,
+    enCola,
+    publicadasHoy,
+    entradaRows,
+    salidaRows,
+    versEstado,
+    fuentesRows,
+    escenariosRows,
+  ] = await Promise.all([
+    db.select({ n: count() }).from(articles).where(and(gte(articles.createdAt, inicioHoy), isNull(articles.deletedAt))).then(n),
+    db.select({ n: count() }).from(articles).where(and(eq(articles.curacion, "pendiente"), isNull(articles.deletedAt))).then(n),
+    db.select({ n: count() }).from(versions).where(eq(versions.estado, "en_revision")).then(n),
+    db.select({ n: count() }).from(publications).where(eq(publications.estado, "en_cola")).then(n),
+    db.select({ n: count() }).from(publications).where(and(eq(publications.estado, "publicada"), gte(publications.updatedAt, inicioHoy))).then(n),
+    db
+      .select({ t: articles.createdAt, cat: articles.categoria, tags: articles.tags })
+      .from(articles)
+      .where(and(gte(articles.createdAt, hace24h), isNull(articles.deletedAt))),
+    db
+      .select({ t: publications.updatedAt, cat: publications.categoria })
+      .from(publications)
+      .where(and(eq(publications.estado, "publicada"), gte(publications.updatedAt, hace24h))),
+    db.select({ estado: versions.estado, n: count() }).from(versions).groupBy(versions.estado),
+    db.select().from(sources).orderBy(desc(sources.createdAt)),
+    db
+      .select({ nombre: escenarios.nombre, activo: escenarios.activo, moderacion: escenarios.moderacion })
+      .from(escenarios)
+      .orderBy(desc(escenarios.createdAt)),
+  ]);
+
+  const escenariosActivos = escenariosRows.filter((e) => e.activo);
+  const autoPublican = escenariosActivos.filter((e) => !e.moderacion).length;
+
+  const entrada = bucketsDe(
+    entradaRows.map((r) => ({ t: r.t, cat: r.cat ?? r.tags?.[0] ?? null })),
+  );
+  const salida = bucketsDe(salidaRows.map((r) => ({ t: r.t, cat: r.cat })));
+
+  const conteo = new Map<string, number>();
+  for (const b of [...entrada, ...salida])
+    for (const c of b.cats) conteo.set(c, (conteo.get(c) ?? 0) + 1);
+  const leyenda = [...conteo.entries()]
+    .map(([nombre, c]) => ({ nombre, count: c }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 8);
+
+  const estadoMap = new Map<string, number>(
+    versEstado.map((v) => [v.estado as string, Number(v.n)]),
+  );
+  const donut = ESTADO_DONUT.map((e) => ({
+    label: e.label,
+    value: estadoMap.get(e.estado) ?? 0,
+    color: e.color,
+  })).filter((d) => d.value > 0);
+
+  const hora = new Date().getHours();
+  const saludo = hora < 13 ? "Buen día" : hora < 20 ? "Buenas tardes" : "Buenas noches";
+  const fecha = new Date().toLocaleDateString("es-AR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
 
   return (
     <div className="mx-auto max-w-7xl space-y-8">
+      <AutoRefresh seconds={20} />
       <Reveal className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="font-mono text-xs uppercase tracking-widest text-accent">
-            Viernes 21 de junio
-          </p>
+          <p className="font-mono text-xs uppercase tracking-widest text-accent">{fecha}</p>
           <h2 className="mt-1 font-display text-[2rem] font-medium tracking-tight text-fg">
-            Buen día, Javier
+            {saludo}, Javier
           </h2>
           <p className="mt-1 text-sm text-muted">
-            Tenés <span className="font-medium text-fg">23 notas</span> esperando
-            moderación.
+            Tenés{" "}
+            <Link href="/moderacion" className="font-medium text-fg hover:text-brand">
+              {enRevision} en moderación
+            </Link>{" "}
+            y{" "}
+            <Link href="/curaduria" className="font-medium text-fg hover:text-brand">
+              {enCuraduria} en la bandeja de entrada
+            </Link>
+            .
           </p>
         </div>
         <Link href="/pegar">
@@ -63,41 +172,48 @@ export default function DashboardPage() {
         </Link>
       </Reveal>
 
-      {/* KPIs */}
+      {/* KPIs reales */}
       <div className="grid grid-cols-2 gap-5 lg:grid-cols-5">
         {[
           <MetricCard
             key="1"
             label="Ingestadas hoy"
-            value={String(kpis.ingestadasHoy)}
-            delta="12%"
-            trend="up"
+            value={String(ingestadasHoy)}
+            icon={DownloadCloud}
+            spark={entrada.map((b) => b.cats.length)}
+            color="var(--color-brand)"
           />,
           <MetricCard
             key="2"
-            label="En revisión"
-            value={String(kpis.enRevision)}
-            hint="pendientes"
+            label="En entrada"
+            value={String(enCuraduria)}
+            hint="sin procesar"
+            icon={Inbox}
+            color="var(--color-accent)"
           />,
           <MetricCard
             key="3"
-            label="Publicadas hoy"
-            value={String(kpis.publicadasHoy)}
-            delta="5%"
-            trend="up"
+            label="En moderación"
+            value={String(enRevision)}
+            hint="versiones"
+            icon={Newspaper}
+            color="var(--color-warning)"
           />,
           <MetricCard
             key="4"
-            label="Costo IA hoy"
-            value={`$${kpis.costoHoy.toFixed(2)}`}
-            delta="3%"
-            trend="down"
+            label="En cola"
+            value={String(enCola)}
+            hint="bandeja"
+            icon={SendHorizontal}
+            color="var(--color-info)"
           />,
           <MetricCard
             key="5"
-            label="Similitud media"
-            value={`${Math.round(kpis.similitudMedia * 100)}%`}
-            hint="bajo riesgo"
+            label="Publicadas hoy"
+            value={String(publicadasHoy)}
+            icon={CheckCircle2}
+            spark={salida.map((b) => b.cats.length)}
+            color="var(--color-success)"
           />,
         ].map((card, i) => (
           <Reveal key={i} delay={0.04 * i}>
@@ -106,62 +222,86 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* Tendencia + estados */}
+      {/* Pulso (entrada vs salida) */}
+      <Reveal delay={0.1}>
+        <Pulso entrada={entrada} salida={salida} leyenda={leyenda} />
+      </Reveal>
+
+      {/* Estados + fuentes */}
       <div className="grid gap-6 lg:grid-cols-3">
-        <Reveal delay={0.1} className="lg:col-span-2">
-          <Card>
-            <CardHeader>
-              <CardTitle>Notas por día</CardTitle>
-              <Badge>Últimos 14 días</Badge>
-            </CardHeader>
-            <CardBody>
-              <AreaTrend data={trend} />
-            </CardBody>
-          </Card>
-        </Reveal>
         <Reveal delay={0.15}>
           <Card className="h-full">
             <CardHeader>
               <CardTitle>Versiones por estado</CardTitle>
             </CardHeader>
             <CardBody>
-              <Donut data={estados} />
+              {donut.length > 0 ? (
+                <Donut data={donut} />
+              ) : (
+                <p className="py-8 text-center text-sm text-muted">Sin versiones todavía.</p>
+              )}
             </CardBody>
           </Card>
         </Reveal>
-      </div>
 
-      {/* Costo + fuentes + actividad */}
-      <div className="grid gap-6 lg:grid-cols-3">
         <Reveal delay={0.2}>
-          <Card className="h-full">
+          <Card className="flex h-full flex-col">
             <CardHeader>
-              <CardTitle>Costo de IA por proveedor</CardTitle>
-              <span className="font-mono text-sm font-medium text-fg">
-                ${costoTotal.toFixed(2)}
+              <CardTitle>Escenarios</CardTitle>
+              <span className="grid size-8 place-items-center rounded-lg bg-elevated text-brand">
+                <Workflow className="size-4" />
               </span>
             </CardHeader>
-            <CardBody className="space-y-4">
-              {costoProveedor.map((c) => (
-                <div key={c.proveedor}>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted">{c.proveedor}</span>
-                    <span className="font-mono font-medium text-fg">
-                      ${c.costo.toFixed(2)}
+            <CardBody className="flex flex-1 flex-col">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-[var(--radius)] bg-elevated/40 p-3">
+                  <p className="font-mono text-2xl font-medium text-fg">
+                    {escenariosActivos.length}
+                    <span className="ml-1 text-sm text-muted">
+                      /{escenariosRows.length}
                     </span>
-                  </div>
-                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-elevated">
-                    <div
-                      className="h-full rounded-full"
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted">activos</p>
+                </div>
+                <div className="rounded-[var(--radius)] bg-elevated/40 p-3">
+                  <p className="font-mono text-2xl font-medium text-fg">
+                    {autoPublican}
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted">auto-publican</p>
+                </div>
+              </div>
+
+              <ul className="mt-4 space-y-2">
+                {escenariosRows.slice(0, 4).map((e) => (
+                  <li key={e.nombre} className="flex items-center gap-2.5 text-sm">
+                    <span
+                      className="size-2 shrink-0 rounded-full"
                       style={{
-                        width: `${(c.costo / costoMax) * 100}%`,
-                        backgroundColor: c.color,
+                        backgroundColor: e.activo
+                          ? "var(--color-success)"
+                          : "var(--color-muted)",
                       }}
                     />
-                  </div>
-                </div>
-              ))}
-              <p className="pt-1 text-xs text-muted">Últimos 7 días</p>
+                    <span className="truncate text-fg">{e.nombre}</span>
+                    <Badge
+                      tone={e.moderacion ? "neutral" : "info"}
+                      className="ml-auto"
+                    >
+                      {e.moderacion ? "modera" : "auto"}
+                    </Badge>
+                  </li>
+                ))}
+                {escenariosRows.length === 0 && (
+                  <li className="text-sm text-muted">Sin escenarios todavía.</li>
+                )}
+              </ul>
+
+              <Link href="/escenarios" className="mt-auto pt-4">
+                <Button variant="outline" className="w-full">
+                  Abrir Escenarios
+                  <ArrowUpRight className="size-4" />
+                </Button>
+              </Link>
             </CardBody>
           </Card>
         </Reveal>
@@ -170,49 +310,28 @@ export default function DashboardPage() {
           <Card className="h-full">
             <CardHeader>
               <CardTitle>Salud de fuentes</CardTitle>
-              <Badge tone="success">{fuentes.length} activas</Badge>
+              <Badge tone="success">
+                {fuentesRows.filter((f) => f.estado === "activa").length} activas
+              </Badge>
             </CardHeader>
             <CardBody className="space-y-3">
-              {fuentes.map((f) => (
-                <div key={f.id} className="flex items-center gap-3 text-sm">
-                  <span
-                    className="size-2 shrink-0 rounded-full"
-                    style={{ backgroundColor: fuenteColor[f.estado] }}
-                  />
-                  <span className="font-medium text-fg">{f.nombre}</span>
-                  <Badge tone={fuenteTono[f.estado]} className="ml-auto">
-                    {f.tipo}
-                  </Badge>
-                  <span className="w-20 text-right text-xs text-muted">
-                    {f.ultimaLectura}
-                  </span>
-                </div>
-              ))}
-            </CardBody>
-          </Card>
-        </Reveal>
-
-        <Reveal delay={0.3}>
-          <Card className="h-full">
-            <CardHeader>
-              <CardTitle>Actividad reciente</CardTitle>
-            </CardHeader>
-            <CardBody className="space-y-4">
-              {actividad.map((a) => (
-                <div key={a.id} className="flex items-start gap-3">
-                  <span className="grid size-8 shrink-0 place-items-center rounded-full bg-brand/15 text-xs font-medium text-brand">
-                    {a.iniciales}
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-sm leading-snug text-fg">
-                      <span className="font-medium">{a.usuario}</span>{" "}
-                      <span className={accionColor[a.accion]}>{a.accion}</span>{" "}
-                      <span className="text-muted">«{a.nota}»</span>
-                    </p>
-                    <p className="mt-0.5 text-xs text-muted">{a.cuando}</p>
+              {fuentesRows.length === 0 ? (
+                <p className="text-sm text-muted">No hay fuentes cargadas.</p>
+              ) : (
+                fuentesRows.slice(0, 6).map((f) => (
+                  <div key={f.id} className="flex items-center gap-3 text-sm">
+                    <span
+                      className="size-2 shrink-0 rounded-full"
+                      style={{ backgroundColor: estadoColor[f.estado] ?? "var(--color-muted)" }}
+                    />
+                    <span className="truncate font-medium text-fg">{f.nombre ?? f.url}</span>
+                    <Badge className="ml-auto">{f.tipo.toUpperCase()}</Badge>
+                    <span className="w-24 text-right text-xs text-muted">
+                      {relativo(f.lastCheck)}
+                    </span>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </CardBody>
           </Card>
         </Reveal>

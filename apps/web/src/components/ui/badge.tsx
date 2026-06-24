@@ -14,6 +14,7 @@ const badge = cva(
         warning: "bg-warning/15 text-warning",
         danger: "bg-danger/15 text-danger",
         accent: "bg-accent/15 text-accent",
+        info: "bg-info/15 text-info",
       },
     },
     defaultVariants: { tone: "neutral" },
