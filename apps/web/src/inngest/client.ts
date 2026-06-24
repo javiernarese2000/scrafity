@@ -7,4 +7,5 @@ export type RewriteRequested = {
   nVersiones: number;
   tono?: string;
   proveedor?: "deepseek" | "claude" | "auto";
+  escenarioId?: string | null;
 };

@@ -1,5 +1,5 @@
 import { articles, db, destinations, versions } from "@scrapify/db";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 
 import { ModerationBoard } from "@/components/moderacion/moderation-board";
 import type {
@@ -41,7 +41,7 @@ export default async function ModeracionPage() {
     })
     .from(versions)
     .innerJoin(articles, eq(versions.articleId, articles.id))
-    .where(eq(versions.estado, "en_revision"))
+    .where(and(eq(versions.estado, "en_revision"), isNull(articles.deletedAt)))
     .orderBy(desc(articles.createdAt));
 
   const map = new Map<string, NotaView>();

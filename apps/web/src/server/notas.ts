@@ -3,16 +3,14 @@
 import crypto from "node:crypto";
 
 import { Readability } from "@mozilla/readability";
-import { articles, db, rewriteJobs, versions } from "@scrapify/db";
-import { eq } from "drizzle-orm";
+import { articles, db } from "@scrapify/db";
 import { parseHTML } from "linkedom";
 import { revalidatePath } from "next/cache";
 import TurndownService from "turndown";
 import { gfm } from "turndown-plugin-gfm";
 
-import { generate, type ProviderName } from "@/ai";
-import { buildRewritePrompt, parseRewrite } from "@/ai/prompt";
-import { computeSimilarity } from "@/lib/diff";
+import type { ProviderName } from "@/ai";
+import { generarVersionesCore } from "./generar";
 
 const turndown = new TurndownService({
   headingStyle: "atx",
@@ -105,36 +103,6 @@ export async function extraerNota(url: string): Promise<ExtractResult> {
   }
 }
 
-async function clasificarTags(
-  titulo: string,
-  contenido: string,
-  proveedor: ProviderName | "auto",
-): Promise<string[]> {
-  try {
-    const r = await generate(
-      {
-        system:
-          "Clasificá la noticia. Devolvé SOLO 2 a 4 etiquetas separadas por comas, " +
-          "en español y en minúsculas, sin numerar ni explicar. La primera debe ser la " +
-          "categoría general (economía, política, deportes, sociedad, tecnología, " +
-          "espectáculos, internacional, etc.). Si el contenido es atemporal/evergreen, " +
-          "agregá la etiqueta 'evergreen'.",
-        prompt: `Título: ${titulo}\n\n${contenido.slice(0, 1200)}`,
-        temperature: 0.2,
-        maxTokens: 60,
-      },
-      proveedor,
-    );
-    return r.text
-      .split(",")
-      .map((s) => s.trim().toLowerCase())
-      .filter(Boolean)
-      .slice(0, 4);
-  } catch {
-    return [];
-  }
-}
-
 export async function generarVersiones(input: {
   url: string;
   fuente: string;
@@ -159,58 +127,11 @@ export async function generarVersiones(input: {
     })
     .returning();
 
-  const [job] = await db
-    .insert(rewriteJobs)
-    .values({
-      articleId: art!.id,
-      nVersiones: input.nVersiones,
-      tono: input.tono,
-      proveedor: input.proveedor,
-      estado: "generando",
-    })
-    .returning();
-
-  const { system, prompt } = buildRewritePrompt(
-    input.titulo,
-    input.contenido,
-    input.tono,
-  );
-
-  const [results, tags] = await Promise.all([
-    Promise.all(
-      Array.from({ length: input.nVersiones }, () =>
-        generate(
-          { system, prompt, temperature: 0.9, maxTokens: 3000 },
-          input.proveedor,
-        ),
-      ),
-    ),
-    clasificarTags(input.titulo, input.contenido, input.proveedor),
-  ]);
-
-  if (tags.length) {
-    await db.update(articles).set({ tags }).where(eq(articles.id, art!.id));
-  }
-
-  for (const r of results) {
-    const { titulo, contenido } = parseRewrite(r.text, input.titulo);
-    await db.insert(versions).values({
-      articleId: art!.id,
-      rewriteJobId: job!.id,
-      titulo,
-      contenido,
-      similarityScore: computeSimilarity(input.contenido, contenido),
-      proveedor: r.provider,
-      tokensIn: r.tokensIn,
-      tokensOut: r.tokensOut,
-      estado: "en_revision",
-    });
-  }
-
-  await db
-    .update(rewriteJobs)
-    .set({ estado: "completado", updatedAt: new Date() })
-    .where(eq(rewriteJobs.id, job!.id));
+  await generarVersionesCore(art!.id, {
+    nVersiones: input.nVersiones,
+    tono: input.tono,
+    proveedor: input.proveedor,
+  });
 
   revalidatePath("/moderacion");
   revalidatePath("/biblioteca");

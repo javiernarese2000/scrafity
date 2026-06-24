@@ -12,6 +12,7 @@ import {
   rechazarNota,
   setImagen,
 } from "@/server/moderacion";
+import { enviarACola } from "@/server/cola";
 import { publicar, type Asignacion } from "@/server/publicar";
 import { PublishDialog } from "./publish-dialog";
 import { QueueList } from "./queue-list";
@@ -63,11 +64,30 @@ export function ModerationBoard({
   function doPublicar(asignaciones: Asignacion[]) {
     if (!nota) return;
     startTransition(async () => {
-      await publicar(nota.id, asignaciones);
+      const r = await publicar(nota.id, asignaciones);
+      setPublishOpen(false);
+      if (r.errores.length === 0) {
+        setSelectedId(null);
+        setVersionIdx(0);
+        show(`Publicada en ${r.publicadas}`);
+      } else if (r.publicadas === 0) {
+        show(`Falló: ${r.errores[0]!.error}`);
+      } else {
+        setSelectedId(null);
+        setVersionIdx(0);
+        show(`Publicada en ${r.publicadas}, falló en ${r.errores.length}`);
+      }
+    });
+  }
+
+  function doEnviarCola(asignaciones: Asignacion[]) {
+    if (!nota) return;
+    startTransition(async () => {
+      await enviarACola(nota.id, asignaciones);
       setPublishOpen(false);
       setSelectedId(null);
       setVersionIdx(0);
-      show(`Publicada en ${asignaciones.length}`);
+      show(`Enviada a la cola (${asignaciones.length})`);
     });
   }
 
@@ -154,6 +174,7 @@ export function ModerationBoard({
         destinos={destinos}
         defaultVersionId={(nota.versiones[versionIdx] ?? nota.versiones[0]!).id}
         onConfirm={doPublicar}
+        onQueue={doEnviarCola}
       />
 
       <Toast message={message} />

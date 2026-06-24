@@ -18,6 +18,7 @@ import {
   type FuenteEstado,
   type FuenteTipo,
 } from "@/server/fuentes";
+import { IngestPanel } from "./ingest-panel";
 
 export type FuenteRow = {
   id: string;
@@ -92,6 +93,8 @@ export function FuentesBoard({ fuentes }: { fuentes: FuenteRow[] }) {
           </Button>
         }
       />
+
+      <IngestPanel />
 
       <div className="mb-6 grid grid-cols-3 gap-4">
         <Stat label="Total" value={String(fuentes.length)} />
