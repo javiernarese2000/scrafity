@@ -45,16 +45,66 @@ destinos — el último paso**.
   permite elegir versión Y portada por cada diario. El feed usa esa portada (fallback a la de la nota).
 - `publicar()` corregido: al publicar, solo descarta borradores **en revisión**; no pisa versiones
   ya publicadas (clave para republicar).
-- Pendiente imágenes: **Multimedia** (biblioteca global reutilizable) — sección aparte, después.
+- **Multimedia** (biblioteca global) — HECHO (2026-06): tabla `media` (url, path, nombre, tags[],
+  migración 0013) en el bucket `imagenes` (carpeta `media/`). `src/server/media.ts`: subirMedia
+  (con tags), buscarMedia (por nombre o tag, SQL unnest ilike), setTagsMedia, eliminarMedia.
+  Página **/multimedia** (nav, icono Images): grilla + búsqueda + subir con tags + editar tags + borrar.
+  **MediaPicker** (`components/media/media-picker.tsx`): modal con **buscador** (ej. "messi") + subir,
+  reusable. Integrado en la **galería de la nota** (botón "Biblioteca") → `usarEnNota(articleId,url)`
+  setea portada + suma a la galería. Badge sin cambios.
 
 ## Publicación (Paso B) — parcial (2026-06)
 - Moderación: el botón pasa a **"Publicar…"** → diálogo para elegir **destinos** y **versión por
   destino** (modelo mixto). Crea filas en `publications` (`src/server/publicar.ts`).
 - **Sitios propios**: publicación queda `publicada` y se sirve por **feed público**
   `GET /api/feed/[destinoId]` (sin auth; excluido en `proxy.ts`). Verificado.
-- **WordPress de clientes**: la publicación queda `pendiente` (falta el conector REST API).
+- **WordPress de clientes**: CONECTOR LISTO (2026-06). `src/server/wordpress.ts` publica vía
+  REST API (`/wp-json/wp/v2/posts`, status `publish`) con **Application Passwords** (Basic Auth).
+  Markdown→HTML con `marked`; sube la portada a `/wp/v2/media` y la asigna como `featured_media`
+  (si falla la imagen, publica igual). Credenciales **cifradas AES-256-GCM** (`src/lib/crypto.ts`,
+  clave en `.env` `ENCRYPTION_KEY`, nunca en repo) guardadas en `destinations.credencialesCifradas`.
+  Alta de destino WP pide usuario + app-password con botón **"Probar conexión"** (`/wp/v2/users/me`).
+  `publicar()` empuja a WP: queda `publicada` (con `urlPublicada`/`externalId`) o `error` (con detalle,
+  reintentable desde Biblioteca); usa `onConflictDoUpdate` para permitir reintentos.
 - Al publicar, las versiones elegidas → `publicada`, el resto → `rechazada` (sale de la cola).
-- Falta: conector WordPress (credenciales cifradas), e ingesta automática (Paso C).
+- VERIFICADO end-to-end contra un WordPress real (2026-06): demo en HTTP con
+  `WP_ENVIRONMENT_TYPE='local'` (App Passwords exige HTTPS salvo entorno local). Posts crean OK.
+  Nota: HTTP plano = Basic Auth en texto → en producción el WP del cliente debe ser HTTPS.
+- **Gotchas resueltos en la puesta a punto (clave para el próximo WP):**
+  1. App Passwords exige HTTPS → para demo: `define('WP_ENVIRONMENT_TYPE','local')` en wp-config.php.
+  2. Apache borra la cabecera `Authorization` → agregar en `.htaccess` la regla
+     `RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]` (WP ya la inserta en su bloque).
+     Diagnóstico definitivo: un `.php` que vuelca `$_SERVER` y ver si llega `PHP_AUTH_USER`.
+  3. El "usuario" de Basic Auth es el **user_login** (no el email).
+  4. La contraseña debe ser una **Application Password** (`xxxx xxxx ...`), NO la clave de la cuenta.
+  5. "Probar conexión" (`/users/me`) valida login pero NO el permiso de publicar; mejorado para
+     avisar si el rol no puede publicar (chequea `capabilities.publish_posts` con context=edit).
+- **Enriquecimiento del post (2026-06):** el conector manda `excerpt` (primer párrafo limpio,
+  ≤300 chars) e inserta `<!--more-->` tras el primer párrafo. **Categorías:** se eligen al publicar
+  (el diálogo trae las categorías reales del WP vía `/wp/v2/categories`, carga lazy por destino);
+  se mandan por ID en `categories`. **Tags:** los tags de la nota se resuelven/crean como etiquetas
+  de WP (`/wp/v2/tags`, buscar o crear; si una falla no frena). `Asignacion` ahora lleva `categoriaId`.
+- `publicar()` devuelve `ResultadoPublicacion {publicadas, errores[]}`; el toast muestra el resultado
+  real (antes mentía). Una versión cuyo push a WP falla queda reintentable (no se marca publicada).
+- Falta: ingesta automática (Paso C).
+
+## Dashboard real + Pulso (2026-06)
+Reemplazado el dashboard mock por datos reales (`app/page.tsx`, server, force-dynamic):
+- **KPIs reales**: ingestadas hoy, en curaduría, en moderación, en cola, publicadas hoy.
+- **Pulso** (`components/dashboard/pulso.tsx`): rescatado de `vox-nebula` (proyecto del usuario en
+  C:/Work/Testing/vox-nebula, monitor 3D de noticias). Timeline de 2 carriles **Entrada (ingesta)** vs
+  **Salida (publicaciones)**, barritas por hora (24 buckets) coloreadas por categoría, con leyenda +
+  contadores. Es DOM+framer-motion (sin Three.js). Color por categoría: `lib/categorias.ts`
+  `colorCategoria` (map fijo de categorías comunes a `--color-viz-*` + hash estable para el resto).
+- **Versiones por estado** (donut real) + **Salud de fuentes** (real, desde `sources`).
+- vox-nebula: queda pendiente/opcional el **Hero 3D** (core/red neuronal R3F) — pesado (Three.js),
+  habría que recolorear a tokens cálidos. Rescatado solo lo liviano (pulso/leyenda).
+- **En vivo**: `components/dashboard/auto-refresh.tsx` (router.refresh cada 20s). Las fichas del pulso
+  **caen desde arriba** (framer y:-16→0); como el refresh es soft, solo se animan las nuevas.
+- **Mejoras de diseño (2026-06)**: MetricCard con **icono** (cuadrado suave, color por métrica) +
+  **sparkline** (`charts/sparkline.tsx`) en ingestadas/publicadas. Pulso más **alto** (SEG5/MAXSEG26)
+  con **líneas verticales** por hora (cada 2h) + fondo de dots. Nuevo **panel Escenarios** (activos/total,
+  auto-publican, lista + botón "Abrir Escenarios"). Badge ganó tono `info`. Token `--color-info` ya existía.
 
 ## Decisiones tomadas (resumen)
 - Lenguaje: **TypeScript full-stack** (Next.js + Node, monorepo).
