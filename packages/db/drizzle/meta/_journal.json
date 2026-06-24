@@ -50,6 +50,62 @@
       "when": 1782139778153,
       "tag": "0006_huge_ricochet",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1782188282787,
+      "tag": "0007_outstanding_umar",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1782190170549,
+      "tag": "0008_big_enchantress",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1782191569629,
+      "tag": "0009_brave_zuras",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1782197569846,
+      "tag": "0010_thin_princess_powerful",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1782214856629,
+      "tag": "0011_square_morph",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1782222897535,
+      "tag": "0012_puzzling_the_hood",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1782328557681,
+      "tag": "0013_fat_bloodscream",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1782333121984,
+      "tag": "0014_soft_fantastic_four",
+      "breakpoints": true
     }
   ]
 }

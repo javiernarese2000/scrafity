@@ -41,8 +41,25 @@ export const destinationType = pgEnum("destination_type", [
 ]);
 export const publicationStatus = pgEnum("publication_status", [
   "pendiente",
+  "en_cola",
   "publicada",
   "error",
+]);
+
+// Config de ritmo de despacho por destino (bandeja de salida).
+export type Cadencia = {
+  cantidad: number; // cuántas notas por tanda
+  cadaMinutos: number; // cada cuánto sale una tanda
+  franjaInicio: number; // hora 0-23 desde la que se despacha
+  franjaFin: number; // hora 0-23 hasta la que se despacha
+  modo: "equilibrado" | "random"; // cómo elige la próxima
+  activo: boolean; // si el despachador automático está encendido
+};
+// Curaduría previa: lo ingestado entra crudo y un humano decide antes de gastar IA.
+export const articleCuracion = pgEnum("article_curacion", [
+  "pendiente",
+  "aprobada",
+  "descartada",
 ]);
 
 const timestamps = {
@@ -84,6 +101,16 @@ export const articles = pgTable(
     sourceId: uuid("source_id").references(() => sources.id, {
       onDelete: "set null",
     }),
+    // Estado de curaduría: 'aprobada' por defecto (flujo manual y datos previos);
+    // la ingesta crea las notas como 'pendiente' hasta que un humano aprueba.
+    curacion: articleCuracion("curacion").notNull().default("aprobada"),
+    // Categoría editorial de la nota (la sugiere la IA, editable). Se usa para
+    // las columnas de la bandeja y como categoría en WordPress.
+    categoria: text("categoria"),
+    // Escenario que matcheó en la ingesta (define params de generación al aprobar).
+    escenarioId: uuid("escenario_id").references(() => escenarios.id, {
+      onDelete: "set null",
+    }),
     urlOriginal: text("url_original").notNull(),
     autor: text("autor"),
     titulo: text("titulo"),
@@ -105,6 +132,8 @@ export const articles = pgTable(
       .array()
       .notNull()
       .default(sql`'{}'::text[]`),
+    // Papelera (soft delete): si tiene fecha, está en la papelera; null = activa.
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
     fechaOriginal: timestamp("fecha_original", { withTimezone: true }),
     ...timestamps,
   },
@@ -116,6 +145,10 @@ export const rewriteJobs = pgTable("rewrite_jobs", {
   articleId: uuid("article_id")
     .notNull()
     .references(() => articles.id, { onDelete: "cascade" }),
+  // Escenario que disparó el job (flujo automático); null en el manual.
+  escenarioId: uuid("escenario_id").references(() => escenarios.id, {
+    onDelete: "set null",
+  }),
   nVersiones: integer("n_versiones").notNull().default(1),
   tono: text("tono"),
   proveedor: aiProvider("proveedor").notNull().default("auto"),
@@ -154,6 +187,8 @@ export const destinations = pgTable("destinations", {
   configApi: jsonb("config_api").$type<Record<string, unknown>>().default({}),
   // Credenciales cifradas (nunca en texto plano).
   credencialesCifradas: text("credenciales_cifradas"),
+  // Ritmo de despacho de la bandeja de salida (null = sin auto-despacho).
+  cadencia: jsonb("cadencia").$type<Cadencia>(),
   estado: sourceStatus("estado").notNull().default("activa"),
   ...timestamps,
 });
@@ -169,6 +204,10 @@ export const publications = pgTable(
       .notNull()
       .references(() => destinations.id, { onDelete: "cascade" }),
     estado: publicationStatus("estado").notNull().default("pendiente"),
+    // Categoría (1er tag de la nota) para agrupar en la bandeja por columnas.
+    categoria: text("categoria"),
+    // Marca de prioridad: el despachador la suelta antes que el resto.
+    prioridad: boolean("prioridad").notNull().default(false),
     // Portada elegida para este destino (cae a articles.imagen_url si es null).
     imagenUrl: text("imagen_url"),
     urlPublicada: text("url_publicada"),
@@ -182,6 +221,65 @@ export const publications = pgTable(
     uniqueIndex("publications_idempotency_idx").on(t.idempotencyKey),
   ],
 );
+
+/** Progreso por fuente dentro de una corrida de ingesta. */
+export type FuenteProgreso = {
+  nombre: string;
+  estado: "pendiente" | "corriendo" | "ok" | "error";
+  nuevas: number;
+  generadas: number;
+};
+
+export const ingestRuns = pgTable("ingest_runs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  // corriendo | completado | error
+  estado: text("estado").notNull().default("corriendo"),
+  nuevas: integer("nuevas").notNull().default(0),
+  generadas: integer("generadas").notNull().default(0),
+  saltadas: integer("saltadas").notNull().default(0),
+  errores: text("errores")
+    .array()
+    .notNull()
+    .default(sql`'{}'::text[]`),
+  fuentes: jsonb("fuentes")
+    .$type<FuenteProgreso[]>()
+    .notNull()
+    .default(sql`'[]'::jsonb`),
+  startedAt: timestamp("started_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  finishedAt: timestamp("finished_at", { withTimezone: true }),
+});
+
+// Configuración global de la plataforma (una sola fila, id 'global').
+export type AjustesConfig = {
+  similitudObjetivo: number; // 0..1 — tope de similitud al que apunta la generación
+  maxPorFuente: number; // ítems nuevos por fuente por corrida de ingesta
+  retencionDias: number; // días antes de mandar lo descartable a la papelera
+  papeleraDias: number; // días en la papelera antes del borrado definitivo
+};
+
+export const ajustes = pgTable("ajustes", {
+  id: text("id").primaryKey().default("global"),
+  config: jsonb("config").$type<AjustesConfig>(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+// Biblioteca global de imágenes reutilizables, con tags para búsqueda.
+export const media = pgTable("media", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  url: text("url").notNull(),
+  // Ruta en Storage (para poder borrar el archivo).
+  path: text("path").notNull(),
+  nombre: text("nombre"),
+  tags: text("tags")
+    .array()
+    .notNull()
+    .default(sql`'{}'::text[]`),
+  ...timestamps,
+});
 
 export const auditLog = pgTable("audit_log", {
   id: bigint("id", { mode: "number" }).primaryKey().generatedByDefaultAsIdentity(),

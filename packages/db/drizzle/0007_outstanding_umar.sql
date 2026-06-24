@@ -1,0 +1,2 @@
+ALTER TABLE "rewrite_jobs" ADD COLUMN "escenario_id" uuid;--> statement-breakpoint
+ALTER TABLE "rewrite_jobs" ADD CONSTRAINT "rewrite_jobs_escenario_id_escenarios_id_fk" FOREIGN KEY ("escenario_id") REFERENCES "public"."escenarios"("id") ON DELETE set null ON UPDATE no action;
