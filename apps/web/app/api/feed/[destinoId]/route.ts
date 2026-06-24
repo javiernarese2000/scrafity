@@ -1,5 +1,5 @@
 import { articles, db, publications, versions } from "@scrapify/db";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +25,7 @@ export async function GET(
       and(
         eq(publications.destinationId, destinoId),
         eq(publications.estado, "publicada"),
+        isNull(articles.deletedAt),
       ),
     )
     .orderBy(desc(publications.createdAt));

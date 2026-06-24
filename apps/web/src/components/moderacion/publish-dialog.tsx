@@ -1,7 +1,7 @@
 "use client";
 
 import { Globe, Send } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
@@ -9,7 +9,10 @@ import { cn } from "@/lib/cn";
 import type { Asignacion } from "@/server/publicar";
 import type { DestinoLite } from "./types";
 
-type Sel = { versionId: string; imagenUrl: string | null };
+type Sel = {
+  versionId: string;
+  imagenUrl: string | null;
+};
 
 export function PublishDialog({
   open,
@@ -20,6 +23,7 @@ export function PublishDialog({
   destinos,
   defaultVersionId,
   onConfirm,
+  onQueue,
 }: {
   open: boolean;
   onClose: () => void;
@@ -29,11 +33,19 @@ export function PublishDialog({
   destinos: DestinoLite[];
   defaultVersionId: string;
   onConfirm: (asignaciones: Asignacion[]) => void;
+  onQueue?: (asignaciones: Asignacion[]) => void;
 }) {
   const defaultCover = covers[0] ?? null;
   const [sel, setSel] = useState<Record<string, Sel>>({});
 
-  function toggle(id: string) {
+  // Resetear la selección al abrir o al cambiar de nota: si no, quedan destinos
+  // marcados con el versionId de la nota anterior (encola/publica la equivocada).
+  useEffect(() => {
+    if (open) setSel({});
+  }, [open, defaultVersionId]);
+
+  function toggle(destino: DestinoLite) {
+    const id = destino.id;
     setSel((prev) => {
       const next = { ...prev };
       if (next[id]) delete next[id];
@@ -80,7 +92,7 @@ export function PublishDialog({
                       <input
                         type="checkbox"
                         checked={selected}
-                        onChange={() => toggle(d.id)}
+                        onChange={() => toggle(d)}
                         className="size-4 accent-[var(--color-brand)]"
                       />
                       <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-elevated text-muted">
@@ -154,11 +166,20 @@ export function PublishDialog({
           <Button variant="ghost" onClick={onClose}>
             Cancelar
           </Button>
+          {onQueue && (
+            <Button
+              variant="outline"
+              onClick={() => onQueue(asignaciones)}
+              disabled={pending || asignaciones.length === 0}
+            >
+              Enviar a la cola
+            </Button>
+          )}
           <Button
             onClick={() => onConfirm(asignaciones)}
             disabled={pending || asignaciones.length === 0}
           >
-            Publicar en {asignaciones.length}
+            Publicar ahora ({asignaciones.length})
           </Button>
         </div>
       </div>

@@ -14,6 +14,7 @@ import { cn } from "@/lib/cn";
 import {
   createDestino,
   deleteDestino,
+  probarConexion,
   type DestinoTipo,
 } from "@/server/destinos";
 
@@ -33,7 +34,11 @@ export function DestinosBoard({ destinos }: { destinos: DestinoRow[] }) {
   const [nombre, setNombre] = useState("");
   const [tipo, setTipo] = useState<DestinoTipo>("wordpress_cliente");
   const [endpoint, setEndpoint] = useState("");
+  const [username, setUsername] = useState("");
+  const [appPassword, setAppPassword] = useState("");
+  const [probando, setProbando] = useState(false);
 
+  const esWp = tipo === "wordpress_cliente";
   const wp = destinos.filter((d) => d.tipo === "wordpress_cliente").length;
   const propios = destinos.filter((d) => d.tipo === "sitio_propio").length;
 
@@ -44,17 +49,38 @@ export function DestinosBoard({ destinos }: { destinos: DestinoRow[] }) {
     });
   }
 
+  function resetForm() {
+    setNombre("");
+    setEndpoint("");
+    setUsername("");
+    setAppPassword("");
+    setTipo("wordpress_cliente");
+  }
+
+  async function probar() {
+    if (!endpoint.trim() || !username.trim() || !appPassword.trim()) return;
+    setProbando(true);
+    const r = await probarConexion({
+      endpoint: endpoint.trim(),
+      username: username.trim(),
+      appPassword: appPassword.trim(),
+    });
+    setProbando(false);
+    show(r.mensaje);
+  }
+
   function submitAdd() {
     if (!nombre.trim() || !endpoint.trim()) return;
+    if (esWp && (!username.trim() || !appPassword.trim())) return;
     startTransition(async () => {
       await createDestino({
         nombre: nombre.trim(),
         tipo,
         endpoint: endpoint.trim(),
+        username: esWp ? username.trim() : undefined,
+        appPassword: esWp ? appPassword.trim() : undefined,
       });
-      setNombre("");
-      setEndpoint("");
-      setTipo("wordpress_cliente");
+      resetForm();
       setOpenAdd(false);
       show("Destino agregado");
     });
@@ -159,21 +185,59 @@ export function DestinosBoard({ destinos }: { destinos: DestinoRow[] }) {
               <option value="sitio_propio">Sitio propio · headless</option>
             </select>
           </Field>
-          <Field
-            label={tipo === "wordpress_cliente" ? "Endpoint REST API" : "Slug / feed"}
-          >
+          <Field label={esWp ? "Endpoint REST API" : "Slug / feed"}>
             <input
               value={endpoint}
               onChange={(e) => setEndpoint(e.target.value)}
               placeholder={
-                tipo === "wordpress_cliente"
-                  ? "https://diario.com/wp-json"
-                  : "feed/economia"
+                esWp ? "https://diario.com/wp-json" : "feed/economia"
               }
               className={inputCls}
             />
           </Field>
-          <div className="flex justify-end gap-2 pt-1">
+          {esWp && (
+            <>
+              <Field label="Usuario de WordPress">
+                <input
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="editor"
+                  autoComplete="off"
+                  className={inputCls}
+                />
+              </Field>
+              <Field label="Contraseña de aplicación">
+                <input
+                  type="password"
+                  value={appPassword}
+                  onChange={(e) => setAppPassword(e.target.value)}
+                  placeholder="xxxx xxxx xxxx xxxx xxxx xxxx"
+                  autoComplete="off"
+                  className={inputCls}
+                />
+              </Field>
+              <p className="text-xs text-muted">
+                Se genera en WordPress: Perfil → Contraseñas de aplicación. Se
+                guarda cifrada (AES-256).
+              </p>
+            </>
+          )}
+          <div className="flex items-center justify-end gap-2 pt-1">
+            {esWp && (
+              <Button
+                variant="outline"
+                onClick={probar}
+                disabled={
+                  probando ||
+                  !endpoint.trim() ||
+                  !username.trim() ||
+                  !appPassword.trim()
+                }
+                className="mr-auto"
+              >
+                {probando ? "Probando…" : "Probar conexión"}
+              </Button>
+            )}
             <Button variant="ghost" onClick={() => setOpenAdd(false)}>
               Cancelar
             </Button>
