@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "next dev -p 5555",
     "build": "next build",
-    "start": "next start -p 5555",
+    "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "seed:user": "node --env-file=../../.env scripts/seed-user.mjs"
