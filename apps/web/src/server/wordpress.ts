@@ -1,4 +1,5 @@
 import { marked } from "marked";
+import sanitizeHtml from "sanitize-html";
 
 import { decrypt } from "@/lib/crypto";
 
@@ -206,6 +207,25 @@ function construirExtracto(markdown: string, max = 300): string {
   return texto.slice(0, max).replace(/\s+\S*$/, "") + "…";
 }
 
+/** Limpia el HTML antes de publicarlo en WordPress (anti stored-XSS). */
+function sanitizar(html: string): string {
+  return sanitizeHtml(html, {
+    allowedTags: sanitizeHtml.defaults.allowedTags.concat([
+      "img",
+      "h1",
+      "h2",
+      "figure",
+      "figcaption",
+    ]),
+    allowedAttributes: {
+      ...sanitizeHtml.defaults.allowedAttributes,
+      img: ["src", "alt", "title", "width", "height"],
+      a: ["href", "name", "target", "rel"],
+    },
+    allowedSchemes: ["http", "https", "mailto"],
+  });
+}
+
 /** Inserta el quicktag <!--more--> tras el primer párrafo del HTML. */
 function insertarMore(html: string): string {
   const idx = html.indexOf("</p>");
@@ -232,7 +252,10 @@ export async function publicarEnWordpress(
   input: PublicarWpInput,
 ): Promise<{ urlPublicada: string; externalId: string }> {
   const base = apiBase(input.url);
-  const contentHtml = insertarMore(await marked.parse(input.contenidoMarkdown));
+  // Sanitizar ANTES de insertar el <!--more--> (sanitize-html quita comentarios).
+  const contentHtml = insertarMore(
+    sanitizar(await marked.parse(input.contenidoMarkdown)),
+  );
   const excerpt = construirExtracto(input.contenidoMarkdown);
 
   let featured: number | null = null;
