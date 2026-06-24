@@ -54,6 +54,27 @@ export async function subirImagen(
   return { ok: true, url };
 }
 
+/** Usa una imagen de la biblioteca (Multimedia) en una nota: la suma a la
+ * galería si no estaba y la deja como portada. */
+export async function usarEnNota(articleId: string, url: string) {
+  const [art] = await db
+    .select({ imagenUrl: articles.imagenUrl, imagenes: articles.imagenes })
+    .from(articles)
+    .where(eq(articles.id, articleId))
+    .limit(1);
+  const imagenes = art?.imagenes ?? [];
+  await db
+    .update(articles)
+    .set({
+      imagenes: imagenes.includes(url) ? imagenes : [...imagenes, url],
+      imagenUrl: url,
+      updatedAt: new Date(),
+    })
+    .where(eq(articles.id, articleId));
+  revalidatePath(`/biblioteca/${articleId}`);
+  revalidatePath("/biblioteca");
+}
+
 export async function setPortada(articleId: string, url: string | null) {
   await db
     .update(articles)

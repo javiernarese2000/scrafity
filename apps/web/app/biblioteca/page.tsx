@@ -1,5 +1,5 @@
-import { articles, db, publications, versions } from "@scrapify/db";
-import { count, desc, eq } from "drizzle-orm";
+import { articles, db, publications, rewriteJobs, versions } from "@scrapify/db";
+import { and, count, desc, eq, isNull } from "drizzle-orm";
 
 import { BibliotecaBoard } from "@/components/biblioteca/biblioteca-board";
 import { deriveEstado, type NotaCard } from "@/components/biblioteca/types";
@@ -17,9 +17,11 @@ function relativo(date: Date): string {
 }
 
 export default async function BibliotecaPage() {
+  // Solo notas aprobadas (las crudas viven en Curaduría; las descartadas no se muestran).
   const arts = await db
     .select()
     .from(articles)
+    .where(and(eq(articles.curacion, "aprobada"), isNull(articles.deletedAt)))
     .orderBy(desc(articles.createdAt));
 
   const vers = await db
@@ -38,6 +40,17 @@ export default async function BibliotecaPage() {
     .groupBy(versions.articleId);
   const pubByArticle = new Map(pubs.map((p) => [p.articleId, Number(p.n)]));
 
+  // Último estado de generación por nota (para detectar huérfanas).
+  const jobs = await db
+    .select({
+      articleId: rewriteJobs.articleId,
+      estado: rewriteJobs.estado,
+    })
+    .from(rewriteJobs)
+    .orderBy(desc(rewriteJobs.createdAt));
+  const lastJob = new Map<string, string>();
+  for (const j of jobs) if (!lastJob.has(j.articleId)) lastJob.set(j.articleId, j.estado);
+
   const versByArticle = new Map<string, typeof vers>();
   for (const v of vers) {
     const list = versByArticle.get(v.articleId) ?? [];
@@ -48,6 +61,13 @@ export default async function BibliotecaPage() {
   const notas: NotaCard[] = arts.map((a) => {
     const vs = versByArticle.get(a.id) ?? [];
     const estados = vs.map((v) => v.estado);
+    const job = lastJob.get(a.id);
+    const generacion: NotaCard["generacion"] =
+      vs.length > 0
+        ? "ok"
+        : job === "generando" || job === "pendiente"
+          ? "generando"
+          : "fallida";
     const chosen =
       vs.find((v) => v.estado === "aprobada") ??
       vs.find((v) => v.estado === "publicada") ??
@@ -66,6 +86,7 @@ export default async function BibliotecaPage() {
       fecha: relativo(a.createdAt),
       imagenUrl: a.imagenUrl,
       estado: deriveEstado(a.archivada, estados),
+      generacion,
       tags: a.tags ?? [],
       nVersiones: vs.length,
       similarity: sims.length ? Math.min(...sims) : null,

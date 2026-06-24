@@ -1,5 +1,6 @@
 "use client";
 
+import { motion } from "framer-motion";
 import {
   Archive,
   ArchiveRestore,
@@ -7,11 +8,16 @@ import {
   ExternalLink,
   Newspaper,
   Plus,
+  RefreshCw,
   Send,
+  Trash2,
   X,
 } from "lucide-react";
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState, useTransition } from "react";
+
+import { cn } from "@/lib/cn";
 
 import { PublishDialog } from "@/components/moderacion/publish-dialog";
 import { pct, simTone } from "@/components/moderacion/similarity";
@@ -20,27 +26,68 @@ import { Button } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
 import { Markdown } from "@/components/ui/markdown";
 import { Toast, useToast } from "@/components/ui/toast";
-import { setArchivada, setTags } from "@/server/biblioteca";
+import {
+  eliminarNota,
+  setArchivada,
+  setCategoria,
+  setTags,
+} from "@/server/biblioteca";
+import { enviarACola } from "@/server/cola";
+import { regenerar } from "@/server/curaduria";
 import { publicar, type Asignacion } from "@/server/publicar";
 import { Galeria } from "./galeria";
 import { estadoInfo, type NotaDetalleData } from "./types";
 
 export function NotaDetalle({ data }: { data: NotaDetalleData }) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const { message, show } = useToast();
   const [tags, setLocalTags] = useState<string[]>(data.tags);
+  const [categoria, setLocalCategoria] = useState(data.categoria ?? "");
   const [archivada, setLocalArchivada] = useState(data.archivada);
   const [nuevoTag, setNuevoTag] = useState("");
   const [verOriginal, setVerOriginal] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
+  const [activeV, setActiveV] = useState(0);
+  const [pollRegen, setPollRegen] = useState(0);
+
+  // Tras regenerar, refrescamos un rato hasta que aparezca la versión nueva.
+  useEffect(() => {
+    if (pollRegen <= 0) return;
+    if (data.versiones.length > 0) {
+      setPollRegen(0);
+      return;
+    }
+    const t = setTimeout(() => {
+      router.refresh();
+      setPollRegen((n) => n - 1);
+    }, 3000);
+    return () => clearTimeout(t);
+  }, [pollRegen, data.versiones.length, router]);
 
   const info = estadoInfo(archivada ? "archivada" : data.estado);
+  const activa =
+    data.versiones[Math.min(activeV, data.versiones.length - 1)] ?? null;
 
   function doPublicar(asignaciones: Asignacion[]) {
     startTransition(async () => {
-      await publicar(data.id, asignaciones);
+      const r = await publicar(data.id, asignaciones);
       setPublishOpen(false);
-      show(`Publicada en ${asignaciones.length}`);
+      if (r.errores.length === 0) {
+        show(`Publicada en ${r.publicadas}`);
+      } else if (r.publicadas === 0) {
+        show(`Falló: ${r.errores[0]!.error}`);
+      } else {
+        show(`Publicada en ${r.publicadas}, falló en ${r.errores.length}`);
+      }
+    });
+  }
+
+  function doEnviarCola(asignaciones: Asignacion[]) {
+    startTransition(async () => {
+      await enviarACola(data.id, asignaciones);
+      setPublishOpen(false);
+      show(`Enviada a la cola (${asignaciones.length})`);
     });
   }
 
@@ -57,11 +104,35 @@ export function NotaDetalle({ data }: { data: NotaDetalleData }) {
   function removeTag(t: string) {
     commitTags(tags.filter((x) => x !== t));
   }
+  function commitCategoria(valor: string) {
+    const v = valor.trim();
+    setLocalCategoria(v);
+    if (v !== (data.categoria ?? "")) {
+      startTransition(() => setCategoria(data.id, v));
+      show("Categoría actualizada");
+    }
+  }
+
   function toggleArchivar() {
     const next = !archivada;
     setLocalArchivada(next);
     startTransition(() => setArchivada(data.id, next));
     show(next ? "Archivada" : "Desarchivada");
+  }
+
+  function doRegenerar() {
+    startTransition(async () => {
+      await regenerar(data.id);
+      show("Regenerando… la nueva versión aparece en unos segundos");
+      setPollRegen(10);
+    });
+  }
+
+  function doEliminar() {
+    startTransition(async () => {
+      await eliminarNota(data.id);
+      router.push("/biblioteca");
+    });
   }
 
   return (
@@ -88,6 +159,15 @@ export function NotaDetalle({ data }: { data: NotaDetalleData }) {
               </Button>
             </Link>
           )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={doRegenerar}
+            disabled={pending}
+          >
+            <RefreshCw className="size-4" />
+            Regenerar
+          </Button>
           <Button size="sm" onClick={() => setPublishOpen(true)}>
             <Send className="size-4" />
             Publicar / Republicar
@@ -110,6 +190,15 @@ export function NotaDetalle({ data }: { data: NotaDetalleData }) {
               </>
             )}
           </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={doEliminar}
+            disabled={pending}
+            aria-label="Eliminar"
+          >
+            <Trash2 className="size-4 text-danger" />
+          </Button>
         </div>
       </div>
 
@@ -129,6 +218,39 @@ export function NotaDetalle({ data }: { data: NotaDetalleData }) {
           ver original <ExternalLink className="size-3" />
         </a>
       </p>
+
+      {/* Categoría editable (define la columna en la bandeja y la categoría en WP) */}
+      <div className="mt-4 flex items-center gap-2">
+        <label className="text-sm text-muted">Categoría</label>
+        <input
+          list="categorias-sugeridas"
+          value={categoria}
+          onChange={(e) => setLocalCategoria(e.target.value)}
+          onBlur={(e) => commitCategoria(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") e.currentTarget.blur();
+          }}
+          placeholder="sin categoría"
+          className="rounded-md border border-line bg-surface px-2.5 py-1 text-sm capitalize text-fg focus:outline-none focus:ring-2 focus:ring-brand/30"
+        />
+        <datalist id="categorias-sugeridas">
+          {[
+            "política",
+            "economía",
+            "deportes",
+            "sociedad",
+            "tecnología",
+            "espectáculos",
+            "internacional",
+            "policiales",
+            "nacionales",
+            "salud",
+            "cultura",
+          ].map((c) => (
+            <option key={c} value={c} />
+          ))}
+        </datalist>
+      </div>
 
       {/* Etiquetas */}
       <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -178,32 +300,60 @@ export function NotaDetalle({ data }: { data: NotaDetalleData }) {
         imagenes={data.imagenes}
       />
 
-      <div className="mt-6">
-        <p className="mb-2 text-sm font-medium text-fg">
-          {data.versiones.length}{" "}
-          {data.versiones.length === 1 ? "versión" : "versiones"}
-        </p>
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {data.versiones.map((v, i) => {
-            const sim = simTone(v.similarity);
-            return (
-              <Card key={v.id} className="flex flex-col">
-                <div className="flex items-center gap-2 border-b border-line/70 px-4 py-2.5">
-                  <span className="text-sm font-medium text-fg">V{i + 1}</span>
-                  <Badge tone={sim.tone}>{pct(v.similarity)}</Badge>
-                  <Badge className="ml-auto">{v.estado}</Badge>
-                </div>
-                <div className="max-h-96 overflow-auto p-4">
-                  <h4 className="font-display text-base font-medium text-fg">
-                    {v.titulo}
-                  </h4>
-                  <Markdown className="mt-2">{v.contenido}</Markdown>
-                </div>
-              </Card>
-            );
-          })}
+      {data.versiones.length === 0 ? (
+        <div className="mt-6 rounded-[var(--radius-lg)] border border-dashed border-line py-10 text-center text-sm text-muted">
+          Esta nota todavía no tiene versiones generadas.
         </div>
-      </div>
+      ) : (
+        <div className="mt-6">
+          <div className="flex flex-wrap items-center gap-1 border-b border-line">
+            {data.versiones.map((v, i) => {
+              const activo = activeV === i;
+              const sim = simTone(v.similarity);
+              return (
+                <button
+                  key={v.id}
+                  type="button"
+                  onClick={() => setActiveV(i)}
+                  className={cn(
+                    "relative flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors",
+                    activo ? "text-fg" : "text-muted hover:text-fg",
+                  )}
+                >
+                  V{i + 1}
+                  <span
+                    className="size-1.5 rounded-full"
+                    style={{ backgroundColor: `var(--color-${sim.tone === "neutral" ? "muted" : sim.tone})` }}
+                  />
+                  {activo && (
+                    <motion.span
+                      layoutId="vtab"
+                      className="absolute inset-x-1 -bottom-px h-0.5 rounded-full bg-brand"
+                    />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {activa && (
+            <Card className="mt-4">
+              <div className="flex items-center gap-2 border-b border-line/70 px-5 py-3">
+                <Badge tone={simTone(activa.similarity).tone}>
+                  {pct(activa.similarity)} similar al original
+                </Badge>
+                <Badge className="ml-auto">{activa.estado}</Badge>
+              </div>
+              <CardBody>
+                <h4 className="font-display text-xl font-medium leading-snug text-fg">
+                  {activa.titulo}
+                </h4>
+                <Markdown className="mt-3">{activa.contenido}</Markdown>
+              </CardBody>
+            </Card>
+          )}
+        </div>
+      )}
 
       <button
         type="button"
@@ -235,6 +385,7 @@ export function NotaDetalle({ data }: { data: NotaDetalleData }) {
           destinos={data.destinos}
           defaultVersionId={data.versiones[0]!.id}
           onConfirm={doPublicar}
+          onQueue={doEnviarCola}
         />
       )}
 

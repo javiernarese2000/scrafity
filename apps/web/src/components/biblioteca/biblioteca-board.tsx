@@ -6,11 +6,15 @@ import {
   ArchiveRestore,
   BookOpen,
   Image as ImageIcon,
+  Loader2,
   Plus,
+  RefreshCw,
   Search,
+  Trash2,
 } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState, useTransition } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,7 +22,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { Toast, useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
-import { setArchivada } from "@/server/biblioteca";
+import { eliminarNota, setArchivada } from "@/server/biblioteca";
+import { regenerar } from "@/server/curaduria";
 import { estadoInfo, type EstadoNota, type NotaCard } from "./types";
 
 type Filtro = "todas" | EstadoNota;
@@ -32,10 +37,20 @@ const FILTROS: { key: Filtro; label: string }[] = [
 ];
 
 export function BibliotecaBoard({ notas }: { notas: NotaCard[] }) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const { message, show } = useToast();
   const [filtro, setFiltro] = useState<Filtro>("todas");
   const [q, setQ] = useState("");
+
+  // Mientras haya notas generándose, refrescamos para que el pill se actualice
+  // cuando la generación en segundo plano termina.
+  const hayGenerando = notas.some((n) => n.generacion === "generando");
+  useEffect(() => {
+    if (!hayGenerando) return;
+    const t = setInterval(() => router.refresh(), 3000);
+    return () => clearInterval(t);
+  }, [hayGenerando, router]);
 
   const conteos = useMemo(() => {
     const c: Record<string, number> = { todas: notas.length };
@@ -60,6 +75,20 @@ export function BibliotecaBoard({ notas }: { notas: NotaCard[] }) {
     startTransition(async () => {
       await setArchivada(n.id, !n.archivada);
       show(n.archivada ? "Desarchivada" : "Archivada");
+    });
+  }
+
+  function handleRegenerar(n: NotaCard) {
+    startTransition(async () => {
+      await regenerar(n.id);
+      show("Regenerando… aparecerá en unos segundos");
+    });
+  }
+
+  function handleEliminar(n: NotaCard) {
+    startTransition(async () => {
+      await eliminarNota(n.id);
+      show("Movida a la papelera");
     });
   }
 
@@ -125,6 +154,8 @@ export function BibliotecaBoard({ notas }: { notas: NotaCard[] }) {
         >
           {filtradas.map((n, i) => {
             const info = estadoInfo(n.estado);
+            const fallida = n.generacion === "fallida";
+            const generando = n.generacion === "generando";
             const abrirHref =
               n.estado === "en_revision" ? "/moderacion" : `/biblioteca/${n.id}`;
             return (
@@ -151,9 +182,19 @@ export function BibliotecaBoard({ notas }: { notas: NotaCard[] }) {
                 </Link>
 
                 <div className="flex flex-1 flex-col gap-2.5 p-4">
-                  <Badge tone={info.tone} className="self-start">
-                    {info.label}
-                  </Badge>
+                  {fallida ? (
+                    <Badge tone="danger" className="self-start">
+                      Generación falló
+                    </Badge>
+                  ) : generando ? (
+                    <Badge className="self-start bg-info/15 text-info">
+                      Generando…
+                    </Badge>
+                  ) : (
+                    <Badge tone={info.tone} className="self-start">
+                      {info.label}
+                    </Badge>
+                  )}
                   <Link href={abrirHref}>
                     <h3 className="line-clamp-2 font-display text-[15px] font-medium leading-snug text-fg hover:text-brand">
                       {n.titulo}
@@ -177,10 +218,27 @@ export function BibliotecaBoard({ notas }: { notas: NotaCard[] }) {
                   )}
 
                   <div className="mt-auto flex items-center gap-3 border-t border-line/60 pt-3 text-xs text-muted">
-                    <span>
-                      {n.nVersiones}{" "}
-                      {n.nVersiones === 1 ? "versión" : "versiones"}
-                    </span>
+                    {fallida ? (
+                      <button
+                        type="button"
+                        onClick={() => handleRegenerar(n)}
+                        disabled={pending}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-line px-2 py-1 text-xs text-fg transition-colors hover:bg-elevated"
+                      >
+                        <RefreshCw className="size-3.5" />
+                        Regenerar
+                      </button>
+                    ) : generando ? (
+                      <span className="inline-flex items-center gap-1.5 text-info">
+                        <Loader2 className="size-3.5 animate-spin" />
+                        generando
+                      </span>
+                    ) : (
+                      <span>
+                        {n.nVersiones}{" "}
+                        {n.nVersiones === 1 ? "versión" : "versiones"}
+                      </span>
+                    )}
                     {n.similarity != null && (
                       <span>sim {Math.round(n.similarity * 100)}%</span>
                     )}
@@ -197,6 +255,15 @@ export function BibliotecaBoard({ notas }: { notas: NotaCard[] }) {
                       ) : (
                         <Archive className="size-4" />
                       )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleEliminar(n)}
+                      disabled={pending}
+                      aria-label="Eliminar"
+                      className="grid size-7 place-items-center rounded-md text-muted transition-colors hover:bg-elevated hover:text-danger"
+                    >
+                      <Trash2 className="size-4" />
                     </button>
                   </div>
                 </div>

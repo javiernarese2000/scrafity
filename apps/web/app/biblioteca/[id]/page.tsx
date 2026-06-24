@@ -58,6 +58,7 @@ export default async function NotaPage({
       vs.map((v) => v.estado),
     ),
     archivada: art.archivada,
+    categoria: art.categoria,
     tags: art.tags ?? [],
     original: art.snapshotOriginal ?? art.contenido ?? "",
     contenido: chosen?.contenido ?? art.contenido ?? "",

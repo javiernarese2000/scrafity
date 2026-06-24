@@ -23,6 +23,8 @@ export type NotaCard = {
   fecha: string;
   imagenUrl: string | null;
   estado: EstadoNota;
+  // Estado de la generación de IA (independiente del estado de las versiones).
+  generacion: "ok" | "generando" | "fallida";
   tags: string[];
   nVersiones: number;
   similarity: number | null;
@@ -39,6 +41,7 @@ export type NotaDetalleData = {
   imagenUrl: string | null;
   estado: EstadoNota;
   archivada: boolean;
+  categoria: string | null;
   tags: string[];
   original: string;
   contenido: string;
