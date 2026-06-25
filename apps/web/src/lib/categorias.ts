@@ -48,6 +48,7 @@ const CANON: { nombre: string; alias: string[] }[] = [
   { nombre: "Economía", alias: ["economia", "economias", "finanzas", "mercado", "mercados", "negocios", "dolar", "inflacion"] },
   { nombre: "Sociedad", alias: ["sociedad", "social", "comunidad"] },
   { nombre: "Internacional", alias: ["internacional", "internacionales", "mundo", "exterior", "global"] },
+  { nombre: "Nacional", alias: ["nacional", "nacionales", "pais", "interior"] },
   { nombre: "Deportes", alias: ["deporte", "deportes", "deportivo", "futbol", "basquet", "tenis"] },
   { nombre: "Tecnología", alias: ["tecnologia", "tecnologias", "tech", "tecno", "informatica", "gadgets"] },
   { nombre: "Espectáculos", alias: ["espectaculo", "espectaculos", "farandula", "show", "entretenimiento", "famosos"] },
@@ -59,6 +60,7 @@ const CANON: { nombre: string; alias: string[] }[] = [
   { nombre: "Medio Ambiente", alias: ["medio ambiente", "ambiente", "ecologia", "clima", "sustentabilidad"] },
   { nombre: "Turismo", alias: ["turismo", "viajes", "destinos"] },
   { nombre: "Opinión", alias: ["opinion", "opiniones", "editorial", "columna", "analisis"] },
+  { nombre: "Religión", alias: ["religion", "religioso", "iglesia", "fe"] },
 ];
 
 /** Categoría de descarte cuando nada matchea (evita inventar términos nuevos). */
