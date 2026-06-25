@@ -262,6 +262,14 @@ destino. Recorrido: …Moderación → [Enviar a la cola] → despachador suelta
   Generación (slider similitud), Ingesta (máx por fuente), Retención (días), Proveedores (estado
   read-only de las claves, que siguen en .env por seguridad).
 
+### Centro de Ayuda (/ayuda) — 2026-06 — HECHO
+- Página **/ayuda** (`apps/web/app/ayuda/page.tsx`), server component estático (sin client JS).
+  Secciones: "El recorrido" (strip del flujo Fuentes→Bandeja entrada→IA→Moderación→Bandeja
+  salida→WP/Feed + nota de los 2 controles humanos), "Las secciones" (9 tarjetas clickeables con
+  icono/desc/tip), "Recomendaciones" (6 bullets) y "Preguntas frecuentes" (accordion nativo
+  `<details>/<summary>`, 5 dudas reales). Cierre: regla de oro "toda nota está en Biblioteca".
+- Entrada en el menú entre Papelera y Ajustes (`nav.ts`, icono BookOpen).
+
 ## DECISIONES del usuario (2026-06)
 - **Versiones↔Destinos = MIXTO/configurable**: por defecto se aprueba UNA versión y va a todos
   los destinos del escenario; pero se puede asignar versiones distintas por destino cuando haga
