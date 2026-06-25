@@ -1,4 +1,5 @@
 import {
+  BookOpen,
   Images,
   Inbox,
   LayoutDashboard,
@@ -32,6 +33,7 @@ export const navItems: NavItem[] = [
   { href: "/destinos", label: "Destinos", icon: Send },
   { href: "/multimedia", label: "Multimedia", icon: Images },
   { href: "/papelera", label: "Papelera", icon: Trash2 },
+  { href: "/ayuda", label: "Ayuda", icon: BookOpen },
   { href: "/ajustes", label: "Ajustes", icon: Settings },
 ];
 
