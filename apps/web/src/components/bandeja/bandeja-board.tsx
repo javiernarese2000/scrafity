@@ -97,6 +97,24 @@ const inputCls =
 
 const dropId = (name: string) => (name === SIN ? "__sin__" : `col:${name}`);
 
+// Normaliza para comparar categorías (sin tildes ni mayúsculas).
+const norm = (s: string) =>
+  s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().trim();
+
+// Quita duplicados por nombre normalizado (ej. "Política" y "Politica").
+function dedupeNorm(names: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const n of names) {
+    const k = norm(n);
+    if (k && !seen.has(k)) {
+      seen.add(k);
+      out.push(n);
+    }
+  }
+  return out;
+}
+
 function ColaCard({
   item,
   color,
@@ -316,15 +334,15 @@ export function BandejaBoard({ destinos }: { destinos: DestinoCola[] }) {
   const prio = items.filter((i) => i.prioridad);
 
   const matchCol = (cat: string | null, cols: string[]) =>
-    cols.find((n) => n.toLowerCase() === (cat ?? "").toLowerCase()) ?? SIN;
+    cols.find((n) => norm(n) === norm(cat ?? "")) ?? SIN;
 
   let columnas: string[];
   if (esWp) {
-    columnas = [...wpCats];
-    const huerfanos = noPrio.some((i) => matchCol(i.categoria, wpCats) === SIN);
+    columnas = dedupeNorm(wpCats);
+    const huerfanos = noPrio.some((i) => matchCol(i.categoria, columnas) === SIN);
     if (huerfanos || columnas.length === 0) columnas.push(SIN);
   } else {
-    columnas = [...new Set(noPrio.map((i) => i.categoria ?? SIN))];
+    columnas = dedupeNorm(noPrio.map((i) => i.categoria ?? SIN));
     if (columnas.length === 0) columnas = [SIN];
   }
   const colColor = (c: string): string =>

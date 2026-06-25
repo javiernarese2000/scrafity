@@ -75,7 +75,16 @@ export async function listarCategoriasWp(
   return (await res.json()) as WpCategoria[];
 }
 
-/** Resuelve un nombre de categoría a su ID de WP (busca y, si no existe, crea). */
+/** Normaliza para comparar categorías (sin tildes ni mayúsculas). */
+function norm(s: string): string {
+  return s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().trim();
+}
+
+/**
+ * Resuelve un nombre de categoría a su ID de WP. Matchea contra las existentes
+ * SIN tildes ni mayúsculas (reusa la canónica) para no crear duplicados como
+ * "Política" / "Politica". Solo crea si no hay ninguna equivalente.
+ */
 async function resolverCategoriaWp(
   base: string,
   cred: WpCredenciales,
@@ -83,13 +92,12 @@ async function resolverCategoriaWp(
 ): Promise<number | null> {
   try {
     const q = await fetch(
-      `${base}/wp/v2/categories?search=${encodeURIComponent(nombre)}&_fields=id,name`,
+      `${base}/wp/v2/categories?per_page=100&_fields=id,name`,
       { headers: { Authorization: authHeader(cred) } },
     );
     const existentes = q.ok ? ((await q.json()) as WpCategoria[]) : [];
-    const match = existentes.find(
-      (c) => c.name.toLowerCase() === nombre.toLowerCase(),
-    );
+    const target = norm(nombre);
+    const match = existentes.find((c) => norm(c.name) === target);
     if (match) return match.id;
     const crear = await fetch(`${base}/wp/v2/categories`, {
       method: "POST",
