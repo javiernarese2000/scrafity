@@ -270,6 +270,28 @@ destino. Recorrido: …Moderación → [Enviar a la cola] → despachador suelta
   `<details>/<summary>`, 5 dudas reales). Cierre: regla de oro "toda nota está en Biblioteca".
 - Entrada en el menú entre Papelera y Ajustes (`nav.ts`, icono BookOpen).
 
+### Categorías canónicas — 2026-06 — HECHO
+- **Problema**: la IA clasificaba libre y `articles.categoria = tags[0]`; cada variante
+  (Internacional/Internacionales, política/Politica/Politicas) creaba una categoría NUEVA en el
+  WP del cliente → cientos de duplicados.
+- **Fix (vocabulario controlado)** en `apps/web/src/lib/categorias.ts`: taxonomía fija `CANON`
+  (17 términos: Política, Economía, Sociedad, Internacional, Nacional, Deportes, Tecnología,
+  Espectáculos, Policiales, Cultura, Salud, Ciencia, Educación, Medio Ambiente, Turismo, Opinión,
+  Religión) + fallback "General". Funciones: `canonizarCategoria(raw)` (variante conocida →
+  canónica; desconocida → "General"), `claveCategoria(raw)` (clave para comparar/deduplicar:
+  colapsa conocidas, PRESERVA desconocidas), `CATEGORIAS` (nombres, para el prompt).
+- Puntos de aplicación: `generar.ts` (prompt obliga a la IA a elegir la 1ª etiqueta de `CATEGORIAS`
+  y `categoria = canonizarCategoria(tags[0])`); `wordpress.ts resolverCategoriaWp` (canoniza +
+  matchea por `claveCategoria` para REUSAR la existente, crea con nombre canónico); `bandeja-board.tsx`
+  (su `norm` ahora delega en `claveCategoria` → columnas colapsan variantes).
+- **Backfill**: `pnpm --filter @scrapify/db backfill:categorias`
+  (`packages/db/scripts/canonizar-categorias.mjs`, espejo del CANON). Conservador: solo colapsa
+  variantes conocidas en articles/publications, no fuerza desconocidas a General. Corrido 2026-06:
+  todo el set quedó canónico (queda "Varios" como cajón genérico a reasignar a mano).
+- **Pendiente opcional**: taxonomía editable desde Ajustes (hoy hardcodeada); limpiar a mano las
+  categorías duplicadas YA creadas en el WP del cliente (el fix frena el crecimiento pero no borra
+  el pasado).
+
 ## DECISIONES del usuario (2026-06)
 - **Versiones↔Destinos = MIXTO/configurable**: por defecto se aprueba UNA versión y va a todos
   los destinos del escenario; pero se puede asignar versiones distintas por destino cuando haga
