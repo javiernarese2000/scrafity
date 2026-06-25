@@ -40,6 +40,7 @@ import {
   setCategoriaPublicacion,
   setPrioridad,
 } from "@/server/cola";
+import { claveCategoria } from "@/lib/categorias";
 import { categoriasDeDestino } from "@/server/destinos";
 import type { Cadencia } from "@scrapify/db";
 
@@ -97,11 +98,11 @@ const inputCls =
 
 const dropId = (name: string) => (name === SIN ? "__sin__" : `col:${name}`);
 
-// Normaliza para comparar categorías (sin tildes ni mayúsculas).
-const norm = (s: string) =>
-  s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().trim();
+// Clave canónica: colapsa variantes conocidas (Internacional/Internacionales,
+// Política/Politicas) a un mismo término para no duplicar columnas.
+const norm = (s: string) => claveCategoria(s);
 
-// Quita duplicados por nombre normalizado (ej. "Política" y "Politica").
+// Quita duplicados por clave canónica (ej. "Internacional" e "Internacionales").
 function dedupeNorm(names: string[]): string[] {
   const seen = new Set<string>();
   const out: string[] = [];

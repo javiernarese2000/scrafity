@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 
 import { generate, type ProviderName } from "@/ai";
 import { buildRewritePrompt, parseRewrite } from "@/ai/prompt";
+import { CATEGORIAS, canonizarCategoria } from "@/lib/categorias";
 import { computeSimilarity } from "@/lib/diff";
 import { getAjustes } from "./ajustes";
 
@@ -25,10 +26,11 @@ export async function clasificarTags(
       {
         system:
           "Clasificá la noticia. Devolvé SOLO 2 a 4 etiquetas separadas por comas, " +
-          "en español y en minúsculas, sin numerar ni explicar. La primera debe ser la " +
-          "categoría general (economía, política, deportes, sociedad, tecnología, " +
-          "espectáculos, internacional, etc.). Si el contenido es atemporal/evergreen, " +
-          "agregá la etiqueta 'evergreen'.",
+          "en español, sin numerar ni explicar. La PRIMERA etiqueta es la categoría " +
+          "general y DEBE ser EXACTAMENTE una de esta lista (elegí la más cercana): " +
+          CATEGORIAS.join(", ") +
+          ". Las siguientes son temas libres y específicos en minúsculas. Si el " +
+          "contenido es atemporal/evergreen, agregá la etiqueta 'evergreen'.",
         prompt: `Título: ${titulo}\n\n${contenido.slice(0, 1200)}`,
         temperature: 0.2,
         maxTokens: 60,
@@ -152,7 +154,7 @@ export async function generarVersionesCore(
     if (tags.length) {
       await db
         .update(articles)
-        .set({ tags, categoria: tags[0] })
+        .set({ tags, categoria: canonizarCategoria(tags[0]) })
         .where(eq(articles.id, articleId));
     }
 

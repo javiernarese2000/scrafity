@@ -1,6 +1,7 @@
 import { marked } from "marked";
 import sanitizeHtml from "sanitize-html";
 
+import { canonizarCategoria, claveCategoria } from "@/lib/categorias";
 import { decrypt } from "@/lib/crypto";
 
 export type WpCredenciales = {
@@ -75,15 +76,11 @@ export async function listarCategoriasWp(
   return (await res.json()) as WpCategoria[];
 }
 
-/** Normaliza para comparar categorías (sin tildes ni mayúsculas). */
-function norm(s: string): string {
-  return s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().trim();
-}
-
 /**
- * Resuelve un nombre de categoría a su ID de WP. Matchea contra las existentes
- * SIN tildes ni mayúsculas (reusa la canónica) para no crear duplicados como
- * "Política" / "Politica". Solo crea si no hay ninguna equivalente.
+ * Resuelve un nombre de categoría a su ID de WP. Canoniza el nombre a UN término
+ * de la taxonomía y matchea contra las existentes colapsando variantes conocidas
+ * (Internacional/Internacionales, Política/Politicas) para REUSAR la categoría en
+ * vez de crear duplicados. Solo crea si no hay ninguna equivalente.
  */
 async function resolverCategoriaWp(
   base: string,
@@ -96,8 +93,9 @@ async function resolverCategoriaWp(
       { headers: { Authorization: authHeader(cred) } },
     );
     const existentes = q.ok ? ((await q.json()) as WpCategoria[]) : [];
-    const target = norm(nombre);
-    const match = existentes.find((c) => norm(c.name) === target);
+    const canonico = canonizarCategoria(nombre);
+    const target = claveCategoria(canonico);
+    const match = existentes.find((c) => claveCategoria(c.name) === target);
     if (match) return match.id;
     const crear = await fetch(`${base}/wp/v2/categories`, {
       method: "POST",
@@ -105,7 +103,7 @@ async function resolverCategoriaWp(
         Authorization: authHeader(cred),
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ name: nombre }),
+      body: JSON.stringify({ name: canonico }),
     });
     if (crear.ok) {
       const data = (await crear.json()) as { id?: number };
