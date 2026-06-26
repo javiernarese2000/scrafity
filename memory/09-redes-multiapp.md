@@ -186,11 +186,27 @@ Orden de pantallas: Clientes → Cuentas → Estudio (subir+logo+zócalo+preview
   crear `video_assets`/`video_renders`, encolar al worker (que ya compone con FFmpeg) y traer el MP4.
   El preview CSS es aproximación; el MP4 final lo hace el worker con el mismo layout.
 
-## PENDIENTE / próximo paso
+### Pantalla Publicaciones (2026-06) — HECHO → PANEL UI/UX CERRADO
+- Esquema: enum `social_publication_status` + tabla `social_publications` (clienteId cascade,
+  socialAccountId set null, plataforma, videoTitulo, caption, urlNota, estado, urlPublicada,
+  externalId, error, publicadaEn). Relaciones cliente/cuenta. Migración **0017** aplicada a dev.
+- `apps/social`: `server/publicaciones.ts` (listar con join a cliente), `app/publicaciones/page.tsx`,
+  `components/publicaciones/publicaciones-board.tsx` (métricas por estado, filtros cliente/red/estado,
+  listado con badge de estado + link). 5 publicaciones demo en dev. Build OK.
 
-- **Publicaciones** (pantalla de estado por red).
-- **Conectar el render**: bucket `videos` en Supabase + tablas `video_assets`/`video_renders`/
-  `social_publications` + worker recibe el job (subir video, componer, devolver MP4).
+## ESTADO: panel de Redes COMPLETO a nivel UI/UX
+Pantallas: Login ✅, Panel(mock) ✅, Clientes ✅, Cuentas ✅, Estudio (preview en vivo) ✅,
+Publicaciones ✅. Dev server en :5556. Todo en rama `redes`, prod intacto.
+
+## PENDIENTE — fase de CONEXIÓN (lo que falta para producción)
+1. **Render real**: bucket `videos` en Supabase Storage; al "Enviar a render" subir el video,
+   crear `video_assets`/`video_renders`, encolar al worker (FFmpeg, ya probado), traer el MP4.
+2. **OAuth + publicación**: Meta (IG/FB) y TikTok — apps + verificación/auditoría (USUARIO, en curso),
+   guardar tokens cifrados en `social_accounts.credencialesCifradas`, publicar y actualizar
+   `social_publications`.
+3. **Panel (dashboard)**: pasar de mock a métricas reales.
+4. Gate por `area` (hoy gate = autenticado).
+5. Deploy: crear servicios Railway para `apps/social` y `apps/worker` cuando se decida.
 - **Publicaciones** (estado por red).
 - Tablas faltantes del modelo: `social_accounts`, `video_assets`, `video_renders`, `social_publications`.
 - **De-duplicar `apps/web` → `@scrapify/ui`** (convertir sus `components/ui/*` + `lib/cn` en
