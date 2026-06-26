@@ -165,9 +165,18 @@ Orden de pantallas: Clientes → Cuentas → Estudio (subir+logo+zócalo+preview
   `Bash(docker:*)`, `Bash(node:*)`, `taskkill:*`, `mkdir:*`, `rm -rf apps/*/.next`. Reducen los
   prompts del flujo de dev. (Trade-off: pnpm/node/docker permiten ejecución arbitraria en el repo.)
 
+### Pantalla Cuentas + tabla social_accounts (2026-06) — HECHO
+- Esquema: enums `social_platform` (instagram|facebook|tiktok) y `social_account_status`
+  (conectada|desconectada|error); tabla `social_accounts` (clienteId cascade, plataforma, nombre/
+  handle, externalId, estado, credencialesCifradas para OAuth futuro, expiraEn). Relación
+  cliente↔socialAccounts. Migración **0016** aplicada a dev.
+- `apps/social`: `server/cuentas.ts` (listar por cliente, agregar, toggle conexión MOCK, eliminar),
+  `app/cuentas/page.tsx`, `components/cuentas/cuentas-board.tsx` (agrupado por cliente, modal
+  agregar con selector cliente/plataforma/handle, conectar/desconectar mock, eliminar, banner de
+  "OAuth real al final"). Build OK.
+
 ## PENDIENTE / próximo paso
 
-- **Cuentas** (cuentas de redes por cliente; UI ahora, conexión real Meta/TikTok al final).
 - **Estudio** (subir video → logo + zócalo → preview → render con worker).
 - **Publicaciones** (estado por red).
 - Tablas faltantes del modelo: `social_accounts`, `video_assets`, `video_renders`, `social_publications`.
