@@ -300,6 +300,10 @@ Orden de pantallas: Clientes → Cuentas → Estudio (subir+logo+zócalo+preview
   drawtext) y **marca de agua** (centro / mosaico en grilla). Escalado preview→render = width/380.
   `render.ts` (buildZocalo/buildMarca/buildArgsConfig), `queue.ts` mapConfig con FONT_MAP.
 - **Probado en Docker**: config rica (cinta + Bebas + MAYÚSCULAS + contorno + marca mosaico) → frame OK.
+- **Fix (2026-06)**: (1) el video va **cover** (force_original_aspect_ratio=increase + crop), no
+  contain — llena el cuadro como el preview, sin barras negras. (2) **word-wrap** del zócalo: drawtext
+  no envuelve solo → se parte el texto por ancho (según fuente/tamaño/padding) y la barra crece con las
+  líneas. Probado con texto largo + source horizontal.
 - Aproximaciones conocidas: degradado = barra translúcida (sin gradiente real), marca de agua sin
   rotación, caja/bloque con el box de drawtext (rectángulo, sin esquinas redondeadas).
 - Worker `zoo-worker` corriendo con la imagen nueva.
