@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { titleForPath } from "./nav";
+import { UserMenu } from "./user-menu";
 
 export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
   const pathname = usePathname();
@@ -26,6 +27,7 @@ export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
 
       <div className="ml-auto flex items-center gap-2">
         <ThemeToggle />
+        <UserMenu />
       </div>
     </header>
   );
