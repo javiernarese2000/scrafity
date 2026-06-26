@@ -253,7 +253,11 @@ Orden de pantallas: Clientes → Cuentas → Estudio (subir+logo+zócalo+preview
   `moverProgramada`), tocar hueco vacío → crear a esa hora, clic en bloque → editar/eliminar (modal con
   cliente/cuenta/hora/título/caption). La fecha y las horas se manejan en local; se guarda timestamptz.
 - Sembradas 4 programadas de hoy en dev (cliente Diario El Sur).
-- Pendiente futuro: vista semana, y conectar con el despachador real (que suelte a la hora `programada_en`).
+- **Vista semana + zoom** (2026-06): planificador unificado por columnas. Toggle Día/Semana (7 columnas
+  con encabezado de días + hoy marcado), zoom 36–160px/hora con subdivisiones de hora al acercar para
+  ver minutos. Drag vertical en ambas vistas (mantiene el día de la columna), crear tocando hueco en
+  cualquier día, editar al clic. Navegación por día o por semana.
+- Pendiente futuro: conectar con el despachador real (que suelte a la hora `programada_en`).
 
 ## ESTADO: panel de Redes COMPLETO a nivel UI/UX
 Pantallas: Login ✅, Panel(mock) ✅, Clientes ✅, Cuentas ✅, Estudio (preview en vivo) ✅,
