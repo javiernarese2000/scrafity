@@ -1,0 +1,8 @@
+@import "tailwindcss";
+
+/* Tema compartido (tokens, dark, sombras) desde el paquete de UI. */
+@import "@scrapify/ui/styles.css";
+
+/* Tailwind debe escanear las primitivas compartidas (viven fuera de esta app)
+   para generar sus clases. */
+@source "../../../packages/ui/src";

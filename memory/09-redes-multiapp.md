@@ -88,11 +88,20 @@ Pasos 1 y 2 son la **fundación** y no dependen de Meta/TikTok.
 - Hay duplicación temporal (apps/web tiene su copia, packages/ui la suya). Drift bajo
   (primitivas estables). Se de-duplica en un paso dedicado y verificado (ver abajo).
 
+### Paso 3 — `apps/social` scaffold (2026-06) — HECHO
+- Nueva app Next 16 `@scrapify/social` (`apps/social`), panel de Redes, dev en **puerto 5556**.
+  Estructura espejo de apps/web pero simplificada: `app/layout.tsx` (mismas fuentes next/font +
+  ThemeScript + AppShell), shell propio (`app-shell`, `sidebar`, `topbar`, `nav`, theme toggle),
+  y `app/page.tsx` (panel mock: KPIs + strip del flujo Subir→Logo/zócalo→Render→Publicar).
+- **Consume `@scrapify/ui`** (Badge, Card, PageHeader, cn) → verificado el paquete end-to-end.
+- **Tailwind v4 cableado**: `app/globals.css` hace `@import "tailwindcss"`, `@import
+  "@scrapify/ui/styles.css"` (tema compartido) y `@source "../../../packages/ui/src"` (para que
+  escanee las primitivas que viven fuera de la app). **Build OK** (compiló + TypeScript + 3 páginas).
+- `next.config.ts`: `transpilePackages: ["@scrapify/ui"]`. Sin DB todavía (datos mock).
+- No toca prod: app nueva, sin servicio en Railway → no se despliega.
+
 ## PENDIENTE / próximo paso
 
-- **Próximo:** scaffold `apps/social` (panel Redes) consumiendo `@scrapify/ui` — ahí se verifica
-  el paquete end-to-end y se cablea Tailwind `@source` hacia packages/ui en la app NUEVA (sin
-  riesgo a prod).
 - **De-duplicar `apps/web` → `@scrapify/ui`** (convertir sus `components/ui/*` + `lib/cn` en
   re-exports y agregar `@source "../../../packages/ui/src"` en globals.css). Único cambio que toca
   el escaneo de Tailwind de noticias → hacerlo deliberado, con build + revisión visual.
