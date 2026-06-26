@@ -1622,7 +1622,8 @@ function Zocalo({
 }) {
   const baseText = {
     fontFamily: fontVar,
-    fontSize: `${fontSize}px`,
+    // El preview muestra el texto un poco más grande para acercarse al render.
+    fontSize: `${Math.round(fontSize * 1.15)}px`,
     color: colorTexto,
     lineHeight: 1.18,
     textAlign: alineacion,
