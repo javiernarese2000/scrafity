@@ -281,10 +281,21 @@ Orden de pantallas: Clientes → Cuentas → Estudio (subir+logo+zócalo+preview
   el **pooler IPv4**. DEV pooler = `aws-1-us-east-2.pooler.supabase.com:6543`, user
   `postgres.dnptcdzimdyeoqykywul`. (Para Railway, igual: DATABASE_URL del worker = pooler.)
 - Helpers de test en `apps/worker/sample/` (gitignored): seed-test.mjs, poll.mjs, worker.env.
-- **PENDIENTE del render**: (1) enganchar el Estudio = subir el video a Storage + crear el job +
-  barra de progreso moderna en la UI; (2) fidelidad visual completa (todos los estilos de zócalo,
-  8 fuentes, marca de agua, posición/efectos) — hoy es baseline (logo + zócalo barra); (3) panel/
-  estado de la cola, cancelar, reintentar, miniatura.
+### Estudio enganchado al render (2026-06) — HECHO
+- `server/render.ts` (apps/social): `prepararSubida(ext)` (signed upload URL con service role),
+  `encolarRender({sourcePath,titulo,clienteId,config})` (inserta video_renders en_cola), `estadoRender(id)`
+  (estado/progreso/outputUrl/duración/error + posición en cola).
+- Estudio: "Enviar a render" → sube el video a Storage con **signed URL** (uploadToSignedUrl, sin pasar
+  por Next) → encola con la config actual (+texto) → **modal con barra de progreso moderna** (subiendo
+  → en cola con puesto → renderizando % + tiempo transcurrido + ETA → listo con **preview** del video y
+  descarga). Poll cada 1.2s. `videoFile` guardado para la subida.
+- **Worker corriendo en dev**: contenedor `zoo-worker` (docker, `--restart unless-stopped`, usa
+  `apps/worker/sample/worker.env` = pooler us-east-2). Procesa la cola en vivo.
+
+- **PENDIENTE del render**: (1) fidelidad visual completa en el worker (todos los estilos de zócalo,
+  8 fuentes, marca de agua, posición/efectos) — hoy es baseline (logo + zócalo barra); (2) panel/
+  estado de la cola, cancelar, reintentar, miniatura; (3) Railway: desplegar el worker (DATABASE_URL =
+  pooler) + bucket videos en prod.
 
 ## ESTADO: panel de Redes COMPLETO a nivel UI/UX
 Pantallas: Login ✅, Panel(mock) ✅, Clientes ✅, Cuentas ✅, Estudio (preview en vivo) ✅,
