@@ -286,14 +286,37 @@ function buildZocalo(
     };
   }
 
-  // barra / degradado / cinta: banda de ancho completo, alto según las líneas,
-  // con padding interno simétrico = pad.
-  const accent = estilo === "cinta" ? 10 : 0;
   const lineH = fs + 8;
   const barH = Math.max(
     estilo === "degradado" ? Math.round(H * 0.2) : 0,
     zLines * lineH + 2 * pad,
   );
+
+  // cinta: tarjeta FLOTANTE con margen `pad` desde los bordes + acento a la izq.
+  if (estilo === "cinta") {
+    const accent = 10;
+    const barX = pad;
+    const barW = W - 2 * pad;
+    const barY =
+      z.posicion === "arriba"
+        ? pad
+        : z.posicion === "centro"
+          ? Math.round((H - barH) / 2)
+          : H - barH - pad;
+    const ty = `${barY}+(${barH}-text_h)/2`;
+    const xText =
+      z.alineacion === "center"
+        ? `${pad + accent}+(${W - 2 * pad - accent}-text_w)/2`
+        : z.alineacion === "right"
+          ? `${W - 2 * pad}-text_w`
+          : `${2 * pad + accent}`;
+    let chain = `[${last}]drawbox=x=${barX}:y=${barY}:w=${barW}:h=${barH}:color=${colB}@${op}:t=fill`;
+    chain += `,drawbox=x=${barX}:y=${barY}:w=${accent}:h=${barH}:color=${ACCENT}:t=fill`;
+    chain += `,drawtext=fontfile=${font}:textfile=${textFile}:fontcolor=${colT}:fontsize=${fs}:line_spacing=8:x=${xText}:y=${ty}${ef}[zk]`;
+    return { chain, out: "zk" };
+  }
+
+  // barra / degradado: banda de ancho completo, texto con padding interno = pad.
   const barY =
     z.posicion === "arriba"
       ? 0
@@ -301,10 +324,9 @@ function buildZocalo(
         ? Math.round((H - barH) / 2)
         : H - barH;
   const ty = `${barY}+(${barH}-text_h)/2`;
-  let chain = `[${last}]drawbox=x=0:y=${barY}:w=${W}:h=${barH}:color=${colB}@${op}:t=fill`;
-  if (estilo === "cinta")
-    chain += `,drawbox=x=0:y=${barY}:w=${accent}:h=${barH}:color=${ACCENT}:t=fill`;
-  chain += `,${base("", pad + accent, ty)}[zk]`;
+  const chain =
+    `[${last}]drawbox=x=0:y=${barY}:w=${W}:h=${barH}:color=${colB}@${op}:t=fill` +
+    `,${base("", pad, ty)}[zk]`;
   return { chain, out: "zk" };
 }
 
@@ -425,8 +447,14 @@ export async function renderFromConfig(
       const font = z.fontFile ?? DEJAVU;
       // Las fuentes condensadas (Anton/Bebas/Oswald) entran más caracteres.
       const factor = /Anton|Bebas|Oswald/.test(font) ? 0.42 : 0.52;
-      const accent = cfg.zocalo.estilo === "cinta" ? 10 : 0;
-      const usable = W - 2 * pad - accent;
+      const estilo = cfg.zocalo.estilo ?? "barra";
+      // Cinta y cajas son tarjetas flotantes: doble padding (margen + interno).
+      const usable =
+        estilo === "cinta"
+          ? W - 4 * pad - 10
+          : estilo === "bloque" || estilo === "resaltado" || estilo === "caja"
+            ? W - 4 * pad
+            : W - 2 * pad;
       const maxChars = Math.max(8, Math.floor(usable / (fs * factor)));
       const wrapped = wrapText(cfg.zocalo.texto.trim(), maxChars);
       zLines = wrapped.split("\n").length;
