@@ -1,8 +1,8 @@
 import { createServer } from "node:http";
 
-// Servicio mínimo del worker. Por ahora solo expone /health para poder
-// desplegarlo aislado en Railway. La cola de render (Inngest/DB) se cablea
-// cuando exista el esquema de video — ver memory/09-redes-multiapp.md.
+import { iniciarCola } from "./queue.js";
+
+// Servicio del worker: expone /health y corre la cola de render.
 const port = Number(process.env.PORT ?? 8080);
 
 createServer((req, res) => {
@@ -16,3 +16,5 @@ createServer((req, res) => {
 }).listen(port, () => {
   console.log(`worker escuchando en :${port}`);
 });
+
+iniciarCola();

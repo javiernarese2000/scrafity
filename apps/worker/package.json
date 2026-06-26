@@ -6,8 +6,13 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/server.js",
+    "dev": "node --env-file=../../.env dist/server.js",
     "render": "node dist/cli.js",
     "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.108.2",
+    "postgres": "^3.4.9"
   },
   "devDependencies": {
     "@types/node": "^26.0.0",

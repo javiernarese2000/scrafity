@@ -132,3 +132,180 @@ function runFfmpeg(args: string[]): Promise<void> {
     });
   });
 }
+
+// ───────────────────────── Render por config (cola) ─────────────────────────
+
+export type RenderConfig = {
+  aspecto?: "9:16" | "1:1" | "16:9";
+  logoPath?: string | null;
+  logoX?: number; // % centro
+  logoY?: number;
+  logoSize?: number; // % del ancho
+  logoOpacidad?: number; // 0..100
+  zocalo?: {
+    texto?: string;
+    fontFile?: string;
+    fontSize?: number;
+    colorTexto?: string;
+    colorBarra?: string;
+    opacidad?: number;
+    padding?: number;
+  } | null;
+};
+
+const DIMS: Record<string, [number, number]> = {
+  "9:16": [1080, 1920],
+  "1:1": [1080, 1080],
+  "16:9": [1920, 1080],
+};
+
+/** #rrggbb → 0xRRGGBB para FFmpeg. */
+function ffColor(hex?: string, fallback = "0x111111"): string {
+  if (!hex) return fallback;
+  return "0x" + hex.replace("#", "");
+}
+
+/** Duración del video en segundos (ffprobe). */
+export function probeDuration(input: string): Promise<number> {
+  return new Promise((resolve) => {
+    const p = spawn("ffprobe", [
+      "-v",
+      "error",
+      "-show_entries",
+      "format=duration",
+      "-of",
+      "default=nw=1:nk=1",
+      input,
+    ]);
+    let out = "";
+    p.stdout.on("data", (d: Buffer) => (out += d.toString()));
+    p.on("close", () => resolve(Math.max(0.1, parseFloat(out.trim()) || 0.1)));
+    p.on("error", () => resolve(0.1));
+  });
+}
+
+function buildArgsConfig(
+  input: string,
+  output: string,
+  cfg: RenderConfig,
+  textFile?: string,
+): string[] {
+  const [W, H] = DIMS[cfg.aspecto ?? "9:16"]!;
+  const parts: string[] = [];
+  parts.push(
+    `[0:v]scale=${W}:${H}:force_original_aspect_ratio=decrease,` +
+      `pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2,setsar=1[base]`,
+  );
+  let last = "base";
+
+  if (cfg.logoPath) {
+    const sz = Math.round((W * (cfg.logoSize ?? 24)) / 100);
+    const aa = ((cfg.logoOpacidad ?? 100) / 100).toFixed(2);
+    parts.push(`[1:v]scale=${sz}:-1,format=rgba,colorchannelmixer=aa=${aa}[lg]`);
+    const x = cfg.logoX ?? 86;
+    const y = cfg.logoY ?? 12;
+    parts.push(
+      `[${last}][lg]overlay=x=${W}*${x}/100-w/2:y=${H}*${y}/100-h/2[v1]`,
+    );
+    last = "v1";
+  }
+
+  if (textFile && cfg.zocalo) {
+    const z = cfg.zocalo;
+    const barH = Math.round(H * 0.09);
+    const barY = H - (barH + 80);
+    const fs = z.fontSize ?? Math.round(H * 0.03);
+    const ty = barY + Math.round(barH * 0.28);
+    const op = ((z.opacidad ?? 0.55) as number).toFixed(2);
+    const font = z.fontFile ?? "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf";
+    parts.push(
+      `[${last}]drawbox=x=0:y=${barY}:w=${W}:h=${barH}:color=${ffColor(z.colorBarra)}@${op}:t=fill,` +
+        `drawtext=fontfile=${font}:textfile=${textFile}:fontcolor=${ffColor(z.colorTexto, "0xffffff")}:` +
+        `fontsize=${fs}:x=64:y=${ty}[vout]`,
+    );
+    last = "vout";
+  }
+
+  if (last !== "vout") parts.push(`[${last}]null[vout]`);
+
+  const args = ["-y", "-i", input];
+  if (cfg.logoPath) args.push("-i", cfg.logoPath);
+  args.push(
+    "-filter_complex",
+    parts.join(";"),
+    "-map",
+    "[vout]",
+    "-map",
+    "0:a?",
+    "-c:v",
+    "libx264",
+    "-preset",
+    "veryfast",
+    "-pix_fmt",
+    "yuv420p",
+    "-c:a",
+    "aac",
+    "-movflags",
+    "+faststart",
+    "-shortest",
+    "-progress",
+    "pipe:1",
+    "-nostats",
+    output,
+  );
+  return args;
+}
+
+/** Render desde config con callback de progreso (0..100). */
+export async function renderFromConfig(
+  input: string,
+  output: string,
+  cfg: RenderConfig,
+  onProgress: (pct: number) => void,
+): Promise<void> {
+  const dur = await probeDuration(input);
+  const dir = await mkdtemp(join(tmpdir(), "scrapify-cfg-"));
+  try {
+    let textFile: string | undefined;
+    if (cfg.zocalo?.texto && cfg.zocalo.texto.trim()) {
+      textFile = join(dir, "zocalo.txt");
+      await writeFile(textFile, cfg.zocalo.texto, "utf8");
+    }
+    const args = buildArgsConfig(input, output, cfg, textFile);
+    await runWithProgress(args, dur, onProgress);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+}
+
+function runWithProgress(
+  args: string[],
+  durSec: number,
+  onProgress: (pct: number) => void,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const proc = spawn("ffmpeg", args, { stdio: ["ignore", "pipe", "pipe"] });
+    let err = "";
+    let buf = "";
+    proc.stderr.on("data", (d: Buffer) => {
+      err += d.toString();
+    });
+    proc.stdout.on("data", (d: Buffer) => {
+      buf += d.toString();
+      const lines = buf.split("\n");
+      buf = lines.pop() ?? "";
+      for (const ln of lines) {
+        const m = ln.match(/out_time_us=(\d+)/);
+        if (m) {
+          const pct = Math.min(99, Math.round((Number(m[1]) / 1e6 / durSec) * 100));
+          if (pct >= 0) onProgress(pct);
+        }
+      }
+    });
+    proc.on("error", reject);
+    proc.on("close", (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`ffmpeg salió con código ${code}:\n${err.slice(-1500)}`));
+    });
+  });
+}

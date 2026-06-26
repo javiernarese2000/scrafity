@@ -303,6 +303,37 @@ export const publications = pgTable(
   ],
 );
 
+// Cola de render de video (worker FFmpeg aislado — panel Zoocial).
+export const videoRenderStatus = pgEnum("video_render_status", [
+  "en_cola",
+  "procesando",
+  "listo",
+  "error",
+  "cancelado",
+]);
+
+export const videoRenders = pgTable("video_renders", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  clienteId: uuid("cliente_id").references(() => clientes.id, {
+    onDelete: "set null",
+  }),
+  titulo: text("titulo"),
+  // Config del Estudio (logo, zócalo, marca de agua, formato) + texto.
+  config: jsonb("config").$type<Record<string, unknown>>().notNull(),
+  // Ruta en Storage del video original subido y del resultado.
+  sourcePath: text("source_path").notNull(),
+  outputPath: text("output_path"),
+  outputUrl: text("output_url"),
+  estado: videoRenderStatus("estado").notNull().default("en_cola"),
+  progreso: integer("progreso").notNull().default(0), // 0..100
+  duracionSeg: real("duracion_seg"),
+  error: text("error"),
+  intentos: integer("intentos").notNull().default(0),
+  startedAt: timestamp("started_at", { withTimezone: true }),
+  finishedAt: timestamp("finished_at", { withTimezone: true }),
+  ...timestamps,
+});
+
 /** Progreso por fuente dentro de una corrida de ingesta. */
 export type FuenteProgreso = {
   nombre: string;
