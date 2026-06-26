@@ -1,10 +1,20 @@
 # Worker de render — servicio AISLADO con FFmpeg (no comparte contenedor con la web).
 FROM node:22-slim
 
-# FFmpeg + tipografía para el zócalo (drawtext necesita un .ttf en el sistema).
+# FFmpeg + tipografías (drawtext necesita .ttf en el sistema).
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ffmpeg fonts-dejavu-core \
+  && apt-get install -y --no-install-recommends ffmpeg fonts-dejavu curl ca-certificates \
   && rm -rf /var/lib/apt/lists/*
+
+# Tipografías de impacto del Estudio (Anton, Bebas Neue, Oswald) desde Google Fonts.
+RUN mkdir -p /usr/share/fonts/truetype/zoocial \
+  && curl -fsSL -o /usr/share/fonts/truetype/zoocial/Anton-Regular.ttf \
+       https://github.com/google/fonts/raw/main/ofl/anton/Anton-Regular.ttf \
+  && curl -fsSL -o /usr/share/fonts/truetype/zoocial/BebasNeue-Regular.ttf \
+       https://github.com/google/fonts/raw/main/ofl/bebasneue/BebasNeue-Regular.ttf \
+  && curl -fsSL -o /usr/share/fonts/truetype/zoocial/Oswald.ttf \
+       "https://github.com/google/fonts/raw/main/ofl/oswald/Oswald%5Bwght%5D.ttf" \
+  && fc-cache -f
 
 WORKDIR /app
 

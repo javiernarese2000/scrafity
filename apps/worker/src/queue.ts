@@ -6,33 +6,67 @@ import { claimNext, setError, setListo, setProgreso } from "./db.js";
 import { probeDuration, renderFromConfig, type RenderConfig } from "./render.js";
 import { descargar, subir, urlPublica } from "./storage.js";
 
-// Cuántos minutos de preview-px equivalen al render (la fuente del Estudio mide
-// ~340px de ancho; el render 1080 → factor ~3 para el tamaño de texto).
-const FONT_FACTOR = 2.8;
+const DJ = "/usr/share/fonts/truetype/dejavu";
+const ZF = "/usr/share/fonts/truetype/zoocial";
+// El preview del Estudio mide ~380px de ancho; el render es 1080/1920 → se
+// escalan tamaños de texto y padding por width/380.
+const FONT_MAP: Record<string, string> = {
+  display: `${DJ}/DejaVuSerif.ttf`,
+  sans: `${DJ}/DejaVuSans.ttf`,
+  inter: `${DJ}/DejaVuSans.ttf`,
+  archivo: `${DJ}/DejaVuSans-Bold.ttf`,
+  mono: `${DJ}/DejaVuSansMono.ttf`,
+  anton: `${ZF}/Anton-Regular.ttf`,
+  bebas: `${ZF}/BebasNeue-Regular.ttf`,
+  oswald: `${ZF}/Oswald.ttf`,
+};
 
-/** Mapea la config guardada del Estudio a la config baseline del render. */
+/** Mapea la config guardada del Estudio a la config del render. */
 function mapConfig(cfg: Record<string, unknown>, logoPath?: string): RenderConfig {
   const g = cfg as Record<string, number | string | boolean | undefined>;
+  const aspecto = (g.aspecto as RenderConfig["aspecto"]) ?? "9:16";
+  const W = aspecto === "16:9" ? 1920 : 1080;
+  const scale = W / 380;
+
   const zocaloOn = g.zocaloOn !== false;
+  let texto = g.texto ? String(g.texto) : "";
+  if (g.mayus) texto = texto.toUpperCase();
+
+  const fuente = String(g.fuente ?? "display");
+  const wmOn = g.wmOn === true;
+
   return {
-    aspecto: (g.aspecto as RenderConfig["aspecto"]) ?? "9:16",
+    aspecto,
     logoPath: logoPath ?? null,
     logoX: g.logoX as number | undefined,
     logoY: g.logoY as number | undefined,
     logoSize: g.logoSize as number | undefined,
     logoOpacidad: g.logoOpacidad as number | undefined,
     zocalo:
-      zocaloOn && g.texto
+      zocaloOn && texto
         ? {
-            texto: String(g.texto),
-            fontSize: g.fontSize
-              ? Math.round(Number(g.fontSize) * FONT_FACTOR)
-              : undefined,
+            texto,
+            estilo: g.estilo as NonNullable<RenderConfig["zocalo"]>["estilo"],
+            fontFile: FONT_MAP[fuente] ?? FONT_MAP.display,
+            fontSize: Math.round(Number(g.fontSize ?? 22) * scale),
             colorTexto: g.colorTexto as string | undefined,
             colorBarra: g.colorBarra as string | undefined,
             opacidad: g.opacidad as number | undefined,
+            padding: Math.round(Number(g.padding ?? 16) * scale),
+            posicion: g.posicion as NonNullable<RenderConfig["zocalo"]>["posicion"],
+            alineacion: g.alineacion as "left" | "center" | "right" | undefined,
+            efecto: g.efecto as NonNullable<RenderConfig["zocalo"]>["efecto"],
           }
         : null,
+    marca: wmOn
+      ? {
+          texto: String(g.wmText ?? ""),
+          modo: (g.wmModo as "mosaico" | "centro") ?? "mosaico",
+          fontSize: Math.round(Number(g.wmTam ?? 20) * scale),
+          color: g.wmColor as string | undefined,
+          opacidad: Number(g.wmOpacidad ?? 14) / 100,
+        }
+      : null,
   };
 }
 

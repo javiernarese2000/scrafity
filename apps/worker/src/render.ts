@@ -144,12 +144,24 @@ export type RenderConfig = {
   logoOpacidad?: number; // 0..100
   zocalo?: {
     texto?: string;
+    estilo?: "barra" | "degradado" | "bloque" | "resaltado" | "caja" | "cinta" | "minimal";
     fontFile?: string;
-    fontSize?: number;
+    fontSize?: number; // px del render
     colorTexto?: string;
     colorBarra?: string;
-    opacidad?: number;
-    padding?: number;
+    opacidad?: number; // 0..1
+    padding?: number; // px del render
+    posicion?: "abajo" | "centro" | "arriba";
+    alineacion?: "left" | "center" | "right";
+    efecto?: "ninguno" | "sombra" | "contorno" | "ambos";
+  } | null;
+  marca?: {
+    texto?: string;
+    modo?: "mosaico" | "centro";
+    fontSize?: number; // px del render
+    color?: string;
+    opacidad?: number; // 0..1
+    fontFile?: string;
   } | null;
 };
 
@@ -184,11 +196,122 @@ export function probeDuration(input: string): Promise<number> {
   });
 }
 
+const DEJAVU = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf";
+const ACCENT = "0xc0883e"; // --color-accent
+
+function efectoDraw(efecto?: string): string {
+  switch (efecto) {
+    case "sombra":
+      return ":shadowx=2:shadowy=2:shadowcolor=0x000000@0.7";
+    case "contorno":
+      return ":borderw=3:bordercolor=0x000000";
+    case "ambos":
+      return ":borderw=3:bordercolor=0x000000:shadowx=2:shadowy=3:shadowcolor=0x000000@0.7";
+    default:
+      return "";
+  }
+}
+
+function xExpr(al: string | undefined, pad: number): string {
+  if (al === "center") return "(w-text_w)/2";
+  if (al === "right") return `w-text_w-${pad}`;
+  return `${pad}`;
+}
+
+function yExpr(pos: string | undefined, pad: number): string {
+  if (pos === "arriba") return `${pad + 40}`;
+  if (pos === "centro") return "(h-text_h)/2";
+  return `h-text_h-${pad + 80}`;
+}
+
+/** Cadena de filtros para el zócalo según su estilo. */
+function buildZocalo(
+  last: string,
+  W: number,
+  H: number,
+  z: NonNullable<RenderConfig["zocalo"]>,
+  textFile: string,
+): { chain: string; out: string } {
+  const fs = Math.round(z.fontSize ?? Math.round(H * 0.03));
+  const pad = Math.round(z.padding ?? 16);
+  const font = z.fontFile ?? DEJAVU;
+  const colT = ffColor(z.colorTexto, "0xffffff");
+  const colB = ffColor(z.colorBarra, "0x111111");
+  const op = (z.opacidad ?? 0.55).toFixed(2);
+  const ef = efectoDraw(z.efecto);
+  const estilo = z.estilo ?? "barra";
+
+  const base = (extra: string, xPad: number, y: string) =>
+    `drawtext=fontfile=${font}:textfile=${textFile}:fontcolor=${colT}:` +
+    `fontsize=${fs}:line_spacing=8:x=${xExpr(z.alineacion, xPad)}:y=${y}${ef}${extra}`;
+
+  // Estilos con caja pegada al texto
+  if (estilo === "bloque" || estilo === "resaltado" || estilo === "caja") {
+    const bw = estilo === "resaltado" ? Math.round(pad * 0.4) : pad;
+    let extra = `:box=1:boxcolor=${colB}@${op}:boxborderw=${bw}`;
+    if (estilo === "caja") extra = `:box=1:boxcolor=${colB}@${op}:boxborderw=${bw}`;
+    return {
+      chain: `[${last}]${base(extra, pad + 20, yExpr(z.posicion, pad))}[zk]`,
+      out: "zk",
+    };
+  }
+
+  if (estilo === "minimal") {
+    return {
+      chain: `[${last}]${base("", pad + 20, yExpr(z.posicion, pad))}[zk]`,
+      out: "zk",
+    };
+  }
+
+  // barra / degradado / cinta: banda de ancho completo
+  const barH = estilo === "degradado" ? Math.round(H * 0.2) : Math.round(fs + pad * 2.2);
+  const barY =
+    z.posicion === "arriba"
+      ? pad
+      : z.posicion === "centro"
+        ? Math.round((H - barH) / 2)
+        : H - barH - pad - 40;
+  const ty = `${barY}+(${barH}-text_h)/2`;
+  let chain = `[${last}]drawbox=x=0:y=${barY}:w=${W}:h=${barH}:color=${colB}@${op}:t=fill`;
+  if (estilo === "cinta")
+    chain += `,drawbox=x=0:y=${barY}:w=8:h=${barH}:color=${ACCENT}:t=fill`;
+  chain += `,${base("", pad + 28, ty)}[zk]`;
+  return { chain, out: "zk" };
+}
+
+/** Marca de agua: centrada o mosaico (grilla intercalada). */
+function buildMarca(
+  last: string,
+  m: NonNullable<RenderConfig["marca"]>,
+  textFile: string,
+): { chain: string; out: string } {
+  const fs = Math.round(m.fontSize ?? 56);
+  const col = ffColor(m.color, "0xffffff");
+  const op = (m.opacidad ?? 0.14).toFixed(2);
+  const font = m.fontFile ?? DEJAVU;
+  const dt = `drawtext=fontfile=${font}:textfile=${textFile}:fontcolor=${col}@${op}:fontsize=${fs}`;
+
+  if (m.modo === "centro") {
+    return { chain: `[${last}]${dt}:x=(w-text_w)/2:y=(h-text_h)/2[mk]`, out: "mk" };
+  }
+  const cols = [0.18, 0.5, 0.82];
+  const rows = [0.12, 0.32, 0.52, 0.72, 0.92];
+  const draws: string[] = [];
+  rows.forEach((ry, i) => {
+    cols.forEach((cx) => {
+      const off = i % 2 ? 0.1 : 0;
+      draws.push(`${dt}:x=w*${(cx + off).toFixed(2)}-text_w/2:y=h*${ry}-text_h/2`);
+    });
+  });
+  return { chain: `[${last}]${draws.join(",")}[mk]`, out: "mk" };
+}
+
 function buildArgsConfig(
   input: string,
   output: string,
   cfg: RenderConfig,
-  textFile?: string,
+  zTextFile?: string,
+  mTextFile?: string,
 ): string[] {
   const [W, H] = DIMS[cfg.aspecto ?? "9:16"]!;
   const parts: string[] = [];
@@ -198,35 +321,30 @@ function buildArgsConfig(
   );
   let last = "base";
 
+  // Marca de agua (detrás de todo)
+  if (mTextFile && cfg.marca?.texto) {
+    const r = buildMarca(last, cfg.marca, mTextFile);
+    parts.push(r.chain);
+    last = r.out;
+  }
+
+  // Logo
   if (cfg.logoPath) {
     const sz = Math.round((W * (cfg.logoSize ?? 24)) / 100);
     const aa = ((cfg.logoOpacidad ?? 100) / 100).toFixed(2);
     parts.push(`[1:v]scale=${sz}:-1,format=rgba,colorchannelmixer=aa=${aa}[lg]`);
     const x = cfg.logoX ?? 86;
     const y = cfg.logoY ?? 12;
-    parts.push(
-      `[${last}][lg]overlay=x=${W}*${x}/100-w/2:y=${H}*${y}/100-h/2[v1]`,
-    );
+    parts.push(`[${last}][lg]overlay=x=${W}*${x}/100-w/2:y=${H}*${y}/100-h/2[v1]`);
     last = "v1";
   }
 
-  if (textFile && cfg.zocalo) {
-    const z = cfg.zocalo;
-    const barH = Math.round(H * 0.09);
-    const barY = H - (barH + 80);
-    const fs = z.fontSize ?? Math.round(H * 0.03);
-    const ty = barY + Math.round(barH * 0.28);
-    const op = ((z.opacidad ?? 0.55) as number).toFixed(2);
-    const font = z.fontFile ?? "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf";
-    parts.push(
-      `[${last}]drawbox=x=0:y=${barY}:w=${W}:h=${barH}:color=${ffColor(z.colorBarra)}@${op}:t=fill,` +
-        `drawtext=fontfile=${font}:textfile=${textFile}:fontcolor=${ffColor(z.colorTexto, "0xffffff")}:` +
-        `fontsize=${fs}:x=64:y=${ty}[vout]`,
-    );
-    last = "vout";
+  // Zócalo
+  if (zTextFile && cfg.zocalo?.texto) {
+    const r = buildZocalo(last, W, H, cfg.zocalo, zTextFile);
+    parts.push(r.chain);
+    last = r.out;
   }
-
-  if (last !== "vout") parts.push(`[${last}]null[vout]`);
 
   const args = ["-y", "-i", input];
   if (cfg.logoPath) args.push("-i", cfg.logoPath);
@@ -234,7 +352,7 @@ function buildArgsConfig(
     "-filter_complex",
     parts.join(";"),
     "-map",
-    "[vout]",
+    `[${last}]`,
     "-map",
     "0:a?",
     "-c:v",
@@ -266,12 +384,17 @@ export async function renderFromConfig(
   const dur = await probeDuration(input);
   const dir = await mkdtemp(join(tmpdir(), "scrapify-cfg-"));
   try {
-    let textFile: string | undefined;
+    let zTextFile: string | undefined;
     if (cfg.zocalo?.texto && cfg.zocalo.texto.trim()) {
-      textFile = join(dir, "zocalo.txt");
-      await writeFile(textFile, cfg.zocalo.texto, "utf8");
+      zTextFile = join(dir, "zocalo.txt");
+      await writeFile(zTextFile, cfg.zocalo.texto, "utf8");
     }
-    const args = buildArgsConfig(input, output, cfg, textFile);
+    let mTextFile: string | undefined;
+    if (cfg.marca?.texto && cfg.marca.texto.trim()) {
+      mTextFile = join(dir, "marca.txt");
+      await writeFile(mTextFile, cfg.marca.texto, "utf8");
+    }
+    const args = buildArgsConfig(input, output, cfg, zTextFile, mTextFile);
     await runWithProgress(args, dur, onProgress);
   } finally {
     await rm(dir, { recursive: true, force: true });
