@@ -333,3 +333,4 @@ Publicaciones ✅. Dev server en :5556. Todo en rama `redes`, prod intacto.
 - **Estudio de video** + tablas `social_accounts`/`video_*` + conectar worker al pipeline.
 - En paralelo (usuario): iniciar apps/verificaciones de Meta y TikTok (cuello de botella lento).
 - **Fix tipografía/márgenes (2026-06)**: FONT_MAP usa variantes Bold (más cuerpo, el regular salía flaco vs el preview); márgenes del zócalo respetan el padding tal cual (se sacaron fudges +28/+20/+40), barra con padding simétrico y flush al borde.
+- **Fix degradado (2026-06)**: el geq por-fotograma colgaba el render (y tiró Docker). Ahora el gradiente se pre-renderiza a un PNG de 1 frame y se superpone con movie+overlay. Rápido (8.7s) y correcto.
