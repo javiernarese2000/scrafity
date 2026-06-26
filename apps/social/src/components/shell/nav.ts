@@ -27,5 +27,5 @@ export function titleForPath(pathname: string): string {
   const match = navItems.find(
     (i) => i.href === pathname || (i.href !== "/" && pathname.startsWith(i.href)),
   );
-  return match?.label ?? "Redes";
+  return match?.label ?? "Zoocial";
 }

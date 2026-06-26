@@ -28,10 +28,10 @@ function Panel() {
 
       <div className="relative flex items-center gap-2.5">
         <span className="grid size-9 place-items-center rounded-lg bg-accent font-display text-lg font-semibold text-brand-foreground">
-          R
+          Z
         </span>
         <span className="font-display text-xl font-semibold text-fg">
-          Scrapify · Redes
+          Zoocial
         </span>
       </div>
 
@@ -119,10 +119,10 @@ export default function LoginPage() {
         <div className="w-full max-w-sm">
           <div className="mb-8 flex items-center gap-2.5 lg:hidden">
             <span className="grid size-9 place-items-center rounded-lg bg-accent font-display text-lg font-semibold text-brand-foreground">
-              R
+              Z
             </span>
             <span className="font-display text-xl font-semibold text-fg">
-              Scrapify · Redes
+              Zoocial
             </span>
           </div>
 
@@ -184,7 +184,7 @@ export default function LoginPage() {
           </form>
 
           <p className="mt-8 text-center font-mono text-[11px] uppercase tracking-widest text-muted">
-            Acceso interno · Scrapify Redes
+            Acceso interno · Zoocial
           </p>
         </div>
       </main>

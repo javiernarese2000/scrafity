@@ -31,10 +31,10 @@ export function SidebarContent({
         )}
       >
         <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-accent font-display text-lg font-semibold text-brand-foreground">
-          R
+          Z
         </span>
         {!collapsed && (
-          <span className="font-display text-xl font-semibold text-fg">Redes</span>
+          <span className="font-display text-xl font-semibold text-fg">Zoocial</span>
         )}
       </div>
 
@@ -74,7 +74,7 @@ export function SidebarContent({
       >
         {!collapsed && (
           <p className="font-mono text-[11px] uppercase tracking-widest text-muted">
-            Panel de Redes
+            Zoocial
           </p>
         )}
         {onToggle && (

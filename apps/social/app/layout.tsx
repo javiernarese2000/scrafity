@@ -62,7 +62,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Scrapify · Redes",
+  title: "Zoocial",
   description: "Estudio de video y publicación en redes sociales",
 };
 
