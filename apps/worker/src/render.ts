@@ -212,6 +212,25 @@ function efectoDraw(efecto?: string): string {
   }
 }
 
+/** Word-wrap por cantidad de caracteres (drawtext no envuelve solo). */
+function wrapText(text: string, maxChars: number): string {
+  const out: string[] = [];
+  for (const parrafo of text.split("\n")) {
+    const words = parrafo.split(/\s+/).filter(Boolean);
+    let cur = "";
+    for (const w of words) {
+      if (!cur) cur = w;
+      else if ((cur + " " + w).length <= maxChars) cur += " " + w;
+      else {
+        out.push(cur);
+        cur = w;
+      }
+    }
+    out.push(cur);
+  }
+  return out.join("\n");
+}
+
 function xExpr(al: string | undefined, pad: number): string {
   if (al === "center") return "(w-text_w)/2";
   if (al === "right") return `w-text_w-${pad}`;
@@ -231,6 +250,7 @@ function buildZocalo(
   H: number,
   z: NonNullable<RenderConfig["zocalo"]>,
   textFile: string,
+  zLines: number,
 ): { chain: string; out: string } {
   const fs = Math.round(z.fontSize ?? Math.round(H * 0.03));
   const pad = Math.round(z.padding ?? 16);
@@ -263,8 +283,12 @@ function buildZocalo(
     };
   }
 
-  // barra / degradado / cinta: banda de ancho completo
-  const barH = estilo === "degradado" ? Math.round(H * 0.2) : Math.round(fs + pad * 2.2);
+  // barra / degradado / cinta: banda de ancho completo, alto según las líneas
+  const lineH = fs + 8;
+  const barH = Math.max(
+    estilo === "degradado" ? Math.round(H * 0.2) : 0,
+    zLines * lineH + Math.round(pad * 1.6),
+  );
   const barY =
     z.posicion === "arriba"
       ? pad
@@ -312,12 +336,14 @@ function buildArgsConfig(
   cfg: RenderConfig,
   zTextFile?: string,
   mTextFile?: string,
+  zLines = 1,
 ): string[] {
   const [W, H] = DIMS[cfg.aspecto ?? "9:16"]!;
   const parts: string[] = [];
+  // Cover: llena el cuadro y recorta (igual que object-cover del preview).
   parts.push(
-    `[0:v]scale=${W}:${H}:force_original_aspect_ratio=decrease,` +
-      `pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2,setsar=1[base]`,
+    `[0:v]scale=${W}:${H}:force_original_aspect_ratio=increase,` +
+      `crop=${W}:${H},setsar=1[base]`,
   );
   let last = "base";
 
@@ -341,7 +367,7 @@ function buildArgsConfig(
 
   // Zócalo
   if (zTextFile && cfg.zocalo?.texto) {
-    const r = buildZocalo(last, W, H, cfg.zocalo, zTextFile);
+    const r = buildZocalo(last, W, H, cfg.zocalo, zTextFile, zLines);
     parts.push(r.chain);
     last = r.out;
   }
@@ -382,19 +408,31 @@ export async function renderFromConfig(
   onProgress: (pct: number) => void,
 ): Promise<void> {
   const dur = await probeDuration(input);
+  const [W, H] = DIMS[cfg.aspecto ?? "9:16"]!;
   const dir = await mkdtemp(join(tmpdir(), "scrapify-cfg-"));
   try {
     let zTextFile: string | undefined;
+    let zLines = 1;
     if (cfg.zocalo?.texto && cfg.zocalo.texto.trim()) {
+      const z = cfg.zocalo;
+      const fs = Math.round(z.fontSize ?? Math.round(H * 0.03));
+      const pad = Math.round(z.padding ?? 16);
+      const font = z.fontFile ?? DEJAVU;
+      // Las fuentes condensadas (Anton/Bebas/Oswald) entran más caracteres.
+      const factor = /Anton|Bebas|Oswald/.test(font) ? 0.42 : 0.52;
+      const usable = W - 2 * (pad + 28) - 16;
+      const maxChars = Math.max(8, Math.floor(usable / (fs * factor)));
+      const wrapped = wrapText(cfg.zocalo.texto.trim(), maxChars);
+      zLines = wrapped.split("\n").length;
       zTextFile = join(dir, "zocalo.txt");
-      await writeFile(zTextFile, cfg.zocalo.texto, "utf8");
+      await writeFile(zTextFile, wrapped, "utf8");
     }
     let mTextFile: string | undefined;
     if (cfg.marca?.texto && cfg.marca.texto.trim()) {
       mTextFile = join(dir, "marca.txt");
       await writeFile(mTextFile, cfg.marca.texto, "utf8");
     }
-    const args = buildArgsConfig(input, output, cfg, zTextFile, mTextFile);
+    const args = buildArgsConfig(input, output, cfg, zTextFile, mTextFile, zLines);
     await runWithProgress(args, dur, onProgress);
   } finally {
     await rm(dir, { recursive: true, force: true });
