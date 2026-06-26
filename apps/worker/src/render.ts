@@ -231,19 +231,25 @@ function wrapText(text: string, maxChars: number): string {
   return out.join("\n");
 }
 
-function xExpr(al: string | undefined, pad: number): string {
-  if (al === "center") return "(w-text_w)/2";
-  if (al === "right") return `w-text_w-${pad}`;
-  return `${pad}`;
+/** x de UNA línea (usa su propio text_w) dentro de la región [L, L+Wr]. */
+function xPerLine(
+  al: string | undefined,
+  L: number,
+  Wr: number,
+  padL: number,
+  padR: number,
+): string {
+  if (al === "center") return `${L + padL}+(${Wr - padL - padR}-text_w)/2`;
+  if (al === "right") return `${L + Wr - padR}-text_w`;
+  return `${L + padL}`;
 }
 
-function yExpr(pos: string | undefined, pad: number): string {
-  if (pos === "arriba") return `${pad}`;
-  if (pos === "centro") return "(h-text_h)/2";
-  return `h-text_h-${pad}`;
-}
-
-/** Cadena de filtros para el zócalo según su estilo. */
+/**
+ * Cadena de filtros para el zócalo. Los estilos sin caja (degradado/barra/cinta/
+ * minimal) se dibujan **una línea por drawtext** para poder alinear cada línea
+ * (FFmpeg no centra líneas por sí solo). Los estilos con caja usan un drawtext
+ * con `box` que envuelve todo el bloque.
+ */
 function buildZocalo(
   last: string,
   W: number,
@@ -251,7 +257,8 @@ function buildZocalo(
   z: NonNullable<RenderConfig["zocalo"]>,
   textFile: string,
   zLines: number,
-  gradPath?: string,
+  gradPath: string | undefined,
+  lineFiles: string[],
 ): { chain: string; out: string } {
   const fs = Math.round(z.fontSize ?? Math.round(H * 0.03));
   const pad = Math.round(z.padding ?? 16);
@@ -261,13 +268,21 @@ function buildZocalo(
   const op = (z.opacidad ?? 0.55).toFixed(2);
   const ef = efectoDraw(z.efecto);
   const estilo = z.estilo ?? "barra";
+  const lineH = fs + 8;
+  const Ht = zLines * lineH - 8; // alto del bloque de texto
 
-  const base = (extra: string, xPad: number, y: string) =>
-    `drawtext=fontfile=${font}:textfile=${textFile}:fontcolor=${colT}:` +
-    `fontsize=${fs}:line_spacing=8:x=${xExpr(z.alineacion, xPad)}:y=${y}${ef}${extra}`;
+  // N drawtext, una por línea, alineadas dentro de [L, L+Wr].
+  const perLine = (topY: number, L: number, Wr: number, padL: number, padR: number) =>
+    lineFiles
+      .map(
+        (lf, i) =>
+          `drawtext=fontfile=${font}:textfile=${lf}:fontcolor=${colT}:` +
+          `fontsize=${fs}:x=${xPerLine(z.alineacion, L, Wr, padL, padR)}:` +
+          `y=${topY + i * lineH}${ef}`,
+      )
+      .join(",");
 
-  // Estilos con caja pegada al texto: la caja se infla `bw` alrededor del texto,
-  // así que el texto va a `pad + bw` para que la caja quede a `pad` del borde.
+  // Estilos con caja pegada al texto (bloque/resaltado/caja): un solo drawtext.
   if (estilo === "bloque" || estilo === "resaltado" || estilo === "caja") {
     const bw = estilo === "resaltado" ? Math.round(pad * 0.5) : pad;
     const extra = `:box=1:boxcolor=${colB}@${op}:boxborderw=${bw}`;
@@ -277,67 +292,75 @@ function buildZocalo(
         : z.posicion === "centro"
           ? "(h-text_h)/2"
           : `h-text_h-${pad + bw}`;
-    return { chain: `[${last}]${base(extra, pad + bw, yBox)}[zk]`, out: "zk" };
+    const x =
+      z.alineacion === "center"
+        ? "(w-text_w)/2"
+        : z.alineacion === "right"
+          ? `w-text_w-${pad + bw}`
+          : `${pad + bw}`;
+    const chain =
+      `[${last}]drawtext=fontfile=${font}:textfile=${textFile}:fontcolor=${colT}:` +
+      `fontsize=${fs}:line_spacing=8:x=${x}:y=${yBox}${ef}${extra}[zk]`;
+    return { chain, out: "zk" };
   }
 
-  if (estilo === "minimal") {
-    return {
-      chain: `[${last}]${base("", pad, yExpr(z.posicion, pad))}[zk]`,
-      out: "zk",
-    };
-  }
-
-  // degradado: gradiente pre-renderizado a PNG (1 frame, rápido) y superpuesto.
+  // degradado: gradiente PNG + texto por línea.
   if (estilo === "degradado" && gradPath) {
     const gradH = Math.round(H * 0.44);
     const arriba = z.posicion === "arriba";
     const gradY = arriba ? 0 : H - gradH;
-    const ty = arriba ? `${pad}` : `h-text_h-${pad}`;
-    const chain =
-      `movie='${gradPath}'[grad];` +
-      `[${last}][grad]overlay=0:${gradY}[gv];` +
-      `[gv]${base("", pad, ty)}[zk]`;
-    return { chain, out: "zk" };
+    const topY = arriba ? pad : H - pad - Ht;
+    return {
+      chain:
+        `movie='${gradPath}'[grad];` +
+        `[${last}][grad]overlay=0:${gradY}[gv];` +
+        `[gv]${perLine(topY, 0, W, pad, pad)}[zk]`,
+      out: "zk",
+    };
   }
 
-  const lineH = fs + 8;
-  const barH = zLines * lineH + 2 * pad;
+  // minimal: solo texto por línea.
+  if (estilo === "minimal") {
+    const topY =
+      z.posicion === "arriba"
+        ? pad
+        : z.posicion === "centro"
+          ? Math.round((H - Ht) / 2)
+          : H - pad - Ht;
+    return { chain: `[${last}]${perLine(topY, 0, W, pad, pad)}[zk]`, out: "zk" };
+  }
 
-  // cinta: tarjeta FLOTANTE con margen `pad` desde los bordes + acento a la izq.
+  // cinta: tarjeta flotante (margen `pad`) + acento + texto por línea.
   if (estilo === "cinta") {
     const accent = 10;
     const barX = pad;
     const barW = W - 2 * pad;
+    const barH = Ht + 2 * pad;
     const barY =
       z.posicion === "arriba"
         ? pad
         : z.posicion === "centro"
           ? Math.round((H - barH) / 2)
           : H - barH - pad;
-    const ty = `${barY}+(${barH}-text_h)/2`;
-    const xText =
-      z.alineacion === "center"
-        ? `${pad + accent}+(${W - 2 * pad - accent}-text_w)/2`
-        : z.alineacion === "right"
-          ? `${W - 2 * pad}-text_w`
-          : `${2 * pad + accent}`;
+    const topY = barY + pad;
     let chain = `[${last}]drawbox=x=${barX}:y=${barY}:w=${barW}:h=${barH}:color=${colB}@${op}:t=fill`;
     chain += `,drawbox=x=${barX}:y=${barY}:w=${accent}:h=${barH}:color=${ACCENT}:t=fill`;
-    chain += `,drawtext=fontfile=${font}:textfile=${textFile}:fontcolor=${colT}:fontsize=${fs}:line_spacing=8:x=${xText}:y=${ty}${ef}[zk]`;
+    chain += `,${perLine(topY, barX, barW, accent + pad, pad)}[zk]`;
     return { chain, out: "zk" };
   }
 
-  // barra / degradado: banda de ancho completo, texto con padding interno = pad.
+  // barra: banda de ancho completo + texto por línea.
+  const barH = Ht + 2 * pad;
   const barY =
     z.posicion === "arriba"
       ? 0
       : z.posicion === "centro"
         ? Math.round((H - barH) / 2)
         : H - barH;
-  const ty = `${barY}+(${barH}-text_h)/2`;
+  const topY = barY + pad;
   const chain =
     `[${last}]drawbox=x=0:y=${barY}:w=${W}:h=${barH}:color=${colB}@${op}:t=fill` +
-    `,${base("", pad, ty)}[zk]`;
+    `,${perLine(topY, 0, W, pad, pad)}[zk]`;
   return { chain, out: "zk" };
 }
 
@@ -376,6 +399,7 @@ function buildArgsConfig(
   mTextFile?: string,
   zLines = 1,
   gradPath?: string,
+  zLineFiles: string[] = [],
 ): string[] {
   const [W, H] = DIMS[cfg.aspecto ?? "9:16"]!;
   const parts: string[] = [];
@@ -406,7 +430,7 @@ function buildArgsConfig(
 
   // Zócalo
   if (zTextFile && cfg.zocalo?.texto) {
-    const r = buildZocalo(last, W, H, cfg.zocalo, zTextFile, zLines, gradPath);
+    const r = buildZocalo(last, W, H, cfg.zocalo, zTextFile, zLines, gradPath, zLineFiles);
     parts.push(r.chain);
     last = r.out;
   }
@@ -452,6 +476,7 @@ export async function renderFromConfig(
   try {
     let zTextFile: string | undefined;
     let zLines = 1;
+    const zLineFiles: string[] = [];
     if (cfg.zocalo?.texto && cfg.zocalo.texto.trim()) {
       const z = cfg.zocalo;
       const fs = Math.round(z.fontSize ?? Math.round(H * 0.03));
@@ -474,9 +499,16 @@ export async function renderFromConfig(
             : W - 2 * pad;
       const maxChars = Math.max(8, Math.floor(usable / (fs * factor)));
       const wrapped = wrapText(cfg.zocalo.texto.trim(), maxChars);
-      zLines = wrapped.split("\n").length;
+      const lineas = wrapped.split("\n");
+      zLines = lineas.length;
       zTextFile = join(dir, "zocalo.txt");
       await writeFile(zTextFile, wrapped, "utf8");
+      // Un archivo por línea (para alinear cada línea por separado).
+      for (let i = 0; i < lineas.length; i++) {
+        const lf = join(dir, `zl${i}.txt`);
+        await writeFile(lf, lineas[i] ?? "", "utf8");
+        zLineFiles.push(lf);
+      }
     }
     let mTextFile: string | undefined;
     if (cfg.marca?.texto && cfg.marca.texto.trim()) {
@@ -517,6 +549,7 @@ export async function renderFromConfig(
       mTextFile,
       zLines,
       gradPath,
+      zLineFiles,
     );
     await runWithProgress(args, dur, onProgress);
   } finally {

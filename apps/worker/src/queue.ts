@@ -28,7 +28,9 @@ function mapConfig(cfg: Record<string, unknown>, logoPath?: string): RenderConfi
   const g = cfg as Record<string, number | string | boolean | undefined>;
   const aspecto = (g.aspecto as RenderConfig["aspecto"]) ?? "9:16";
   const W = aspecto === "16:9" ? 1920 : 1080;
-  const scale = W / 380;
+  // El preview mide ~380px; +escala extra para compensar que la serif del
+  // render (DejaVu) se ve más chica que la del preview (Fraunces) a igual px.
+  const scale = W / 340;
 
   const zocaloOn = g.zocaloOn !== false;
   let texto = g.texto ? String(g.texto) : "";
