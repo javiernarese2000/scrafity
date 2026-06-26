@@ -153,9 +153,24 @@ Cerrar TODO el panel a nivel UI/UX primero (con datos dev/mock), y dejar la cone
 Meta/TikTok para el final (pruebas). El usuario dispara las apps/aprobaciones en paralelo.
 Orden de pantallas: Clientes → Cuentas → Estudio (subir+logo+zócalo+preview) → Publicaciones.
 
+### Pantalla Clientes (2026-06) — HECHO
+- `apps/social`: `src/server/clientes.ts` (server actions: listar con conteo de destinos vía left
+  join, crear, actualizar, toggle activo, eliminar), `app/clientes/page.tsx` (server component) y
+  `components/clientes/clientes-board.tsx` (grilla de cards + modal nuevo/editar + activar/pausar +
+  borrar, con Toast). Usa `@scrapify/ui`. Se agregó `@scrapify/db` + `drizzle-orm` a apps/social
+  (+ transpilePackages). Build OK. Hay 2 clientes demo en dev.
+
+### Permisos (2026-06)
+- `.claude/settings.local.json` (gitignored): patrones amplios `Bash(pnpm:*)`, `Bash(git:*)`,
+  `Bash(docker:*)`, `Bash(node:*)`, `taskkill:*`, `mkdir:*`, `rm -rf apps/*/.next`. Reducen los
+  prompts del flujo de dev. (Trade-off: pnpm/node/docker permiten ejecución arbitraria en el repo.)
+
 ## PENDIENTE / próximo paso
 
-- **Pantallas del panel** (UI/UX): Clientes (CRUD real contra dev), Cuentas (mock), Estudio, Publicaciones.
+- **Cuentas** (cuentas de redes por cliente; UI ahora, conexión real Meta/TikTok al final).
+- **Estudio** (subir video → logo + zócalo → preview → render con worker).
+- **Publicaciones** (estado por red).
+- Tablas faltantes del modelo: `social_accounts`, `video_assets`, `video_renders`, `social_publications`.
 - **De-duplicar `apps/web` → `@scrapify/ui`** (convertir sus `components/ui/*` + `lib/cn` en
   re-exports y agregar `@source "../../../packages/ui/src"` en globals.css). Único cambio que toca
   el escaneo de Tailwind de noticias → hacerlo deliberado, con build + revisión visual.
