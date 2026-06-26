@@ -19,6 +19,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 
+import { RedIcon } from "@/components/icons/redes";
 import type { ClienteConCuentas, Plataforma } from "@/server/cuentas";
 import {
   actualizarProgramada,
@@ -496,10 +497,7 @@ export function PlanificadorBoard({ clientes }: { clientes: ClienteConCuentas[] 
                       }}
                     >
                       <div className="flex items-center gap-1.5">
-                        <span
-                          className="size-1.5 shrink-0 rounded-full"
-                          style={{ backgroundColor: color }}
-                        />
+                        <RedIcon plataforma={it.plataforma} className="size-3.5" />
                         <span className="font-mono text-[10px] text-muted">
                           {fmtMin(min)}
                         </span>

@@ -10,6 +10,7 @@ import { Info, Link2, Plus, Power, Trash2, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
+import { RedIcon } from "@/components/icons/redes";
 import {
   agregarCuenta,
   eliminarCuenta,
@@ -148,10 +149,7 @@ export function CuentasBoard({ clientes }: { clientes: ClienteConCuentas[] }) {
                           key={a.id}
                           className="flex items-center gap-3 rounded-lg border border-line/70 bg-surface px-3 py-2.5"
                         >
-                          <span
-                            className="size-2.5 shrink-0 rounded-full"
-                            style={{ backgroundColor: p.color }}
-                          />
+                          <RedIcon plataforma={a.plataforma} className="size-5" />
                           <div className="min-w-0">
                             <p className="truncate text-sm font-medium text-fg">
                               @{a.nombre}
@@ -223,10 +221,7 @@ export function CuentasBoard({ clientes }: { clientes: ClienteConCuentas[] }) {
                         : "border-line text-muted hover:bg-elevated")
                     }
                   >
-                    <span
-                      className="size-2.5 rounded-full"
-                      style={{ backgroundColor: meta.color }}
-                    />
+                    <RedIcon plataforma={p} className="size-4" />
                     {meta.label}
                   </button>
                 );

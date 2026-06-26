@@ -32,7 +32,8 @@ import {
   type ReactNode,
 } from "react";
 
-import type { ClienteConCuentas, Plataforma } from "@/server/cuentas";
+import { RedIcon } from "@/components/icons/redes";
+import type { ClienteConCuentas } from "@/server/cuentas";
 import {
   crearPlantilla,
   eliminarPlantilla,
@@ -188,12 +189,6 @@ const ESQUINAS: { label: string; x: number; y: number }[] = [
   { label: "↙", x: 14, y: 88 },
   { label: "↘", x: 86, y: 88 },
 ];
-
-const COLOR_PLAT: Record<Plataforma, string> = {
-  instagram: "#d6336c",
-  facebook: "#3b5998",
-  tiktok: "#0ea5b7",
-};
 
 // Zonas seguras: márgenes (en %) que la UI de cada red suele tapar.
 type RefRed = "tiktok" | "instagram" | "facebook";
@@ -470,12 +465,13 @@ export function EstudioBoard({
                 type="button"
                 onClick={() => setRefRed(r)}
                 className={
-                  "rounded-md px-2 py-1 text-xs font-medium transition-colors " +
+                  "flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium transition-colors " +
                   (refRed === r
                     ? "bg-elevated text-fg"
                     : "text-muted hover:text-fg")
                 }
               >
+                <RedIcon plataforma={r} className="size-3.5" />
                 {SAFE[r].label}
               </button>
             ))}
@@ -1081,10 +1077,7 @@ export function EstudioBoard({
                               : "border-line text-muted hover:bg-elevated")
                           }
                         >
-                          <span
-                            className="size-2 rounded-full"
-                            style={{ backgroundColor: COLOR_PLAT[a.plataforma] }}
-                          />
+                          <RedIcon plataforma={a.plataforma} className="size-4" />
                           @{a.nombre}
                         </button>
                       );

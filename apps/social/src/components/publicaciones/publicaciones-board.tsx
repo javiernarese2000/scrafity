@@ -6,14 +6,10 @@ import { PageHeader } from "@scrapify/ui/page-header";
 import { ExternalLink, Send } from "lucide-react";
 import { useMemo, useState } from "react";
 
+import { RedIcon } from "@/components/icons/redes";
 import type { Plataforma } from "@/server/cuentas";
 import type { EstadoPub, PublicacionRow } from "@/server/publicaciones";
 
-const COLOR_PLAT: Record<Plataforma, string> = {
-  instagram: "#d6336c",
-  facebook: "#3b5998",
-  tiktok: "#111111",
-};
 const LABEL_PLAT: Record<Plataforma, string> = {
   instagram: "Instagram",
   facebook: "Facebook",
@@ -158,10 +154,9 @@ export function PublicacionesBoard({
             return (
               <Card key={p.id}>
                 <CardBody className="flex items-center gap-3 py-3">
-                  <span
-                    className="size-2.5 shrink-0 rounded-full"
-                    style={{ backgroundColor: COLOR_PLAT[p.plataforma] }}
-                    title={LABEL_PLAT[p.plataforma]}
+                  <RedIcon
+                    plataforma={p.plataforma}
+                    className="size-5 shrink-0"
                   />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-fg">

@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
+import { RedIcon } from "@/components/icons/redes";
 import { getResumenRedes } from "@/server/dashboard";
 
 const TONO = {
@@ -171,10 +172,7 @@ export default async function PanelRedes() {
                 <div key={red.id}>
                   <div className="mb-1 flex items-center justify-between text-sm">
                     <span className="flex items-center gap-2 text-muted">
-                      <span
-                        className="size-2.5 rounded-full"
-                        style={{ backgroundColor: red.color }}
-                      />
+                      <RedIcon plataforma={red.id} className="size-4" />
                       {red.label}
                     </span>
                     <span className="font-mono text-fg">{n}</span>
@@ -220,10 +218,7 @@ export default async function PanelRedes() {
                 const red = REDES.find((x) => x.id === p.plataforma);
                 return (
                   <div key={p.id} className="flex items-center gap-3 py-2.5">
-                    <span
-                      className="size-2.5 shrink-0 rounded-full"
-                      style={{ backgroundColor: red?.color }}
-                    />
+                    <RedIcon plataforma={p.plataforma} className="size-5 shrink-0" />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium text-fg">
                         {p.videoTitulo || "Video"}

@@ -4,12 +4,13 @@ import { Eye, EyeOff, Loader2, Lock, Mail, Play, ShieldCheck } from "lucide-reac
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { RedIcon } from "@/components/icons/redes";
 import { createClient } from "@/lib/supabase/client";
 
 const REDES = [
-  { n: "Instagram", c: "#d6336c" },
-  { n: "Facebook", c: "#3b5998" },
-  { n: "TikTok", c: "#111111" },
+  { p: "instagram" as const, n: "Instagram" },
+  { p: "facebook" as const, n: "Facebook" },
+  { p: "tiktok" as const, n: "TikTok" },
 ];
 
 function Panel() {
@@ -49,10 +50,7 @@ function Panel() {
                 key={r.n}
                 className="flex items-center gap-2 rounded-full border border-line/70 bg-surface px-3 py-1.5 text-xs font-medium text-fg shadow-soft"
               >
-                <span
-                  className="size-2.5 rounded-full"
-                  style={{ backgroundColor: r.c }}
-                />
+                <RedIcon plataforma={r.p} className="size-4" />
                 {r.n}
               </span>
             ))}
