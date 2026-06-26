@@ -265,6 +265,8 @@ export const socialPublications = pgTable("social_publications", {
   // URL de la noticia que acompaña al video (opcional, va en el caption).
   urlNota: text("url_nota"),
   estado: socialPublicationStatus("estado").notNull().default("pendiente"),
+  // Momento programado de publicación (planificador minuto a minuto).
+  programadaEn: timestamp("programada_en", { withTimezone: true }),
   urlPublicada: text("url_publicada"),
   externalId: text("external_id"),
   error: text("error"),

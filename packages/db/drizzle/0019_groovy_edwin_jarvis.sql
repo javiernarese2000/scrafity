@@ -1,0 +1,1 @@
+ALTER TABLE "social_publications" ADD COLUMN "programada_en" timestamp with time zone;
