@@ -194,6 +194,19 @@ Orden de pantallas: Clientes → Cuentas → Estudio (subir+logo+zócalo+preview
   `components/publicaciones/publicaciones-board.tsx` (métricas por estado, filtros cliente/red/estado,
   listado con badge de estado + link). 5 publicaciones demo en dev. Build OK.
 
+### Mejoras de diseño del panel (2026-06) — HECHO
+- **Sidebar colapsable** (riel de íconos, persistente en localStorage `redes-sidebar-collapsed`).
+- **Contenido full-width** en todas las pantallas (se sacaron los `max-w`).
+- **Dashboard premium** (`app/page.tsx` RSC + `server/dashboard.ts`): KPIs reales, barras por estado,
+  distribución por red, actividad reciente, accesos rápidos.
+- **Estudio = editor pro a pantalla completa** (3 paneles, sin scroll de página): toolbar (formato +
+  CTA), rail izq media (video/logo), escenario oscuro central con preview grande ajustado al alto,
+  rail der inspector. AppShell deja `/estudio` sin padding/scroll (flag `isEditor`).
+- **Estudio — más herramientas para editores**: 8 tipografías (Serif/Sans/Mono + Anton/Bebas/Oswald/
+  Archivo/Inter, cargadas en layout vía next/font), 7 estilos de zócalo (barra/degradado/bloque/
+  resaltado/caja/cinta/minimal), padding, posición (abajo/centro/arriba), alineación, MAYÚSCULAS,
+  y opacidad del logo.
+
 ## ESTADO: panel de Redes COMPLETO a nivel UI/UX
 Pantallas: Login ✅, Panel(mock) ✅, Clientes ✅, Cuentas ✅, Estudio (preview en vivo) ✅,
 Publicaciones ✅. Dev server en :5556. Todo en rama `redes`, prod intacto.
