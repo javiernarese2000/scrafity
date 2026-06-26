@@ -120,11 +120,28 @@ Pasos 1 y 2 son la **fundación** y no dependen de Meta/TikTok.
 - Pipeline real (recibir jobs por Inngest/DB, bajar inputs de Storage, subir output) → cuando exista
   el esquema de video. Hoy el server solo expone `/health` para poder desplegarlo aislado.
 
+### Entorno DEV cableado (2026-06) — HECHO
+- 2º proyecto Supabase **`scrapify-dev`** (ref `dnptcdzimdyeoqykywul`). Conexión DIRECTA funciona
+  desde local (la máquina tiene IPv6) → se usa para `DATABASE_URL` y `DIRECT_URL`.
+- `.env` local → **DEV** (conserva ANTHROPIC_API_KEY y ENCRYPTION_KEY de antes). Credenciales de
+  **PROD** movidas a `.env.production` (gitignored, solo para migraciones de release).
+- `.gitignore` ya ignora todos los `.env*` salvo `.env.example` (verificado: ningún `.env` entra a git).
+- Migraciones 0001–0015 aplicadas a DEV. **15+1 tablas** (incluida `clientes`).
+- **Usuario admin en DEV**: narese@gmail.com / `scrapify-dev-2026` (cambiar cuando quiera).
+
+### Paso 2 — `clientes` + `area` (2026-06) — HECHO
+- `schema.ts`: tabla **`clientes`** (id, nombre, notas, activo, timestamps), enum **`area`**
+  (`noticias`|`redes`|`ambos`) en `users.area` (default `ambos`), y FK **`destinations.clienteId`**
+  (nullable, onDelete set null). Relaciones cliente↔destinos. Migración **0015** generada y aplicada
+  a DEV (verificado: tabla, columnas y FK presentes). typecheck db + web OK.
+- Pendiente del modelo (cuando se arme el estudio): `social_accounts`, `video_assets`,
+  `video_renders`, `social_publications` (con caption + urlNota opcional).
+
 ## PENDIENTE / próximo paso
 
+- **Auth del panel de Redes** (`apps/social`): proxy Supabase + login + gate por `area`.
 - **De-duplicar `apps/web` → `@scrapify/ui`** (convertir sus `components/ui/*` + `lib/cn` en
   re-exports y agregar `@source "../../../packages/ui/src"` en globals.css). Único cambio que toca
   el escaneo de Tailwind de noticias → hacerlo deliberado, con build + revisión visual.
-- **Usuario:** crear el segundo proyecto Supabase (DEV) y pasar credenciales (o pedir guía).
-  Luego se reemplaza el `.env` local por las de dev.
+- **Estudio de video** + tablas `social_accounts`/`video_*` + conectar worker al pipeline.
 - En paralelo (usuario): iniciar apps/verificaciones de Meta y TikTok (cuello de botella lento).
