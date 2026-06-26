@@ -58,6 +58,12 @@ export const socialAccountStatus = pgEnum("social_account_status", [
   "desconectada",
   "error",
 ]);
+export const socialPublicationStatus = pgEnum("social_publication_status", [
+  "pendiente",
+  "en_cola",
+  "publicada",
+  "error",
+]);
 
 // Config de ritmo de despacho por destino (bandeja de salida).
 export type Cadencia = {
@@ -239,6 +245,30 @@ export const socialAccounts = pgTable("social_accounts", {
   // Token cifrado (para cuando se enchufe el OAuth real).
   credencialesCifradas: text("credenciales_cifradas"),
   expiraEn: timestamp("expira_en", { withTimezone: true }),
+  ...timestamps,
+});
+
+// Publicación de un video en una red social (panel Redes). El render real y la
+// publicación se conectan más adelante; la tabla ya modela el historial/estado.
+export const socialPublications = pgTable("social_publications", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  clienteId: uuid("cliente_id")
+    .notNull()
+    .references(() => clientes.id, { onDelete: "cascade" }),
+  // Cuenta destino (se conserva el historial aunque se borre la cuenta).
+  socialAccountId: uuid("social_account_id").references(() => socialAccounts.id, {
+    onDelete: "set null",
+  }),
+  plataforma: socialPlatform("plataforma").notNull(),
+  videoTitulo: text("video_titulo"),
+  caption: text("caption"),
+  // URL de la noticia que acompaña al video (opcional, va en el caption).
+  urlNota: text("url_nota"),
+  estado: socialPublicationStatus("estado").notNull().default("pendiente"),
+  urlPublicada: text("url_publicada"),
+  externalId: text("external_id"),
+  error: text("error"),
+  publicadaEn: timestamp("publicada_en", { withTimezone: true }),
   ...timestamps,
 });
 
@@ -443,6 +473,7 @@ export const versionsRelations = relations(versions, ({ one, many }) => ({
 export const clientesRelations = relations(clientes, ({ many }) => ({
   destinations: many(destinations),
   socialAccounts: many(socialAccounts),
+  socialPublications: many(socialPublications),
 }));
 
 export const socialAccountsRelations = relations(socialAccounts, ({ one }) => ({
@@ -451,6 +482,20 @@ export const socialAccountsRelations = relations(socialAccounts, ({ one }) => ({
     references: [clientes.id],
   }),
 }));
+
+export const socialPublicationsRelations = relations(
+  socialPublications,
+  ({ one }) => ({
+    cliente: one(clientes, {
+      fields: [socialPublications.clienteId],
+      references: [clientes.id],
+    }),
+    socialAccount: one(socialAccounts, {
+      fields: [socialPublications.socialAccountId],
+      references: [socialAccounts.id],
+    }),
+  }),
+);
 
 export const destinationsRelations = relations(destinations, ({ one, many }) => ({
   cliente: one(clientes, {
