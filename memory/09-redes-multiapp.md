@@ -332,3 +332,4 @@ Publicaciones ✅. Dev server en :5556. Todo en rama `redes`, prod intacto.
   el escaneo de Tailwind de noticias → hacerlo deliberado, con build + revisión visual.
 - **Estudio de video** + tablas `social_accounts`/`video_*` + conectar worker al pipeline.
 - En paralelo (usuario): iniciar apps/verificaciones de Meta y TikTok (cuello de botella lento).
+- **Fix tipografía/márgenes (2026-06)**: FONT_MAP usa variantes Bold (más cuerpo, el regular salía flaco vs el preview); márgenes del zócalo respetan el padding tal cual (se sacaron fudges +28/+20/+40), barra con padding simétrico y flush al borde.
