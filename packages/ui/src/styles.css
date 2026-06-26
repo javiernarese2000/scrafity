@@ -1,0 +1,103 @@
+/* ---------------------------------------------------------------------------
+   Tema "Editorial Premium" compartido. Lo importa cada app después de
+   `@import "tailwindcss"`. Fuente única de verdad de los tokens de diseño.
+   (Mantener en sync con apps/web/app/globals.css hasta de-duplicar — ver
+   memory/09-redes-multiapp.md.)
+--------------------------------------------------------------------------- */
+
+/* Modo oscuro por clase (.dark) */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-display: var(--font-fraunces), Georgia, serif;
+  --font-sans: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+  /* Superficies — light (papel) */
+  --color-canvas: #f7f5f0;
+  --color-surface: #ffffff;
+  --color-elevated: #f4f1ea;
+  --color-line: #efebe3;
+  --color-fg: #211f1a;
+  --color-muted: #78746c;
+
+  /* Marca y acento */
+  --color-brand: #3e5c76;
+  --color-brand-foreground: #ffffff;
+  --color-accent: #c0883e;
+
+  /* Semánticos */
+  --color-success: #5f8a6a;
+  --color-warning: #c99a3c;
+  --color-danger: #b0524a;
+  --color-info: #5b8bb0;
+
+  /* Data-viz categórica */
+  --color-viz-1: #4a6e8a;
+  --color-viz-2: #c9963f;
+  --color-viz-3: #7c9070;
+  --color-viz-4: #b5715a;
+  --color-viz-5: #7e6080;
+  --color-viz-6: #8a8d93;
+
+  --radius-sm: 0.625rem;
+  --radius: 1rem;
+  --radius-lg: 1.25rem;
+}
+
+/* Superficies — dark (tinta) */
+.dark {
+  --color-canvas: #14130f;
+  --color-surface: #1c1b16;
+  --color-elevated: #24221c;
+  --color-line: #2a2823;
+  --color-fg: #f4f0e8;
+  --color-muted: #9d988f;
+  --color-brand: #7e9bba;
+  --color-brand-foreground: #14130f;
+  --color-accent: #d7a85c;
+  --color-info: #7fb0d4;
+}
+
+@layer base {
+  html {
+    color-scheme: light dark;
+  }
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  ::selection {
+    background-color: color-mix(in oklab, var(--color-accent) 30%, transparent);
+  }
+  /* Scrollbar sutil acorde a la paleta */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-line) transparent;
+  }
+}
+
+/* Elevación suave — tarjetas que "flotan" sin durezas. */
+@utility shadow-soft {
+  box-shadow:
+    0 1px 2px rgba(31, 26, 18, 0.04),
+    0 14px 32px -18px rgba(31, 26, 18, 0.12);
+}
+@utility shadow-float {
+  box-shadow:
+    0 1px 2px rgba(31, 26, 18, 0.05),
+    0 24px 48px -24px rgba(31, 26, 18, 0.16);
+}
+.dark .shadow-soft {
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.4),
+    0 16px 36px -20px rgba(0, 0, 0, 0.7);
+}
+.dark .shadow-float {
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.5),
+    0 28px 56px -26px rgba(0, 0, 0, 0.8);
+}

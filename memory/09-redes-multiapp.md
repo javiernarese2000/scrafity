@@ -73,9 +73,29 @@ Pasos 1 y 2 son la **fundación** y no dependen de Meta/TikTok.
 - **Producción** = variables en el panel de Railway (no usa el `.env` local).
 - `.gitignore` blindado: todos los `.env*` ignorados salvo `.env.example`.
 
+## Progreso
+
+### Paso 1 — `packages/ui` creado (2026-06) — HECHO (parcial)
+- Nuevo paquete `@scrapify/ui` (`packages/ui`): hogar canónico del design system.
+  Contiene `cn` + las 9 primitivas (badge, button, card, empty-state, markdown, modal,
+  page-header, reveal, toast) + `styles.css` (copia del tema de globals.css). `exports` con
+  subpaths por archivo (`@scrapify/ui/button`, etc.) + barrel `@scrapify/ui`.
+- **DECISIÓN clave de seguridad:** se hizo por **COPIA, no por move**. Motivo: Tailwind v4 usa
+  auto-detección de contenido y `packages/ui` queda fuera del árbol que escanea `apps/web`;
+  mover los componentes arriesgaba que Tailwind dejara de generar clases únicas (ej. variantes
+  arbitrarias de `markdown`) → romper visualmente la app de noticias en prod. Por eso **`apps/web`
+  quedó 100% intacto** (verificado: typecheck + build OK).
+- Hay duplicación temporal (apps/web tiene su copia, packages/ui la suya). Drift bajo
+  (primitivas estables). Se de-duplica en un paso dedicado y verificado (ver abajo).
+
 ## PENDIENTE / próximo paso
 
+- **Próximo:** scaffold `apps/social` (panel Redes) consumiendo `@scrapify/ui` — ahí se verifica
+  el paquete end-to-end y se cablea Tailwind `@source` hacia packages/ui en la app NUEVA (sin
+  riesgo a prod).
+- **De-duplicar `apps/web` → `@scrapify/ui`** (convertir sus `components/ui/*` + `lib/cn` en
+  re-exports y agregar `@source "../../../packages/ui/src"` en globals.css). Único cambio que toca
+  el escaneo de Tailwind de noticias → hacerlo deliberado, con build + revisión visual.
 - **Usuario:** crear el segundo proyecto Supabase (DEV) y pasar credenciales (o pedir guía).
   Luego se reemplaza el `.env` local por las de dev.
-- Luego: **Paso 1** (extraer `packages/ui`), de forma quirúrgica y verificando build.
 - En paralelo (usuario): iniciar apps/verificaciones de Meta y TikTok (cuello de botella lento).
