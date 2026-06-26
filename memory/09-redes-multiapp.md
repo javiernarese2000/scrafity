@@ -217,6 +217,12 @@ Orden de pantallas: Clientes → Cuentas → Estudio (subir+logo+zócalo+preview
   persistirlo en la plantilla. La lista se maneja en estado del cliente (sin router.refresh, para no
   resetear el editor).
 
+### Guías como blueprint de la red (2026-06) — HECHO
+- Las safe-zones evolucionaron: el toggle "Guías" + selector **TikTok/Instagram/Facebook** dibuja un
+  **blueprint de la UI real** de cada red sobre el preview (componente `Guias` + `GBtn`): columna
+  derecha de acciones (avatar con +, botones, disco de música en TikTok), bloque de caption abajo-izq,
+  barra de progreso y top propio de cada red, además del rectángulo punteado de zona segura.
+
 ### Safe-zones en el Estudio (2026-06) — HECHO
 - Toggle "Guías" en la toolbar + selector de red (TikTok/Reels/Feed). Overlay sobre el preview:
   oscurece los márgenes que tapa la UI de cada red (derecha botones, abajo caption, top) con
