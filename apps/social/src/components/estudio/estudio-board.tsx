@@ -1,22 +1,40 @@
 "use client";
 
 import { Badge } from "@scrapify/ui/badge";
+import { Field, Modal, inputCls } from "@scrapify/ui/modal";
 import { Toast, useToast } from "@scrapify/ui/toast";
 import {
   AlignCenter,
   AlignLeft,
   AlignRight,
+  Check,
+  ChevronDown,
+  Globe,
   ImagePlus,
+  LayoutTemplate,
+  Save,
   Send,
+  Trash2,
   Type,
   Upload,
   Video,
   X,
   type LucideIcon,
 } from "lucide-react";
-import { useRef, useState, type CSSProperties, type ReactNode } from "react";
+import {
+  useRef,
+  useState,
+  useTransition,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 
 import type { ClienteConCuentas, Plataforma } from "@/server/cuentas";
+import {
+  crearPlantilla,
+  eliminarPlantilla,
+  type PlantillaRow,
+} from "@/server/plantillas";
 
 type Aspecto = "9:16" | "1:1" | "16:9";
 type Esquina = "tl" | "tr" | "bl" | "br";
@@ -79,6 +97,50 @@ const ALINEACIONES: { id: Alineacion; icon: LucideIcon }[] = [
   { id: "right", icon: AlignRight },
 ];
 
+// Config de diseño que se guarda en una plantilla (sin el texto ni el video).
+type ConfigEstudio = {
+  aspecto?: Aspecto;
+  logoDataUrl?: string | null;
+  logoPos?: Esquina;
+  logoSize?: number;
+  logoOpacidad?: number;
+  zocaloOn?: boolean;
+  estilo?: ZocaloEstilo;
+  fuente?: Fuente;
+  fontSize?: number;
+  colorTexto?: string;
+  colorBarra?: string;
+  opacidad?: number;
+  posicion?: PosicionZ;
+  alineacion?: Alineacion;
+  padding?: number;
+  mayus?: boolean;
+};
+
+// Presets de fábrica (no tocan logo ni formato; solo el look del zócalo).
+const PRESETS: { nombre: string; config: ConfigEstudio }[] = [
+  {
+    nombre: "Breaking",
+    config: { estilo: "barra", fuente: "bebas", colorBarra: "#c0271f", colorTexto: "#ffffff", opacidad: 1, mayus: true, posicion: "abajo", alineacion: "left", padding: 18, fontSize: 26 },
+  },
+  {
+    nombre: "Cita",
+    config: { estilo: "minimal", fuente: "display", colorTexto: "#ffffff", posicion: "centro", alineacion: "center", fontSize: 28, mayus: false },
+  },
+  {
+    nombre: "Deportivo",
+    config: { estilo: "cinta", fuente: "anton", colorBarra: "#111111", colorTexto: "#ffffff", opacidad: 0.7, mayus: true, alineacion: "left", padding: 16, fontSize: 24 },
+  },
+  {
+    nombre: "Resaltado",
+    config: { estilo: "resaltado", fuente: "archivo", colorBarra: "#c0883e", colorTexto: "#ffffff", opacidad: 0.95, mayus: false, fontSize: 22 },
+  },
+  {
+    nombre: "Degradado",
+    config: { estilo: "degradado", fuente: "sans", colorBarra: "#000000", colorTexto: "#ffffff", opacidad: 0.8, fontSize: 22, alineacion: "left" },
+  },
+];
+
 const POSICIONES: { id: Esquina; label: string }[] = [
   { id: "tl", label: "↖" },
   { id: "tr", label: "↗" },
@@ -120,8 +182,15 @@ function Group({
   );
 }
 
-export function EstudioBoard({ clientes }: { clientes: ClienteConCuentas[] }) {
+export function EstudioBoard({
+  clientes,
+  plantillasIniciales,
+}: {
+  clientes: ClienteConCuentas[];
+  plantillasIniciales: PlantillaRow[];
+}) {
   const { message, show } = useToast();
+  const [pending, startTransition] = useTransition();
   const videoInput = useRef<HTMLInputElement>(null);
   const logoInput = useRef<HTMLInputElement>(null);
 
@@ -149,6 +218,12 @@ export function EstudioBoard({ clientes }: { clientes: ClienteConCuentas[] }) {
   const [clienteId, setClienteId] = useState(clientes[0]?.id ?? "");
   const [destinos, setDestinos] = useState<Set<string>>(new Set());
 
+  const [plantillas, setPlantillas] = useState<PlantillaRow[]>(plantillasIniciales);
+  const [menuPlant, setMenuPlant] = useState(false);
+  const [saveOpen, setSaveOpen] = useState(false);
+  const [plantNombre, setPlantNombre] = useState("");
+  const [plantGlobal, setPlantGlobal] = useState(true);
+
   const cliente = clientes.find((c) => c.id === clienteId);
   const asp = ASPECTOS.find((a) => a.id === aspecto)!;
   const fontVar = FUENTES.find((f) => f.id === fuente)!.varName;
@@ -168,8 +243,11 @@ export function EstudioBoard({ clientes }: { clientes: ClienteConCuentas[] }) {
   }
   function cargarLogo(file?: File | null) {
     if (!file) return;
-    if (logoUrl) URL.revokeObjectURL(logoUrl);
-    setLogoUrl(URL.createObjectURL(file));
+    // Data URL para que la plantilla pueda guardar el logo embebido.
+    const reader = new FileReader();
+    reader.onload = () =>
+      setLogoUrl(typeof reader.result === "string" ? reader.result : null);
+    reader.readAsDataURL(file);
   }
   function toggleDestino(id: string) {
     setDestinos((prev) => {
@@ -183,6 +261,73 @@ export function EstudioBoard({ clientes }: { clientes: ClienteConCuentas[] }) {
     if (!videoUrl) return show("Subí un video primero");
     show("Render y publicación se conectan en la etapa final");
   }
+
+  function configActual(): ConfigEstudio {
+    return {
+      aspecto,
+      logoDataUrl: logoUrl,
+      logoPos,
+      logoSize,
+      logoOpacidad,
+      zocaloOn,
+      estilo,
+      fuente,
+      fontSize,
+      colorTexto,
+      colorBarra,
+      opacidad,
+      posicion,
+      alineacion,
+      padding,
+      mayus,
+    };
+  }
+
+  function aplicarConfig(c: ConfigEstudio) {
+    if (c.aspecto) setAspecto(c.aspecto);
+    if (c.logoDataUrl !== undefined) setLogoUrl(c.logoDataUrl);
+    if (c.logoPos) setLogoPos(c.logoPos);
+    if (c.logoSize != null) setLogoSize(c.logoSize);
+    if (c.logoOpacidad != null) setLogoOpacidad(c.logoOpacidad);
+    if (c.zocaloOn != null) setZocaloOn(c.zocaloOn);
+    if (c.estilo) setEstilo(c.estilo);
+    if (c.fuente) setFuente(c.fuente);
+    if (c.fontSize != null) setFontSize(c.fontSize);
+    if (c.colorTexto) setColorTexto(c.colorTexto);
+    if (c.colorBarra) setColorBarra(c.colorBarra);
+    if (c.opacidad != null) setOpacidad(c.opacidad);
+    if (c.posicion) setPosicion(c.posicion);
+    if (c.alineacion) setAlineacion(c.alineacion);
+    if (c.padding != null) setPadding(c.padding);
+    if (c.mayus != null) setMayus(c.mayus);
+  }
+
+  function guardarPlantilla() {
+    if (!plantNombre.trim()) return;
+    startTransition(async () => {
+      const row = await crearPlantilla(
+        plantNombre.trim(),
+        plantGlobal ? null : clienteId || null,
+        configActual() as Record<string, unknown>,
+      );
+      setPlantillas((prev) => [row, ...prev]);
+      setSaveOpen(false);
+      setPlantNombre("");
+      show("Plantilla guardada");
+    });
+  }
+
+  function borrarPlantilla(id: string) {
+    startTransition(async () => {
+      await eliminarPlantilla(id);
+      setPlantillas((prev) => prev.filter((p) => p.id !== id));
+      show("Plantilla eliminada");
+    });
+  }
+
+  const plantillasVisibles = plantillas.filter(
+    (p) => p.clienteId === null || p.clienteId === clienteId,
+  );
 
   return (
     <div className="flex h-full flex-col">
@@ -207,6 +352,98 @@ export function EstudioBoard({ clientes }: { clientes: ClienteConCuentas[] }) {
               {a.id}
             </button>
           ))}
+        </div>
+
+        {/* Plantillas */}
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setMenuPlant((o) => !o)}
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line px-3 text-sm text-fg transition-colors hover:bg-elevated"
+          >
+            <LayoutTemplate className="size-4 text-accent" />
+            Plantillas
+            <ChevronDown className="size-3.5 text-muted" />
+          </button>
+
+          {menuPlant && (
+            <>
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => setMenuPlant(false)}
+              />
+              <div className="absolute left-0 top-11 z-50 max-h-[70vh] w-64 overflow-y-auto rounded-xl border border-line bg-surface p-1.5 shadow-float">
+                <p className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted">
+                  Presets
+                </p>
+                {PRESETS.map((p) => (
+                  <button
+                    key={p.nombre}
+                    type="button"
+                    onClick={() => {
+                      aplicarConfig(p.config);
+                      setMenuPlant(false);
+                      show(`Preset: ${p.nombre}`);
+                    }}
+                    className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-fg transition-colors hover:bg-elevated"
+                  >
+                    <Check className="size-3.5 text-muted opacity-0" />
+                    {p.nombre}
+                  </button>
+                ))}
+
+                {plantillasVisibles.length > 0 && (
+                  <p className="mt-1 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted">
+                    Tus plantillas
+                  </p>
+                )}
+                {plantillasVisibles.map((p) => (
+                  <div
+                    key={p.id}
+                    className="group flex items-center rounded-lg hover:bg-elevated"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        aplicarConfig(p.config as ConfigEstudio);
+                        setMenuPlant(false);
+                        show(`Plantilla: ${p.nombre}`);
+                      }}
+                      className="flex min-w-0 flex-1 items-center gap-2 px-2 py-1.5 text-left text-sm text-fg"
+                    >
+                      {p.clienteId === null ? (
+                        <Globe className="size-3.5 shrink-0 text-muted" />
+                      ) : (
+                        <LayoutTemplate className="size-3.5 shrink-0 text-accent" />
+                      )}
+                      <span className="truncate">{p.nombre}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => borrarPlantilla(p.id)}
+                      aria-label="Eliminar plantilla"
+                      className="mr-1 grid size-7 shrink-0 place-items-center rounded-md text-muted opacity-0 transition-opacity hover:text-danger group-hover:opacity-100"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </button>
+                  </div>
+                ))}
+
+                <div className="my-1 h-px bg-line" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuPlant(false);
+                    setSaveOpen(true);
+                  }}
+                  className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-medium text-accent transition-colors hover:bg-elevated"
+                >
+                  <Save className="size-4" />
+                  Guardar diseño actual…
+                </button>
+              </div>
+            </>
+          )}
         </div>
 
         <button
@@ -286,10 +523,7 @@ export function EstudioBoard({ clientes }: { clientes: ClienteConCuentas[] }) {
                   </button>
                   <button
                     type="button"
-                    onClick={() => {
-                      URL.revokeObjectURL(logoUrl);
-                      setLogoUrl(null);
-                    }}
+                    onClick={() => setLogoUrl(null)}
                     className="ml-auto grid size-7 place-items-center rounded-md text-muted hover:bg-danger/10 hover:text-danger"
                   >
                     <X className="size-3.5" />
@@ -620,6 +854,79 @@ export function EstudioBoard({ clientes }: { clientes: ClienteConCuentas[] }) {
           </Group>
         </aside>
       </div>
+
+      <Modal
+        open={saveOpen}
+        onClose={() => setSaveOpen(false)}
+        title="Guardar plantilla"
+      >
+        <div className="space-y-4">
+          <Field label="Nombre">
+            <input
+              autoFocus
+              value={plantNombre}
+              onChange={(e) => setPlantNombre(e.target.value)}
+              placeholder="Ej. Estilo deportivo"
+              className={inputCls}
+            />
+          </Field>
+          <div>
+            <p className="mb-1.5 text-xs text-muted">Alcance</p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setPlantGlobal(true)}
+                className={
+                  "flex flex-1 items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors " +
+                  (plantGlobal
+                    ? "border-accent bg-accent/10 text-fg"
+                    : "border-line text-muted hover:bg-elevated")
+                }
+              >
+                <Globe className="size-4" />
+                Global
+              </button>
+              <button
+                type="button"
+                disabled={!clienteId}
+                onClick={() => setPlantGlobal(false)}
+                className={
+                  "flex flex-1 items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors disabled:opacity-50 " +
+                  (!plantGlobal
+                    ? "border-accent bg-accent/10 text-fg"
+                    : "border-line text-muted hover:bg-elevated")
+                }
+              >
+                <LayoutTemplate className="size-4" />
+                {cliente?.nombre ?? "Cliente"}
+              </button>
+            </div>
+            <p className="mt-1.5 text-xs text-muted">
+              {plantGlobal
+                ? "Disponible para todos los clientes."
+                : "Solo para este cliente."}
+            </p>
+          </div>
+          <div className="flex justify-end gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => setSaveOpen(false)}
+              className="inline-flex h-9 items-center rounded-lg border border-line px-4 text-sm text-fg hover:bg-elevated"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={guardarPlantilla}
+              disabled={pending || !plantNombre.trim()}
+              className="inline-flex h-9 items-center gap-2 rounded-lg bg-accent px-4 text-sm font-medium text-brand-foreground transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-50"
+            >
+              <Save className="size-4" />
+              {pending ? "Guardando…" : "Guardar"}
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       <Toast message={message} />
     </div>

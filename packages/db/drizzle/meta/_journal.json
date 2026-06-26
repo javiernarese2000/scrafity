@@ -127,6 +127,13 @@
       "when": 1782454753187,
       "tag": "0017_crazy_reptil",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1782457709083,
+      "tag": "0018_abnormal_rawhide_kid",
+      "breakpoints": true
     }
   ]
 }

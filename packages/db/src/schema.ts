@@ -360,6 +360,18 @@ export const media = pgTable("media", {
   ...timestamps,
 });
 
+// Plantillas de diseño del Estudio (logo + zócalo + formato). clienteId null =
+// global (sirve para todos); con cliente = específica de ese cliente.
+export const plantillas = pgTable("plantillas", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  nombre: text("nombre").notNull(),
+  clienteId: uuid("cliente_id").references(() => clientes.id, {
+    onDelete: "cascade",
+  }),
+  config: jsonb("config").$type<Record<string, unknown>>().notNull(),
+  ...timestamps,
+});
+
 export const auditLog = pgTable("audit_log", {
   id: bigint("id", { mode: "number" }).primaryKey().generatedByDefaultAsIdentity(),
   userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
