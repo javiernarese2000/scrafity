@@ -58,6 +58,36 @@ type Fuente =
   | "mono";
 type PosicionZ = "abajo" | "centro" | "arriba";
 type Alineacion = "left" | "center" | "right";
+type EfectoTexto = "ninguno" | "sombra" | "contorno" | "ambos";
+
+const EFECTOS: { id: EfectoTexto; label: string }[] = [
+  { id: "ninguno", label: "Ninguno" },
+  { id: "sombra", label: "Sombra" },
+  { id: "contorno", label: "Contorno" },
+  { id: "ambos", label: "Ambos" },
+];
+
+function efectoCss(efecto: EfectoTexto): {
+  textShadow?: string;
+  WebkitTextStroke?: string;
+} {
+  switch (efecto) {
+    case "sombra":
+      return { textShadow: "0 2px 8px rgba(0,0,0,0.75)" };
+    case "contorno":
+      return {
+        textShadow:
+          "-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000,0 0 3px rgba(0,0,0,0.6)",
+      };
+    case "ambos":
+      return {
+        textShadow:
+          "-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000,0 3px 8px rgba(0,0,0,0.7)",
+      };
+    default:
+      return {};
+  }
+}
 
 const ASPECTOS: { id: Aspecto; res: string; frame: string }[] = [
   { id: "9:16", res: "1080×1920", frame: "h-full aspect-[9/16] max-w-full" },
@@ -116,6 +146,7 @@ type ConfigEstudio = {
   alineacion?: Alineacion;
   padding?: number;
   mayus?: boolean;
+  efecto?: EfectoTexto;
 };
 
 // Presets de fábrica (no tocan logo ni formato; solo el look del zócalo).
@@ -223,6 +254,7 @@ export function EstudioBoard({
   const [alineacion, setAlineacion] = useState<Alineacion>("left");
   const [padding, setPadding] = useState(16);
   const [mayus, setMayus] = useState(false);
+  const [efecto, setEfecto] = useState<EfectoTexto>("ninguno");
 
   const [clienteId, setClienteId] = useState(clientes[0]?.id ?? "");
   const [destinos, setDestinos] = useState<Set<string>>(new Set());
@@ -292,6 +324,7 @@ export function EstudioBoard({
       alineacion,
       padding,
       mayus,
+      efecto,
     };
   }
 
@@ -312,6 +345,7 @@ export function EstudioBoard({
     if (c.alineacion) setAlineacion(c.alineacion);
     if (c.padding != null) setPadding(c.padding);
     if (c.mayus != null) setMayus(c.mayus);
+    if (c.efecto) setEfecto(c.efecto);
   }
 
   function guardarPlantilla() {
@@ -692,11 +726,12 @@ export function EstudioBoard({
                 alineacion={alineacion}
                 uppercase={mayus}
                 posicion={posicion}
+                efecto={efecto}
               />
             )}
 
             {/* Safe zones / blueprint de la red */}
-            {guias && <Guias red={refRed} />}
+            {guias && <Guias red={refRed} aspecto={aspecto} />}
           </div>
         </div>
 
@@ -841,6 +876,27 @@ export function EstudioBoard({
                   />
                   MAYÚSCULAS
                 </label>
+
+                <div>
+                  <p className="mb-1.5 text-xs text-muted">Efecto de texto</p>
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {EFECTOS.map((ef) => (
+                      <button
+                        key={ef.id}
+                        type="button"
+                        onClick={() => setEfecto(ef.id)}
+                        className={
+                          "rounded-md border px-1 py-1.5 text-[11px] font-medium transition-colors " +
+                          (efecto === ef.id
+                            ? "border-accent bg-accent/10 text-fg"
+                            : "border-line text-muted hover:bg-elevated")
+                        }
+                      >
+                        {ef.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
           </Group>
@@ -1011,25 +1067,83 @@ function GBtn({
   );
 }
 
-/** Blueprint de la UI de la red (botones, caption, top) + zona segura. */
-function Guias({ red }: { red: RefRed }) {
-  const s = SAFE[red];
+type Insets = { top: number; right: number; bottom: number; left: number };
+
+/** Marco común: dim + rectángulo de zona segura + etiqueta. */
+function GuiaWrap({
+  ins,
+  label,
+  children,
+}: {
+  ins: Insets;
+  label: string;
+  children?: ReactNode;
+}) {
   return (
     <div className="pointer-events-none absolute inset-0 z-[6] text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.55)]">
-      {/* Dim para que el blueprint resalte */}
       <div className="absolute inset-0 bg-black/25" />
-
-      {/* Zona segura */}
       <div
         className="absolute rounded-md border border-dashed border-emerald-300/85"
         style={{
-          top: `${s.top}%`,
-          right: `${s.right}%`,
-          bottom: `${s.bottom}%`,
-          left: `${s.left}%`,
+          top: `${ins.top}%`,
+          right: `${ins.right}%`,
+          bottom: `${ins.bottom}%`,
+          left: `${ins.left}%`,
         }}
       />
+      {children}
+      <span
+        className="absolute left-1/2 -translate-x-1/2 rounded bg-black/55 px-1.5 py-0.5 text-[9px] font-medium backdrop-blur-sm"
+        style={{ top: `calc(${ins.top}% + 5px)` }}
+      >
+        zona segura · {label}
+      </span>
+    </div>
+  );
+}
 
+/** Blueprint de la UI según red y formato. */
+function Guias({ red, aspecto }: { red: RefRed; aspecto: Aspecto }) {
+  // Feed cuadrado: la UI va por fuera del video, así que casi todo es seguro.
+  if (aspecto === "1:1") {
+    return (
+      <GuiaWrap
+        ins={{ top: 4, right: 4, bottom: 6, left: 4 }}
+        label={`${SAFE[red].label} · Feed`}
+      >
+        <span
+          className="absolute bottom-[1.5%] left-1/2 -translate-x-1/2 rounded bg-black/55 px-1.5 py-0.5 text-[9px] backdrop-blur-sm"
+        >
+          la interfaz va por fuera del video
+        </span>
+      </GuiaWrap>
+    );
+  }
+
+  // Horizontal: barra de controles del reproductor abajo.
+  if (aspecto === "16:9") {
+    return (
+      <GuiaWrap ins={{ top: 6, right: 5, bottom: 14, left: 5 }} label="Horizontal">
+        <div
+          className="absolute h-[3px] rounded bg-white/70"
+          style={{ left: "5%", right: "5%", bottom: "9%" }}
+        />
+        <div
+          className="absolute aspect-square w-[5%] rounded-full border border-white/80"
+          style={{ left: "5%", bottom: "3%" }}
+        />
+        <div
+          className="absolute aspect-square w-[5%] rounded-full border border-white/80"
+          style={{ right: "5%", bottom: "3%" }}
+        />
+      </GuiaWrap>
+    );
+  }
+
+  // Vertical 9:16: blueprint completo de la red.
+  const s = SAFE[red];
+  return (
+    <GuiaWrap ins={s} label={s.label}>
       {/* Columna derecha de acciones */}
       <GBtn bottom="47%" plus />
       <GBtn bottom="37%" />
@@ -1037,7 +1151,7 @@ function Guias({ red }: { red: RefRed }) {
       <GBtn bottom="18%" />
       <GBtn bottom="7%" small music={red === "tiktok"} />
 
-      {/* Texto / caption abajo-izquierda */}
+      {/* Caption abajo-izquierda */}
       <div
         className="absolute h-[8px] w-[30%] rounded bg-white/85"
         style={{ left: "4%", bottom: "17%" }}
@@ -1085,15 +1199,7 @@ function Guias({ red }: { red: RefRed }) {
           />
         </>
       )}
-
-      {/* Etiqueta */}
-      <span
-        className="absolute left-1/2 -translate-x-1/2 rounded bg-black/55 px-1.5 py-0.5 text-[9px] font-medium backdrop-blur-sm"
-        style={{ top: `calc(${s.top}% + 5px)` }}
-      >
-        zona segura · {s.label}
-      </span>
-    </div>
+    </GuiaWrap>
   );
 }
 
@@ -1109,6 +1215,7 @@ function Zocalo({
   alineacion,
   uppercase,
   posicion,
+  efecto,
 }: {
   estilo: ZocaloEstilo;
   texto: string;
@@ -1121,6 +1228,7 @@ function Zocalo({
   alineacion: Alineacion;
   uppercase: boolean;
   posicion: PosicionZ;
+  efecto: EfectoTexto;
 }) {
   const baseText = {
     fontFamily: fontVar,
@@ -1129,6 +1237,7 @@ function Zocalo({
     lineHeight: 1.18,
     textAlign: alineacion,
     textTransform: uppercase ? "uppercase" : "none",
+    ...efectoCss(efecto),
   } as CSSProperties;
   const pad = `${padding}px`;
   const wrap =
@@ -1249,10 +1358,7 @@ function Zocalo({
             marginRight: alineacion === "right" ? 0 : alineacion === "center" ? "auto" : undefined,
           }}
         />
-        <p
-          style={{ ...baseText, textShadow: "0 1px 6px rgba(0,0,0,0.6)" }}
-          className="font-medium"
-        >
+        <p style={baseText} className="font-medium">
           {texto}
         </p>
       </div>
