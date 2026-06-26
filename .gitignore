@@ -8,10 +8,10 @@ dist/
 out/
 *.tsbuildinfo
 
-# env
+# env (todos los .env* quedan fuera; solo se versiona el ejemplo)
 .env
-.env.local
-.env*.local
+.env.*
+!.env.example
 
 # drizzle
 .drizzle/

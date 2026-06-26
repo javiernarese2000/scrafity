@@ -12,6 +12,7 @@ Estado del proyecto y decisiones. Leer esto primero al retomar contexto.
 - [`06-robustez.md`](06-robustez.md) — ideas para robustez (legal, operación, producto).
 - [`07-fases-y-pendientes.md`](07-fases-y-pendientes.md) — roadmap por fases y qué falta.
 - [`08-scaffold.md`](08-scaffold.md) — estructura del monorepo, versiones y quirks descubiertos.
+- [`09-redes-multiapp.md`](09-redes-multiapp.md) — 2º panel (Redes/video), multi-app, entorno DEV. **EN CURSO (rama `redes`)**.
 
 ## Estado actual
 **Fase:** Fase 1 — UI en construcción (con datos mock; backend desconectado a propósito).
