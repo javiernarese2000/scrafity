@@ -156,11 +156,11 @@ const COLOR_PLAT: Record<Plataforma, string> = {
 };
 
 // Zonas seguras: márgenes (en %) que la UI de cada red suele tapar.
-type RefRed = "tiktok" | "reels" | "feed";
+type RefRed = "tiktok" | "instagram" | "facebook";
 const SAFE: Record<RefRed, { top: number; right: number; bottom: number; left: number; label: string }> = {
-  tiktok: { top: 6, right: 14, bottom: 18, left: 3, label: "TikTok" },
-  reels: { top: 6, right: 13, bottom: 22, left: 3, label: "Reels" },
-  feed: { top: 5, right: 3, bottom: 6, left: 3, label: "Feed" },
+  tiktok: { top: 8, right: 17, bottom: 20, left: 4, label: "TikTok" },
+  instagram: { top: 8, right: 16, bottom: 24, left: 4, label: "Instagram" },
+  facebook: { top: 9, right: 17, bottom: 22, left: 4, label: "Facebook" },
 };
 
 function rgba(hex: string, a: number) {
@@ -695,27 +695,8 @@ export function EstudioBoard({
               />
             )}
 
-            {/* Safe zones */}
-            {guias && (
-              <div className="pointer-events-none absolute inset-0 z-[6]">
-                <div
-                  className="absolute rounded-md border border-dashed border-white/80"
-                  style={{
-                    top: `${SAFE[refRed].top}%`,
-                    right: `${SAFE[refRed].right}%`,
-                    bottom: `${SAFE[refRed].bottom}%`,
-                    left: `${SAFE[refRed].left}%`,
-                    boxShadow: "0 0 0 9999px rgba(176,82,74,0.22)",
-                  }}
-                />
-                <span
-                  className="absolute left-1/2 -translate-x-1/2 rounded bg-black/55 px-1.5 py-0.5 text-[9px] font-medium text-white/90 backdrop-blur-sm"
-                  style={{ top: `calc(${SAFE[refRed].top}% + 5px)` }}
-                >
-                  zona segura · {SAFE[refRed].label}
-                </span>
-              </div>
-            )}
+            {/* Safe zones / blueprint de la red */}
+            {guias && <Guias red={refRed} />}
           </div>
         </div>
 
@@ -998,6 +979,120 @@ export function EstudioBoard({
       </Modal>
 
       <Toast message={message} />
+    </div>
+  );
+}
+
+/** Botón circular del blueprint (columna derecha de acciones). */
+function GBtn({
+  bottom,
+  small,
+  plus,
+  music,
+}: {
+  bottom: string;
+  small?: boolean;
+  plus?: boolean;
+  music?: boolean;
+}) {
+  return (
+    <div
+      className={
+        "absolute aspect-square rounded-full border border-white/80 " +
+        (small ? "w-[8%]" : "w-[10%]")
+      }
+      style={{ right: "4%", bottom }}
+    >
+      {plus && (
+        <span className="absolute bottom-[-3px] left-1/2 size-[6px] -translate-x-1/2 rounded-full border border-white/80 bg-[#0c0b09]" />
+      )}
+      {music && <span className="absolute inset-[30%] rounded-full bg-white/55" />}
+    </div>
+  );
+}
+
+/** Blueprint de la UI de la red (botones, caption, top) + zona segura. */
+function Guias({ red }: { red: RefRed }) {
+  const s = SAFE[red];
+  return (
+    <div className="pointer-events-none absolute inset-0 z-[6] text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.55)]">
+      {/* Dim para que el blueprint resalte */}
+      <div className="absolute inset-0 bg-black/25" />
+
+      {/* Zona segura */}
+      <div
+        className="absolute rounded-md border border-dashed border-emerald-300/85"
+        style={{
+          top: `${s.top}%`,
+          right: `${s.right}%`,
+          bottom: `${s.bottom}%`,
+          left: `${s.left}%`,
+        }}
+      />
+
+      {/* Columna derecha de acciones */}
+      <GBtn bottom="47%" plus />
+      <GBtn bottom="37%" />
+      <GBtn bottom="27.5%" />
+      <GBtn bottom="18%" />
+      <GBtn bottom="7%" small music={red === "tiktok"} />
+
+      {/* Texto / caption abajo-izquierda */}
+      <div
+        className="absolute h-[8px] w-[30%] rounded bg-white/85"
+        style={{ left: "4%", bottom: "17%" }}
+      />
+      <div
+        className="absolute h-[5px] w-[70%] rounded bg-white/55"
+        style={{ left: "4%", bottom: "12%" }}
+      />
+      <div
+        className="absolute h-[5px] w-[52%] rounded bg-white/55"
+        style={{ left: "4%", bottom: "8.5%" }}
+      />
+
+      {/* Barra de progreso */}
+      <div
+        className="absolute h-[2px] rounded bg-white/70"
+        style={{ left: "3%", right: "3%", bottom: "4%" }}
+      />
+
+      {/* Top según la red */}
+      {red === "tiktok" ? (
+        <>
+          <div
+            className="absolute h-[5px] w-[16%] rounded bg-white/85"
+            style={{ top: "5%", left: "33%" }}
+          />
+          <div
+            className="absolute h-[5px] w-[16%] rounded bg-white/55"
+            style={{ top: "5%", left: "51%" }}
+          />
+          <div
+            className="absolute aspect-square w-[7%] rounded-full border border-white/80"
+            style={{ top: "4%", right: "4%" }}
+          />
+        </>
+      ) : (
+        <>
+          <div
+            className="absolute h-[9px] w-[24%] rounded bg-white/85"
+            style={{ top: "5%", left: "4%" }}
+          />
+          <div
+            className="absolute aspect-square w-[8%] rounded-full border border-white/80"
+            style={{ top: "4%", right: "4%" }}
+          />
+        </>
+      )}
+
+      {/* Etiqueta */}
+      <span
+        className="absolute left-1/2 -translate-x-1/2 rounded bg-black/55 px-1.5 py-0.5 text-[9px] font-medium backdrop-blur-sm"
+        style={{ top: `calc(${s.top}% + 5px)` }}
+      >
+        zona segura · {s.label}
+      </span>
     </div>
   );
 }
