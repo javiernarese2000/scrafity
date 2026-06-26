@@ -217,6 +217,12 @@ Orden de pantallas: Clientes → Cuentas → Estudio (subir+logo+zócalo+preview
   persistirlo en la plantilla. La lista se maneja en estado del cliente (sin router.refresh, para no
   resetear el editor).
 
+### Safe-zones en el Estudio (2026-06) — HECHO
+- Toggle "Guías" en la toolbar + selector de red (TikTok/Reels/Feed). Overlay sobre el preview:
+  oscurece los márgenes que tapa la UI de cada red (derecha botones, abajo caption, top) con
+  `box-shadow` spread grande clippeado por el frame, y marca la zona segura con borde punteado +
+  etiqueta. Specs de márgenes por red en const `SAFE`. Ayuda a no poner zócalo/logo tapados.
+
 ## ESTADO: panel de Redes COMPLETO a nivel UI/UX
 Pantallas: Login ✅, Panel(mock) ✅, Clientes ✅, Cuentas ✅, Estudio (preview en vivo) ✅,
 Publicaciones ✅. Dev server en :5556. Todo en rama `redes`, prod intacto.
