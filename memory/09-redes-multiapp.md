@@ -217,6 +217,13 @@ Orden de pantallas: Clientes → Cuentas → Estudio (subir+logo+zócalo+preview
   persistirlo en la plantilla. La lista se maneja en estado del cliente (sin router.refresh, para no
   resetear el editor).
 
+### Estudio: logo libre + marca de agua (2026-06) — HECHO
+- **Logo con arrastre libre** dentro del preview (estado logoX/logoY %, pointer capture sobre el
+  frame con `frameRef`), anclado al centro; presets de esquina como atajo (ESQUINAS setean x/y).
+- **Marca de agua** (`MarcaAgua`): texto, modo mosaico (repetido rotado) o centrado, tamaño, color,
+  opacidad; va detrás del logo (z-3) y del zócalo. Controles en rail izq (grupo "Marca de agua").
+- Ambos se guardan en plantillas (`logoX/logoY`, `wm*` en ConfigEstudio).
+
 ### Cierre del Estudio: guías por formato + efectos de texto (2026-06) — HECHO
 - **Guías respetan el formato** (`Guias` ahora recibe `aspecto`): 9:16 = blueprint completo de la red;
   1:1 = feed (casi todo seguro, nota "UI por fuera del video"); 16:9 = barra de controles. Helper
