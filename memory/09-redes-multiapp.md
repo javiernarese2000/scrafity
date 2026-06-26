@@ -334,3 +334,11 @@ Publicaciones ✅. Dev server en :5556. Todo en rama `redes`, prod intacto.
 - En paralelo (usuario): iniciar apps/verificaciones de Meta y TikTok (cuello de botella lento).
 - **Fix tipografía/márgenes (2026-06)**: FONT_MAP usa variantes Bold (más cuerpo, el regular salía flaco vs el preview); márgenes del zócalo respetan el padding tal cual (se sacaron fudges +28/+20/+40), barra con padding simétrico y flush al borde.
 - **Fix degradado (2026-06)**: el geq por-fotograma colgaba el render (y tiró Docker). Ahora el gradiente se pre-renderiza a un PNG de 1 frame y se superpone con movie+overlay. Rápido (8.7s) y correcto.
+
+### Render WYSIWYG via overlay HTML/Chromium (2026-06) — HECHO
+- Se reemplazó TODO el motor FFmpeg drawtext/drawbox/geq/factores-por-fuente/wrap por: el worker arma el overlay (logo+zócalo+marca) como HTML/CSS idéntico al preview, con las fuentes reales (Google Fonts), lo rasteriza con **Chromium (Playwright)** a un PNG transparente, y FFmpeg solo hace cover del video + overlay del PNG.
+- `overlay.ts`: getBrowser/renderOverlayHtml + buildOverlayHtml(cfg,W,H) (replica los 7 estilos de zócalo, logo libre, marca centro/mosaico, efectos). `render.ts`: probeDuration + renderFromConfig (cover+overlay+progreso). `queue.ts`: simple (descarga, render, sube). Se borró cli.ts y el motor drawtext.
+- El Estudio manda `previewW` (ancho real del frame medido) → escala exacta preview→render. Se quitó el hack del 1.15.
+- Dockerfile: ffmpeg + `npx playwright install --with-deps chromium`. Imagen más pesada (~1GB) pero fidelidad pixel-perfect.
+- PROBADO: degradado centrado con Fraunces = idéntico al preview.
+- Para Railway: el worker necesita Chromium (ya en el Docker) + DATABASE_URL pooler + bucket videos.
