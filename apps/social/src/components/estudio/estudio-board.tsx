@@ -9,6 +9,7 @@ import {
   AlignRight,
   Check,
   ChevronDown,
+  Droplets,
   Globe,
   ImagePlus,
   LayoutTemplate,
@@ -27,6 +28,7 @@ import {
   useState,
   useTransition,
   type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
 
@@ -38,7 +40,7 @@ import {
 } from "@/server/plantillas";
 
 type Aspecto = "9:16" | "1:1" | "16:9";
-type Esquina = "tl" | "tr" | "bl" | "br";
+type WmModo = "mosaico" | "centro";
 type ZocaloEstilo =
   | "barra"
   | "degradado"
@@ -132,9 +134,16 @@ const ALINEACIONES: { id: Alineacion; icon: LucideIcon }[] = [
 type ConfigEstudio = {
   aspecto?: Aspecto;
   logoDataUrl?: string | null;
-  logoPos?: Esquina;
+  logoX?: number;
+  logoY?: number;
   logoSize?: number;
   logoOpacidad?: number;
+  wmOn?: boolean;
+  wmText?: string;
+  wmOpacidad?: number;
+  wmTam?: number;
+  wmModo?: WmModo;
+  wmColor?: string;
   zocaloOn?: boolean;
   estilo?: ZocaloEstilo;
   fuente?: Fuente;
@@ -173,11 +182,11 @@ const PRESETS: { nombre: string; config: ConfigEstudio }[] = [
   },
 ];
 
-const POSICIONES: { id: Esquina; label: string }[] = [
-  { id: "tl", label: "↖" },
-  { id: "tr", label: "↗" },
-  { id: "bl", label: "↙" },
-  { id: "br", label: "↘" },
+const ESQUINAS: { label: string; x: number; y: number }[] = [
+  { label: "↖", x: 14, y: 12 },
+  { label: "↗", x: 86, y: 12 },
+  { label: "↙", x: 14, y: 88 },
+  { label: "↘", x: 86, y: 88 },
 ];
 
 const COLOR_PLAT: Record<Plataforma, string> = {
@@ -238,9 +247,21 @@ export function EstudioBoard({
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoName, setVideoName] = useState<string>("");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
-  const [logoPos, setLogoPos] = useState<Esquina>("tr");
+  const [logoX, setLogoX] = useState(86); // % (centro del logo)
+  const [logoY, setLogoY] = useState(12);
   const [logoSize, setLogoSize] = useState(24);
   const [logoOpacidad, setLogoOpacidad] = useState(100);
+
+  // Marca de agua
+  const [wmOn, setWmOn] = useState(false);
+  const [wmText, setWmText] = useState("@tucuenta");
+  const [wmOpacidad, setWmOpacidad] = useState(14);
+  const [wmTam, setWmTam] = useState(20);
+  const [wmModo, setWmModo] = useState<WmModo>("mosaico");
+  const [wmColor, setWmColor] = useState("#ffffff");
+
+  const frameRef = useRef<HTMLDivElement>(null);
+  const arrastrando = useRef(false);
 
   const [zocaloOn, setZocaloOn] = useState(true);
   const [estilo, setEstilo] = useState<ZocaloEstilo>("barra");
@@ -272,13 +293,6 @@ export function EstudioBoard({
   const asp = ASPECTOS.find((a) => a.id === aspecto)!;
   const fontVar = FUENTES.find((f) => f.id === fuente)!.varName;
 
-  const posCls: Record<Esquina, string> = {
-    tl: "top-[4%] left-[4%]",
-    tr: "top-[4%] right-[4%]",
-    bl: "bottom-[4%] left-[4%]",
-    br: "bottom-[4%] right-[4%]",
-  };
-
   function cargarVideo(file?: File | null) {
     if (!file) return;
     if (videoUrl) URL.revokeObjectURL(videoUrl);
@@ -293,6 +307,25 @@ export function EstudioBoard({
       setLogoUrl(typeof reader.result === "string" ? reader.result : null);
     reader.readAsDataURL(file);
   }
+  function onLogoDown(e: ReactPointerEvent<HTMLImageElement>) {
+    arrastrando.current = true;
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+  function onLogoMove(e: ReactPointerEvent<HTMLImageElement>) {
+    if (!arrastrando.current || !frameRef.current) return;
+    const r = frameRef.current.getBoundingClientRect();
+    setLogoX(Math.min(98, Math.max(2, Math.round(((e.clientX - r.left) / r.width) * 100))));
+    setLogoY(Math.min(98, Math.max(2, Math.round(((e.clientY - r.top) / r.height) * 100))));
+  }
+  function onLogoUp(e: ReactPointerEvent<HTMLImageElement>) {
+    arrastrando.current = false;
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      // ignore
+    }
+  }
+
   function toggleDestino(id: string) {
     setDestinos((prev) => {
       const n = new Set(prev);
@@ -310,9 +343,16 @@ export function EstudioBoard({
     return {
       aspecto,
       logoDataUrl: logoUrl,
-      logoPos,
+      logoX,
+      logoY,
       logoSize,
       logoOpacidad,
+      wmOn,
+      wmText,
+      wmOpacidad,
+      wmTam,
+      wmModo,
+      wmColor,
       zocaloOn,
       estilo,
       fuente,
@@ -331,9 +371,16 @@ export function EstudioBoard({
   function aplicarConfig(c: ConfigEstudio) {
     if (c.aspecto) setAspecto(c.aspecto);
     if (c.logoDataUrl !== undefined) setLogoUrl(c.logoDataUrl);
-    if (c.logoPos) setLogoPos(c.logoPos);
+    if (c.logoX != null) setLogoX(c.logoX);
+    if (c.logoY != null) setLogoY(c.logoY);
     if (c.logoSize != null) setLogoSize(c.logoSize);
     if (c.logoOpacidad != null) setLogoOpacidad(c.logoOpacidad);
+    if (c.wmOn != null) setWmOn(c.wmOn);
+    if (c.wmText != null) setWmText(c.wmText);
+    if (c.wmOpacidad != null) setWmOpacidad(c.wmOpacidad);
+    if (c.wmTam != null) setWmTam(c.wmTam);
+    if (c.wmModo) setWmModo(c.wmModo);
+    if (c.wmColor) setWmColor(c.wmColor);
     if (c.zocaloOn != null) setZocaloOn(c.zocaloOn);
     if (c.estilo) setEstilo(c.estilo);
     if (c.fuente) setFuente(c.fuente);
@@ -611,23 +658,32 @@ export function EstudioBoard({
                   </button>
                 </div>
                 <div>
-                  <p className="mb-1.5 text-xs text-muted">Posición</p>
+                  <p className="mb-1.5 text-xs text-muted">
+                    Posición rápida
+                    <span className="text-muted/70"> · o arrastralo en el preview</span>
+                  </p>
                   <div className="grid w-[76px] grid-cols-2 gap-1.5">
-                    {POSICIONES.map((p) => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => setLogoPos(p.id)}
-                        className={
-                          "grid size-8 place-items-center rounded-md border text-sm transition-colors " +
-                          (logoPos === p.id
-                            ? "border-accent bg-accent/10 text-fg"
-                            : "border-line text-muted hover:bg-elevated")
-                        }
-                      >
-                        {p.label}
-                      </button>
-                    ))}
+                    {ESQUINAS.map((p) => {
+                      const activo = logoX === p.x && logoY === p.y;
+                      return (
+                        <button
+                          key={p.label}
+                          type="button"
+                          onClick={() => {
+                            setLogoX(p.x);
+                            setLogoY(p.y);
+                          }}
+                          className={
+                            "grid size-8 place-items-center rounded-md border text-sm transition-colors " +
+                            (activo
+                              ? "border-accent bg-accent/10 text-fg"
+                              : "border-line text-muted hover:bg-elevated")
+                          }
+                        >
+                          {p.label}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
                 <Slider
@@ -656,6 +712,65 @@ export function EstudioBoard({
               </button>
             )}
           </Group>
+
+          <Group icon={Droplets} title="Marca de agua">
+            <label className="mb-3 flex items-center gap-2 text-sm text-fg">
+              <input
+                type="checkbox"
+                checked={wmOn}
+                onChange={(e) => setWmOn(e.target.checked)}
+                className="size-4 accent-[var(--color-accent)]"
+              />
+              Mostrar marca de agua
+            </label>
+
+            {wmOn && (
+              <div className="space-y-3">
+                <input
+                  value={wmText}
+                  onChange={(e) => setWmText(e.target.value)}
+                  placeholder="@tucuenta"
+                  className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent/30"
+                />
+                <div className="grid grid-cols-2 gap-1.5">
+                  {(["mosaico", "centro"] as WmModo[]).map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => setWmModo(m)}
+                      className={
+                        "rounded-md border px-1 py-1.5 text-[11px] font-medium capitalize transition-colors " +
+                        (wmModo === m
+                          ? "border-accent bg-accent/10 text-fg"
+                          : "border-line text-muted hover:bg-elevated")
+                      }
+                    >
+                      {m}
+                    </button>
+                  ))}
+                </div>
+                <Slider
+                  label={`Tamaño · ${wmTam}`}
+                  min={10}
+                  max={40}
+                  value={wmTam}
+                  onChange={setWmTam}
+                />
+                <div className="flex items-center gap-4">
+                  <ColorField label="Color" value={wmColor} onChange={setWmColor} />
+                  <div className="flex-1">
+                    <Slider
+                      label={`Opacidad · ${wmOpacidad}%`}
+                      min={3}
+                      max={50}
+                      value={wmOpacidad}
+                      onChange={setWmOpacidad}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+          </Group>
         </aside>
 
         {/* Escenario central */}
@@ -672,6 +787,7 @@ export function EstudioBoard({
           </span>
 
           <div
+            ref={frameRef}
             className={
               "relative overflow-hidden rounded-[1.4rem] bg-black shadow-[0_30px_80px_-20px_rgba(0,0,0,0.8)] ring-1 ring-white/10 " +
               asp.frame
@@ -703,13 +819,33 @@ export function EstudioBoard({
               </button>
             )}
 
+            {/* Marca de agua (detrás del logo y el zócalo) */}
+            {wmOn && wmText && (
+              <MarcaAgua
+                texto={wmText}
+                opacidad={wmOpacidad}
+                tam={wmTam}
+                modo={wmModo}
+                color={wmColor}
+              />
+            )}
+
             {logoUrl && (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={logoUrl}
                 alt="logo"
-                className={"absolute " + posCls[logoPos]}
-                style={{ width: `${logoSize}%`, opacity: logoOpacidad / 100 }}
+                onPointerDown={onLogoDown}
+                onPointerMove={onLogoMove}
+                onPointerUp={onLogoUp}
+                draggable={false}
+                className="absolute z-[7] -translate-x-1/2 -translate-y-1/2 cursor-grab touch-none select-none active:cursor-grabbing"
+                style={{
+                  left: `${logoX}%`,
+                  top: `${logoY}%`,
+                  width: `${logoSize}%`,
+                  opacity: logoOpacidad / 100,
+                }}
               />
             )}
 
@@ -1035,6 +1171,57 @@ export function EstudioBoard({
       </Modal>
 
       <Toast message={message} />
+    </div>
+  );
+}
+
+/** Marca de agua sobre el video (mosaico repetido o centrada). */
+function MarcaAgua({
+  texto,
+  opacidad,
+  tam,
+  modo,
+  color,
+}: {
+  texto: string;
+  opacidad: number;
+  tam: number;
+  modo: WmModo;
+  color: string;
+}) {
+  const style: CSSProperties = {
+    color,
+    opacity: opacidad / 100,
+    fontFamily: "var(--font-sans)",
+    fontWeight: 600,
+  };
+
+  if (modo === "centro") {
+    return (
+      <div className="pointer-events-none absolute inset-0 z-[3] flex items-center justify-center overflow-hidden">
+        <span
+          className="-rotate-[24deg] whitespace-nowrap"
+          style={{ ...style, fontSize: `${tam * 1.6}px` }}
+        >
+          {texto}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="pointer-events-none absolute inset-0 z-[3] overflow-hidden">
+      <div className="absolute left-1/2 top-1/2 flex w-[200%] -translate-x-1/2 -translate-y-1/2 -rotate-[24deg] flex-wrap content-center justify-center gap-x-8 gap-y-6">
+        {Array.from({ length: 60 }).map((_, i) => (
+          <span
+            key={i}
+            className="whitespace-nowrap"
+            style={{ ...style, fontSize: `${tam}px` }}
+          >
+            {texto}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }
