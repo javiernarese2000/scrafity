@@ -28,8 +28,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // El login se muestra sin el armazón de la app.
   if (pathname === "/login") return <>{children}</>;
 
+  // El Estudio es un editor a pantalla completa (sin scroll de página).
+  const isEditor = pathname === "/estudio";
+
   return (
-    <div className="flex min-h-dvh">
+    <div className={cn("flex", isEditor ? "h-dvh overflow-hidden" : "min-h-dvh")}>
       {/* Sidebar fijo en desktop (colapsable a riel de íconos) */}
       <aside
         className={cn(
@@ -77,7 +80,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar onOpenMenu={() => setMenuOpen(true)} />
-        <main className="flex-1 px-4 py-8 sm:px-6 lg:px-10">{children}</main>
+        <main
+          className={cn(
+            "flex-1",
+            isEditor
+              ? "overflow-hidden"
+              : "px-4 py-8 sm:px-6 lg:px-10",
+          )}
+        >
+          {children}
+        </main>
       </div>
     </div>
   );
