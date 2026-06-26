@@ -217,6 +217,14 @@ Orden de pantallas: Clientes → Cuentas → Estudio (subir+logo+zócalo+preview
   persistirlo en la plantilla. La lista se maneja en estado del cliente (sin router.refresh, para no
   resetear el editor).
 
+### Cierre del Estudio: guías por formato + efectos de texto (2026-06) — HECHO
+- **Guías respetan el formato** (`Guias` ahora recibe `aspecto`): 9:16 = blueprint completo de la red;
+  1:1 = feed (casi todo seguro, nota "UI por fuera del video"); 16:9 = barra de controles. Helper
+  `GuiaWrap` (dim + rect + etiqueta) compartido.
+- **Efecto de texto del zócalo**: ninguno/sombra/contorno/ambos (`efectoCss`), se aplica a todos los
+  estilos vía `baseText` y se guarda en plantillas (`ConfigEstudio.efecto`).
+- **ESTUDIO cerrado a nivel diseño.** Próximo: Planificador.
+
 ### Guías como blueprint de la red (2026-06) — HECHO
 - Las safe-zones evolucionaron: el toggle "Guías" + selector **TikTok/Instagram/Facebook** dibuja un
   **blueprint de la UI real** de cada red sobre el preview (componente `Guias` + `GBtn`): columna
