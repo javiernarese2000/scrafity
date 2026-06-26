@@ -292,10 +292,21 @@ Orden de pantallas: Clientes → Cuentas → Estudio (subir+logo+zócalo+preview
 - **Worker corriendo en dev**: contenedor `zoo-worker` (docker, `--restart unless-stopped`, usa
   `apps/worker/sample/worker.env` = pooler us-east-2). Procesa la cola en vivo.
 
-- **PENDIENTE del render**: (1) fidelidad visual completa en el worker (todos los estilos de zócalo,
-  8 fuentes, marca de agua, posición/efectos) — hoy es baseline (logo + zócalo barra); (2) panel/
-  estado de la cola, cancelar, reintentar, miniatura; (3) Railway: desplegar el worker (DATABASE_URL =
-  pooler) + bucket videos en prod.
+### Fidelidad visual del render (2026-06) — HECHO
+- El render replica el preview: **7 estilos de zócalo** (barra/degradado/bloque/resaltado/caja/cinta/
+  minimal vía drawbox + drawtext `box`), **8 tipografías** (DejaVu Serif/Sans/Mono/Bold + Anton/Bebas/
+  Oswald descargadas en el Dockerfile a `/usr/share/fonts/truetype/zoocial`), MAYÚSCULAS, alineación,
+  posición (abajo/centro/arriba), padding, **efectos de texto** (sombra/contorno vía shadow/border de
+  drawtext) y **marca de agua** (centro / mosaico en grilla). Escalado preview→render = width/380.
+  `render.ts` (buildZocalo/buildMarca/buildArgsConfig), `queue.ts` mapConfig con FONT_MAP.
+- **Probado en Docker**: config rica (cinta + Bebas + MAYÚSCULAS + contorno + marca mosaico) → frame OK.
+- Aproximaciones conocidas: degradado = barra translúcida (sin gradiente real), marca de agua sin
+  rotación, caja/bloque con el box de drawtext (rectángulo, sin esquinas redondeadas).
+- Worker `zoo-worker` corriendo con la imagen nueva.
+
+- **PENDIENTE del render**: (1) panel/estado de la cola, cancelar, reintentar, miniatura; (2) Railway:
+  desplegar el worker (DATABASE_URL = pooler) + bucket videos en prod; (3) pulir aproximaciones
+  (gradiente real, rotación de marca) si hace falta.
 
 ## ESTADO: panel de Redes COMPLETO a nivel UI/UX
 Pantallas: Login ✅, Panel(mock) ✅, Clientes ✅, Cuentas ✅, Estudio (preview en vivo) ✅,
