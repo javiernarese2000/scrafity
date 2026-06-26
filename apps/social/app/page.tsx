@@ -1,79 +1,267 @@
 import { Badge } from "@scrapify/ui/badge";
-import { Card, CardBody } from "@scrapify/ui/card";
-import { PageHeader } from "@scrapify/ui/page-header";
 import {
+  ArrowUpRight,
   AtSign,
+  CheckCircle2,
   Clapperboard,
-  ImagePlus,
+  Clock,
   Send,
-  Upload,
   Users,
   type LucideIcon,
 } from "lucide-react";
+import Link from "next/link";
 
-const KPIS: { icon: LucideIcon; label: string; value: string }[] = [
-  { icon: Users, label: "Clientes", value: "—" },
-  { icon: AtSign, label: "Cuentas conectadas", value: "—" },
-  { icon: Clapperboard, label: "Videos publicados", value: "—" },
-  { icon: Send, label: "En cola", value: "—" },
-];
+import { getResumenRedes } from "@/server/dashboard";
 
-const FLUJO: { icon: LucideIcon; label: string }[] = [
-  { icon: Upload, label: "Subir video" },
-  { icon: ImagePlus, label: "Logo + zócalo" },
-  { icon: Clapperboard, label: "Render" },
-  { icon: Send, label: "Publicar en redes" },
-];
+const TONO = {
+  brand: { bar: "bg-brand", tint: "bg-brand/12", text: "text-brand" },
+  accent: { bar: "bg-accent", tint: "bg-accent/12", text: "text-accent" },
+  success: { bar: "bg-success", tint: "bg-success/15", text: "text-success" },
+  info: { bar: "bg-info", tint: "bg-info/15", text: "text-info" },
+} as const;
 
-export default function PanelRedes() {
+function Kpi({
+  icon: Icon,
+  value,
+  label,
+  sub,
+  tono,
+}: {
+  icon: LucideIcon;
+  value: number | string;
+  label: string;
+  sub?: string;
+  tono: keyof typeof TONO;
+}) {
+  const t = TONO[tono];
   return (
-    <div className="mx-auto max-w-5xl">
-      <PageHeader
-        title="Panel de Redes"
-        subtitle="Estudio de video y publicación en redes sociales."
-        action={<Badge tone="accent">En construcción</Badge>}
-      />
+    <div className="relative overflow-hidden rounded-[var(--radius-lg)] border border-line/70 bg-surface p-5 shadow-soft">
+      <span className={"absolute inset-x-0 top-0 h-1 " + t.bar} />
+      <span
+        className={"grid size-10 place-items-center rounded-xl " + t.tint}
+      >
+        <Icon className={"size-5 " + t.text} />
+      </span>
+      <p className="mt-4 font-mono text-3xl font-medium text-fg">{value}</p>
+      <p className="text-sm text-muted">
+        {label}
+        {sub && <span className="text-muted/70"> · {sub}</span>}
+      </p>
+    </div>
+  );
+}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {KPIS.map((k) => (
-          <Card key={k.label}>
-            <CardBody className="flex items-center gap-3">
-              <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-elevated text-accent">
-                <k.icon className="size-5" />
-              </span>
-              <div>
-                <p className="font-mono text-2xl font-medium text-fg">{k.value}</p>
-                <p className="text-xs text-muted">{k.label}</p>
-              </div>
-            </CardBody>
-          </Card>
-        ))}
+const ESTADOS = [
+  { id: "publicada", label: "Publicadas", color: "var(--color-success)" },
+  { id: "en_cola", label: "En cola", color: "var(--color-info)" },
+  { id: "pendiente", label: "Pendientes", color: "var(--color-muted)" },
+  { id: "error", label: "Con error", color: "var(--color-danger)" },
+] as const;
+
+const REDES = [
+  { id: "instagram", label: "Instagram", color: "#d6336c" },
+  { id: "facebook", label: "Facebook", color: "#3b5998" },
+  { id: "tiktok", label: "TikTok", color: "#0ea5b7" },
+] as const;
+
+const TONE_BADGE: Record<string, "neutral" | "info" | "success" | "danger"> = {
+  pendiente: "neutral",
+  en_cola: "info",
+  publicada: "success",
+  error: "danger",
+};
+
+const ACCIONES = [
+  { href: "/estudio", label: "Crear publicación", desc: "Subí un video y editalo", icon: Clapperboard },
+  { href: "/clientes", label: "Clientes", desc: "Administrá tus clientes", icon: Users },
+  { href: "/cuentas", label: "Cuentas", desc: "Conectá redes sociales", icon: AtSign },
+];
+
+function fmt(d: Date) {
+  return new Date(d).toLocaleDateString("es-AR", {
+    day: "2-digit",
+    month: "short",
+  });
+}
+
+export default async function PanelRedes() {
+  const r = await getResumenRedes();
+  const maxRed = Math.max(1, ...REDES.map((x) => r.porPlataforma[x.id]));
+
+  return (
+    <div className="w-full space-y-6">
+      {/* Header */}
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h2 className="font-display text-[2.2rem] font-medium tracking-tight text-fg">
+            Panel
+          </h2>
+          <p className="mt-1 text-sm text-muted">
+            Tu centro de mando para video y redes sociales.
+          </p>
+        </div>
+        <Link
+          href="/estudio"
+          className="inline-flex h-10 items-center gap-2 rounded-lg bg-accent px-4 text-sm font-medium text-brand-foreground transition-all hover:opacity-90 active:scale-[0.98]"
+        >
+          <Clapperboard className="size-4" />
+          Nueva publicación
+        </Link>
       </div>
 
-      <Card className="mt-8">
-        <CardBody>
-          <p className="mb-5 text-sm font-medium text-fg">El flujo</p>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-3">
-            {FLUJO.map((f, i) => (
-              <span key={f.label} className="flex items-center gap-3">
-                <span className="flex items-center gap-2 rounded-full border border-line bg-elevated/40 px-3 py-1.5 text-sm text-fg">
-                  <f.icon className="size-4 text-accent" />
-                  {f.label}
-                </span>
-                {i < FLUJO.length - 1 && (
-                  <span className="text-muted" aria-hidden>
-                    →
-                  </span>
-                )}
-              </span>
-            ))}
-          </div>
-          <p className="mt-5 text-sm text-muted">
-            Segundo panel funcionando, con el design system compartido. Próximo:
-            conectar clientes y cuentas, y el estudio de render.
+      {/* KPIs */}
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Kpi icon={Users} value={r.clientes} label="Clientes" tono="brand" />
+        <Kpi
+          icon={AtSign}
+          value={r.cuentasConectadas}
+          label="Cuentas conectadas"
+          sub={`de ${r.cuentas}`}
+          tono="accent"
+        />
+        <Kpi
+          icon={CheckCircle2}
+          value={r.porEstado.publicada}
+          label="Publicadas"
+          tono="success"
+        />
+        <Kpi
+          icon={Clock}
+          value={r.porEstado.en_cola + r.porEstado.pendiente}
+          label="En cola / pendientes"
+          tono="info"
+        />
+      </div>
+
+      {/* Estado + Por red */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="rounded-[var(--radius-lg)] border border-line/70 bg-surface p-5 shadow-soft">
+          <p className="mb-4 text-sm font-medium text-fg">
+            Estado de publicaciones
           </p>
-        </CardBody>
-      </Card>
+          <div className="space-y-3.5">
+            {ESTADOS.map((e) => {
+              const n = r.porEstado[e.id];
+              const pct = r.totalPubs ? (n / r.totalPubs) * 100 : 0;
+              return (
+                <div key={e.id}>
+                  <div className="mb-1 flex items-center justify-between text-sm">
+                    <span className="text-muted">{e.label}</span>
+                    <span className="font-mono text-fg">{n}</span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-elevated">
+                    <div
+                      className="h-full rounded-full"
+                      style={{ width: `${pct}%`, backgroundColor: e.color }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="rounded-[var(--radius-lg)] border border-line/70 bg-surface p-5 shadow-soft">
+          <p className="mb-4 text-sm font-medium text-fg">Distribución por red</p>
+          <div className="space-y-3.5">
+            {REDES.map((red) => {
+              const n = r.porPlataforma[red.id];
+              const pct = (n / maxRed) * 100;
+              return (
+                <div key={red.id}>
+                  <div className="mb-1 flex items-center justify-between text-sm">
+                    <span className="flex items-center gap-2 text-muted">
+                      <span
+                        className="size-2.5 rounded-full"
+                        style={{ backgroundColor: red.color }}
+                      />
+                      {red.label}
+                    </span>
+                    <span className="font-mono text-fg">{n}</span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-elevated">
+                    <div
+                      className="h-full rounded-full"
+                      style={{ width: `${pct}%`, backgroundColor: red.color }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Actividad reciente + Acciones */}
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
+        <div className="rounded-[var(--radius-lg)] border border-line/70 bg-surface p-5 shadow-soft">
+          <div className="mb-4 flex items-center justify-between">
+            <p className="text-sm font-medium text-fg">Actividad reciente</p>
+            <Link
+              href="/publicaciones"
+              className="text-xs font-medium text-accent hover:underline"
+            >
+              Ver todo
+            </Link>
+          </div>
+
+          {r.recientes.length === 0 ? (
+            <div className="flex flex-col items-center py-10 text-center">
+              <span className="grid size-12 place-items-center rounded-2xl border border-line bg-elevated text-muted">
+                <Send className="size-5" />
+              </span>
+              <p className="mt-3 text-sm text-muted">
+                Todavía no hay publicaciones.
+              </p>
+            </div>
+          ) : (
+            <div className="divide-y divide-line/70">
+              {r.recientes.map((p) => {
+                const red = REDES.find((x) => x.id === p.plataforma);
+                return (
+                  <div key={p.id} className="flex items-center gap-3 py-2.5">
+                    <span
+                      className="size-2.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: red?.color }}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-fg">
+                        {p.videoTitulo || "Video"}
+                      </p>
+                      <p className="truncate text-xs text-muted">
+                        {p.clienteNombre} · {red?.label}
+                      </p>
+                    </div>
+                    <span className="hidden text-xs text-muted sm:block">
+                      {fmt(p.fecha)}
+                    </span>
+                    <Badge tone={TONE_BADGE[p.estado]}>{p.estado}</Badge>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-3">
+          {ACCIONES.map((a) => (
+            <Link
+              key={a.href}
+              href={a.href}
+              className="group flex items-center gap-3 rounded-[var(--radius-lg)] border border-line/70 bg-surface p-4 shadow-soft transition-shadow hover:shadow-float"
+            >
+              <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-elevated text-accent">
+                <a.icon className="size-5" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-fg">{a.label}</p>
+                <p className="truncate text-xs text-muted">{a.desc}</p>
+              </div>
+              <ArrowUpRight className="size-4 text-muted transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+            </Link>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

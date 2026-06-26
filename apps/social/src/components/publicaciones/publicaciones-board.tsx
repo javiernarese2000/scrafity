@@ -71,7 +71,7 @@ export function PublicacionesBoard({
   }, [publicaciones]);
 
   return (
-    <div className="mx-auto max-w-5xl">
+    <div className="w-full">
       <PageHeader
         title="Publicaciones"
         subtitle="Historial y estado de lo que sale a las redes."

@@ -1,26 +1,44 @@
 "use client";
 
+import { cn } from "@scrapify/ui/cn";
 import { AnimatePresence, motion } from "framer-motion";
 import { X } from "lucide-react";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { SidebarContent } from "./sidebar";
 import { Topbar } from "./topbar";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
+
+  useEffect(() => {
+    setCollapsed(localStorage.getItem("redes-sidebar-collapsed") === "1");
+  }, []);
+
+  function toggleCollapsed() {
+    setCollapsed((c) => {
+      localStorage.setItem("redes-sidebar-collapsed", c ? "0" : "1");
+      return !c;
+    });
+  }
 
   // El login se muestra sin el armazón de la app.
   if (pathname === "/login") return <>{children}</>;
 
   return (
     <div className="flex min-h-dvh">
-      {/* Sidebar fijo en desktop */}
-      <aside className="hidden w-64 shrink-0 border-r border-line bg-surface lg:block">
+      {/* Sidebar fijo en desktop (colapsable a riel de íconos) */}
+      <aside
+        className={cn(
+          "hidden shrink-0 border-r border-line bg-surface transition-[width] duration-200 lg:block",
+          collapsed ? "w-16" : "w-64",
+        )}
+      >
         <div className="sticky top-0 h-dvh">
-          <SidebarContent />
+          <SidebarContent collapsed={collapsed} onToggle={toggleCollapsed} />
         </div>
       </aside>
 

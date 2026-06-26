@@ -78,7 +78,7 @@ export function CuentasBoard({ clientes }: { clientes: ClienteConCuentas[] }) {
   }
 
   return (
-    <div className="mx-auto max-w-5xl">
+    <div className="w-full">
       <PageHeader
         title="Cuentas"
         subtitle="Las cuentas de redes de cada cliente."

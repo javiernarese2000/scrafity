@@ -86,7 +86,7 @@ export function ClientesBoard({ inicial }: { inicial: ClienteRow[] }) {
   }
 
   return (
-    <div className="mx-auto max-w-5xl">
+    <div className="w-full">
       <PageHeader
         title="Clientes"
         subtitle="Cada cliente agrupa sus cuentas de redes (y, si tiene, sus destinos de noticias)."

@@ -142,7 +142,7 @@ export function EstudioBoard({ clientes }: { clientes: ClienteConCuentas[] }) {
   }
 
   return (
-    <div className="mx-auto max-w-6xl">
+    <div className="w-full">
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h2 className="font-display text-[2rem] font-medium tracking-tight text-fg">
