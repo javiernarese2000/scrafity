@@ -457,8 +457,13 @@ export async function renderFromConfig(
       const fs = Math.round(z.fontSize ?? Math.round(H * 0.03));
       const pad = Math.round(z.padding ?? 16);
       const font = z.fontFile ?? DEJAVU;
-      // Las fuentes condensadas (Anton/Bebas/Oswald) entran más caracteres.
-      const factor = /Anton|Bebas|Oswald/.test(font) ? 0.42 : 0.52;
+      // Ancho medio de carácter (× fontSize) por familia. Conservador para que
+      // el texto nunca desborde (sobre todo en estilos sin caja como degradado).
+      const factor = /Anton|Bebas|Oswald/.test(font)
+        ? 0.46
+        : /Serif/.test(font)
+          ? 0.62
+          : 0.56;
       const estilo = cfg.zocalo.estilo ?? "barra";
       // Cinta y cajas son tarjetas flotantes: doble padding (margen + interno).
       const usable =
