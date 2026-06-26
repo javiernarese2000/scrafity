@@ -12,6 +12,7 @@ import {
   Globe,
   ImagePlus,
   LayoutTemplate,
+  ScanLine,
   Save,
   Send,
   Trash2,
@@ -154,6 +155,14 @@ const COLOR_PLAT: Record<Plataforma, string> = {
   tiktok: "#0ea5b7",
 };
 
+// Zonas seguras: márgenes (en %) que la UI de cada red suele tapar.
+type RefRed = "tiktok" | "reels" | "feed";
+const SAFE: Record<RefRed, { top: number; right: number; bottom: number; left: number; label: string }> = {
+  tiktok: { top: 6, right: 14, bottom: 18, left: 3, label: "TikTok" },
+  reels: { top: 6, right: 13, bottom: 22, left: 3, label: "Reels" },
+  feed: { top: 5, right: 3, bottom: 6, left: 3, label: "Feed" },
+};
+
 function rgba(hex: string, a: number) {
   const h = hex.replace("#", "");
   const n = parseInt(h.length === 3 ? h.replace(/(.)/g, "$1$1") : h, 16);
@@ -217,6 +226,9 @@ export function EstudioBoard({
 
   const [clienteId, setClienteId] = useState(clientes[0]?.id ?? "");
   const [destinos, setDestinos] = useState<Set<string>>(new Set());
+
+  const [guias, setGuias] = useState(false);
+  const [refRed, setRefRed] = useState<RefRed>("tiktok");
 
   const [plantillas, setPlantillas] = useState<PlantillaRow[]>(plantillasIniciales);
   const [menuPlant, setMenuPlant] = useState(false);
@@ -353,6 +365,41 @@ export function EstudioBoard({
             </button>
           ))}
         </div>
+
+        {/* Guías / safe zones */}
+        <button
+          type="button"
+          onClick={() => setGuias((g) => !g)}
+          title="Mostrar zonas seguras de cada red"
+          className={
+            "inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-sm transition-colors " +
+            (guias
+              ? "border-accent bg-accent/10 text-fg"
+              : "border-line text-muted hover:bg-elevated hover:text-fg")
+          }
+        >
+          <ScanLine className="size-4" />
+          Guías
+        </button>
+        {guias && (
+          <div className="flex items-center gap-1 rounded-lg border border-line p-0.5">
+            {(Object.keys(SAFE) as RefRed[]).map((r) => (
+              <button
+                key={r}
+                type="button"
+                onClick={() => setRefRed(r)}
+                className={
+                  "rounded-md px-2 py-1 text-xs font-medium transition-colors " +
+                  (refRed === r
+                    ? "bg-elevated text-fg"
+                    : "text-muted hover:text-fg")
+                }
+              >
+                {SAFE[r].label}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Plantillas */}
         <div className="relative">
@@ -646,6 +693,28 @@ export function EstudioBoard({
                 uppercase={mayus}
                 posicion={posicion}
               />
+            )}
+
+            {/* Safe zones */}
+            {guias && (
+              <div className="pointer-events-none absolute inset-0 z-[6]">
+                <div
+                  className="absolute rounded-md border border-dashed border-white/80"
+                  style={{
+                    top: `${SAFE[refRed].top}%`,
+                    right: `${SAFE[refRed].right}%`,
+                    bottom: `${SAFE[refRed].bottom}%`,
+                    left: `${SAFE[refRed].left}%`,
+                    boxShadow: "0 0 0 9999px rgba(176,82,74,0.22)",
+                  }}
+                />
+                <span
+                  className="absolute left-1/2 -translate-x-1/2 rounded bg-black/55 px-1.5 py-0.5 text-[9px] font-medium text-white/90 backdrop-blur-sm"
+                  style={{ top: `calc(${SAFE[refRed].top}% + 5px)` }}
+                >
+                  zona segura · {SAFE[refRed].label}
+                </span>
+              </div>
             )}
           </div>
         </div>
