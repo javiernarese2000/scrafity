@@ -259,6 +259,12 @@ Orden de pantallas: Clientes → Cuentas → Estudio (subir+logo+zócalo+preview
   cualquier día, editar al clic. Navegación por día o por semana.
 - Pendiente futuro: conectar con el despachador real (que suelte a la hora `programada_en`).
 
+### Íconos de marca de las redes (2026-06) — HECHO
+- Componente `components/icons/redes.tsx` → `RedIcon({ plataforma, className })` con los SVG oficiales
+  (Simple Icons): Instagram con degradado, Facebook azul #1877F2, TikTok `currentColor` (text-fg para
+  verse en claro/oscuro). Reemplaza los puntitos de color en: cuentas, planificador, dashboard,
+  publicaciones, login y selectores del estudio (destino + safe-zones). Reconocimiento visual inmediato.
+
 ## ESTADO: panel de Redes COMPLETO a nivel UI/UX
 Pantallas: Login ✅, Panel(mock) ✅, Clientes ✅, Cuentas ✅, Estudio (preview en vivo) ✅,
 Publicaciones ✅. Dev server en :5556. Todo en rama `redes`, prod intacto.
