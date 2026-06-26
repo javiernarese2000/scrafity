@@ -251,6 +251,7 @@ function buildZocalo(
   z: NonNullable<RenderConfig["zocalo"]>,
   textFile: string,
   zLines: number,
+  gradPath?: string,
 ): { chain: string; out: string } {
   const fs = Math.round(z.fontSize ?? Math.round(H * 0.03));
   const pad = Math.round(z.padding ?? 16);
@@ -286,11 +287,21 @@ function buildZocalo(
     };
   }
 
+  // degradado: gradiente pre-renderizado a PNG (1 frame, rápido) y superpuesto.
+  if (estilo === "degradado" && gradPath) {
+    const gradH = Math.round(H * 0.44);
+    const arriba = z.posicion === "arriba";
+    const gradY = arriba ? 0 : H - gradH;
+    const ty = arriba ? `${pad}` : `h-text_h-${pad}`;
+    const chain =
+      `movie='${gradPath}'[grad];` +
+      `[${last}][grad]overlay=0:${gradY}[gv];` +
+      `[gv]${base("", pad, ty)}[zk]`;
+    return { chain, out: "zk" };
+  }
+
   const lineH = fs + 8;
-  const barH = Math.max(
-    estilo === "degradado" ? Math.round(H * 0.2) : 0,
-    zLines * lineH + 2 * pad,
-  );
+  const barH = zLines * lineH + 2 * pad;
 
   // cinta: tarjeta FLOTANTE con margen `pad` desde los bordes + acento a la izq.
   if (estilo === "cinta") {
@@ -364,6 +375,7 @@ function buildArgsConfig(
   zTextFile?: string,
   mTextFile?: string,
   zLines = 1,
+  gradPath?: string,
 ): string[] {
   const [W, H] = DIMS[cfg.aspecto ?? "9:16"]!;
   const parts: string[] = [];
@@ -394,7 +406,7 @@ function buildArgsConfig(
 
   // Zócalo
   if (zTextFile && cfg.zocalo?.texto) {
-    const r = buildZocalo(last, W, H, cfg.zocalo, zTextFile, zLines);
+    const r = buildZocalo(last, W, H, cfg.zocalo, zTextFile, zLines, gradPath);
     parts.push(r.chain);
     last = r.out;
   }
@@ -466,7 +478,41 @@ export async function renderFromConfig(
       mTextFile = join(dir, "marca.txt");
       await writeFile(mTextFile, cfg.marca.texto, "utf8");
     }
-    const args = buildArgsConfig(input, output, cfg, zTextFile, mTextFile, zLines);
+
+    // Gradiente del zócalo: se pre-renderiza a un PNG de 1 frame (geq una sola
+    // vez = rápido), en vez de evaluar geq por cada fotograma del video.
+    let gradPath: string | undefined;
+    if (cfg.zocalo?.estilo === "degradado" && cfg.zocalo.texto?.trim()) {
+      const z = cfg.zocalo;
+      const gradH = Math.round(H * 0.44);
+      const maxA = Math.round(Math.max(z.opacidad ?? 0.55, 0.6) * 255);
+      const aExpr =
+        z.posicion === "arriba"
+          ? `${maxA}*(1-Y/${gradH})`
+          : `${maxA}*Y/${gradH}`;
+      gradPath = join(dir, "grad.png");
+      await runFfmpeg([
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        `color=c=${ffColor(z.colorBarra, "0x111111")}:s=${W}x${gradH},` +
+          `format=rgba,geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='${aExpr}'`,
+        "-frames:v",
+        "1",
+        gradPath,
+      ]);
+    }
+
+    const args = buildArgsConfig(
+      input,
+      output,
+      cfg,
+      zTextFile,
+      mTextFile,
+      zLines,
+      gradPath,
+    );
     await runWithProgress(args, dur, onProgress);
   } finally {
     await rm(dir, { recursive: true, force: true });
