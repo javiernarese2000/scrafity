@@ -47,6 +47,17 @@ export const publicationStatus = pgEnum("publication_status", [
   "publicada",
   "error",
 ]);
+// Redes sociales (panel Redes).
+export const socialPlatform = pgEnum("social_platform", [
+  "instagram",
+  "facebook",
+  "tiktok",
+]);
+export const socialAccountStatus = pgEnum("social_account_status", [
+  "conectada",
+  "desconectada",
+  "error",
+]);
 
 // Config de ritmo de despacho por destino (bandeja de salida).
 export type Cadencia = {
@@ -209,6 +220,25 @@ export const destinations = pgTable("destinations", {
   // Ritmo de despacho de la bandeja de salida (null = sin auto-despacho).
   cadencia: jsonb("cadencia").$type<Cadencia>(),
   estado: sourceStatus("estado").notNull().default("activa"),
+  ...timestamps,
+});
+
+// Cuenta de red social de un cliente (panel Redes). El token va cifrado; el
+// OAuth real con Meta/TikTok se conecta más adelante.
+export const socialAccounts = pgTable("social_accounts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  clienteId: uuid("cliente_id")
+    .notNull()
+    .references(() => clientes.id, { onDelete: "cascade" }),
+  plataforma: socialPlatform("plataforma").notNull(),
+  // Handle / nombre visible de la cuenta (ej. @diarioelsur).
+  nombre: text("nombre").notNull(),
+  // Id de la cuenta en la plataforma (page id / ig user id / open id).
+  externalId: text("external_id"),
+  estado: socialAccountStatus("estado").notNull().default("desconectada"),
+  // Token cifrado (para cuando se enchufe el OAuth real).
+  credencialesCifradas: text("credenciales_cifradas"),
+  expiraEn: timestamp("expira_en", { withTimezone: true }),
   ...timestamps,
 });
 
@@ -412,6 +442,14 @@ export const versionsRelations = relations(versions, ({ one, many }) => ({
 
 export const clientesRelations = relations(clientes, ({ many }) => ({
   destinations: many(destinations),
+  socialAccounts: many(socialAccounts),
+}));
+
+export const socialAccountsRelations = relations(socialAccounts, ({ one }) => ({
+  cliente: one(clientes, {
+    fields: [socialAccounts.clienteId],
+    references: [clientes.id],
+  }),
 }));
 
 export const destinationsRelations = relations(destinations, ({ one, many }) => ({
