@@ -141,6 +141,7 @@ const ALINEACIONES: { id: Alineacion; icon: LucideIcon }[] = [
 
 // Config de diseño que se guarda en una plantilla (sin el texto ni el video).
 type ConfigEstudio = {
+  previewW?: number;
   aspecto?: Aspecto;
   logoDataUrl?: string | null;
   logoX?: number;
@@ -427,6 +428,7 @@ export function EstudioBoard({
 
   function configActual(): ConfigEstudio {
     return {
+      previewW: Math.round(frameRef.current?.getBoundingClientRect().width ?? 384),
       aspecto,
       logoDataUrl: logoUrl,
       logoX,
@@ -1622,8 +1624,7 @@ function Zocalo({
 }) {
   const baseText = {
     fontFamily: fontVar,
-    // El preview muestra el texto un poco más grande para acercarse al render.
-    fontSize: `${Math.round(fontSize * 1.15)}px`,
+    fontSize: `${fontSize}px`,
     color: colorTexto,
     lineHeight: 1.18,
     textAlign: alineacion,

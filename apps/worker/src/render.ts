@@ -1,181 +1,15 @@
 import { spawn } from "node:child_process";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-export type RenderOpts = {
-  /** Ruta al video de entrada. */
-  inputPath: string;
-  /** Ruta donde se escribe el MP4 resultante. */
-  outputPath: string;
-  /** PNG con transparencia para el logo (esquina superior derecha). */
-  logoPath?: string;
-  /** Texto del zócalo (lower-third). Se ubica en una barra al pie. */
-  zocalo?: string;
-  /** Dimensiones de salida. Por defecto 1080x1920 (9:16, Reels/TikTok). */
-  width?: number;
-  height?: number;
-  /** Tipografía para el zócalo. Por defecto DejaVuSans (viene en el Docker). */
-  fontFile?: string;
-};
-
-const FONT_DEFAULT = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf";
-
-/**
- * Construye el `-filter_complex`: escala el video a 9:16 con padding, superpone
- * el logo (si hay) y dibuja el zócalo (barra translúcida + texto) si hay.
- * Siempre termina en la etiqueta [vout].
- */
-export function buildFilterComplex(o: {
-  hasLogo: boolean;
-  width: number;
-  height: number;
-  fontFile: string;
-  textFile?: string;
-}): string {
-  const { hasLogo, width: W, height: H, fontFile, textFile } = o;
-  const parts: string[] = [];
-
-  parts.push(
-    `[0:v]scale=${W}:${H}:force_original_aspect_ratio=decrease,` +
-      `pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2,setsar=1[base]`,
-  );
-
-  let last = "base";
-  if (hasLogo) {
-    parts.push(`[1:v]scale=${Math.round(W * 0.2)}:-1[lg]`);
-    parts.push(`[${last}][lg]overlay=W-w-40:40[v1]`);
-    last = "v1";
-  }
-
-  if (textFile) {
-    // El frame ya es exactamente W×H tras el scale+pad, así que usamos
-    // posiciones numéricas (drawbox no entiende las variables W/H).
-    const barH = Math.round(H * 0.09);
-    const barY = H - (barH + 80);
-    const fontSize = Math.round(H * 0.03);
-    const textY = barY + Math.round(barH * 0.28);
-    parts.push(
-      `[${last}]drawbox=x=0:y=${barY}:w=${W}:h=${barH}:color=black@0.55:t=fill,` +
-        `drawtext=fontfile=${fontFile}:textfile=${textFile}:` +
-        `fontcolor=white:fontsize=${fontSize}:x=64:y=${textY}:line_spacing=8[vout]`,
-    );
-    last = "vout";
-  }
-
-  if (last !== "vout") parts.push(`[${last}]null[vout]`);
-  return parts.join(";");
-}
-
-/** Compone el video: escala a 9:16, agrega logo y zócalo, y escribe el MP4. */
-export async function renderVideo(opts: RenderOpts): Promise<void> {
-  const W = opts.width ?? 1080;
-  const H = opts.height ?? 1920;
-  const fontFile = opts.fontFile ?? FONT_DEFAULT;
-
-  const dir = await mkdtemp(join(tmpdir(), "scrapify-render-"));
-  try {
-    let textFile: string | undefined;
-    if (opts.zocalo && opts.zocalo.trim()) {
-      textFile = join(dir, "zocalo.txt");
-      await writeFile(textFile, opts.zocalo, "utf8");
-    }
-
-    const filter = buildFilterComplex({
-      hasLogo: Boolean(opts.logoPath),
-      width: W,
-      height: H,
-      fontFile,
-      textFile,
-    });
-
-    const args: string[] = ["-y", "-i", opts.inputPath];
-    if (opts.logoPath) args.push("-i", opts.logoPath);
-    args.push(
-      "-filter_complex",
-      filter,
-      "-map",
-      "[vout]",
-      "-map",
-      "0:a?",
-      "-c:v",
-      "libx264",
-      "-preset",
-      "veryfast",
-      "-pix_fmt",
-      "yuv420p",
-      "-c:a",
-      "aac",
-      "-movflags",
-      "+faststart",
-      "-shortest",
-      opts.outputPath,
-    );
-
-    await runFfmpeg(args);
-  } finally {
-    await rm(dir, { recursive: true, force: true });
-  }
-}
-
-function runFfmpeg(args: string[]): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const proc = spawn("ffmpeg", args, { stdio: ["ignore", "ignore", "pipe"] });
-    let err = "";
-    proc.stderr.on("data", (d: Buffer) => {
-      err += d.toString();
-    });
-    proc.on("error", reject);
-    proc.on("close", (code) => {
-      if (code === 0) resolve();
-      else reject(new Error(`ffmpeg salió con código ${code}:\n${err.slice(-1500)}`));
-    });
-  });
-}
-
-// ───────────────────────── Render por config (cola) ─────────────────────────
-
-export type RenderConfig = {
-  aspecto?: "9:16" | "1:1" | "16:9";
-  logoPath?: string | null;
-  logoX?: number; // % centro
-  logoY?: number;
-  logoSize?: number; // % del ancho
-  logoOpacidad?: number; // 0..100
-  zocalo?: {
-    texto?: string;
-    estilo?: "barra" | "degradado" | "bloque" | "resaltado" | "caja" | "cinta" | "minimal";
-    fontFile?: string;
-    fontSize?: number; // px del render
-    colorTexto?: string;
-    colorBarra?: string;
-    opacidad?: number; // 0..1
-    padding?: number; // px del render
-    posicion?: "abajo" | "centro" | "arriba";
-    alineacion?: "left" | "center" | "right";
-    efecto?: "ninguno" | "sombra" | "contorno" | "ambos";
-  } | null;
-  marca?: {
-    texto?: string;
-    modo?: "mosaico" | "centro";
-    fontSize?: number; // px del render
-    color?: string;
-    opacidad?: number; // 0..1
-    fontFile?: string;
-  } | null;
-};
+import { buildOverlayHtml, renderOverlayHtml } from "./overlay.js";
 
 const DIMS: Record<string, [number, number]> = {
   "9:16": [1080, 1920],
   "1:1": [1080, 1080],
   "16:9": [1920, 1080],
 };
-
-/** #rrggbb → 0xRRGGBB para FFmpeg. */
-function ffColor(hex?: string, fallback = "0x111111"): string {
-  if (!hex) return fallback;
-  return "0x" + hex.replace("#", "");
-}
 
 /** Duración del video en segundos (ffprobe). */
 export function probeDuration(input: string): Promise<number> {
@@ -196,361 +30,53 @@ export function probeDuration(input: string): Promise<number> {
   });
 }
 
-const DEJAVU = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf";
-const ACCENT = "0xc0883e"; // --color-accent
-
-function efectoDraw(efecto?: string): string {
-  switch (efecto) {
-    case "sombra":
-      return ":shadowx=2:shadowy=2:shadowcolor=0x000000@0.7";
-    case "contorno":
-      return ":borderw=3:bordercolor=0x000000";
-    case "ambos":
-      return ":borderw=3:bordercolor=0x000000:shadowx=2:shadowy=3:shadowcolor=0x000000@0.7";
-    default:
-      return "";
-  }
-}
-
-/** Word-wrap por cantidad de caracteres (drawtext no envuelve solo). */
-function wrapText(text: string, maxChars: number): string {
-  const out: string[] = [];
-  for (const parrafo of text.split("\n")) {
-    const words = parrafo.split(/\s+/).filter(Boolean);
-    let cur = "";
-    for (const w of words) {
-      if (!cur) cur = w;
-      else if ((cur + " " + w).length <= maxChars) cur += " " + w;
-      else {
-        out.push(cur);
-        cur = w;
-      }
-    }
-    out.push(cur);
-  }
-  return out.join("\n");
-}
-
-/** x de UNA línea (usa su propio text_w) dentro de la región [L, L+Wr]. */
-function xPerLine(
-  al: string | undefined,
-  L: number,
-  Wr: number,
-  padL: number,
-  padR: number,
-): string {
-  if (al === "center") return `${L + padL}+(${Wr - padL - padR}-text_w)/2`;
-  if (al === "right") return `${L + Wr - padR}-text_w`;
-  return `${L + padL}`;
-}
-
 /**
- * Cadena de filtros para el zócalo. Los estilos sin caja (degradado/barra/cinta/
- * minimal) se dibujan **una línea por drawtext** para poder alinear cada línea
- * (FFmpeg no centra líneas por sí solo). Los estilos con caja usan un drawtext
- * con `box` que envuelve todo el bloque.
+ * Render desde la config del Estudio:
+ *  1) Chromium renderiza el overlay (logo + zócalo + marca) a un PNG transparente
+ *     con el mismo HTML/CSS/fuentes que el preview.
+ *  2) FFmpeg escala el video a cover y superpone el PNG (overlay full-frame).
  */
-function buildZocalo(
-  last: string,
-  W: number,
-  H: number,
-  z: NonNullable<RenderConfig["zocalo"]>,
-  textFile: string,
-  zLines: number,
-  gradPath: string | undefined,
-  lineFiles: string[],
-): { chain: string; out: string } {
-  const fs = Math.round(z.fontSize ?? Math.round(H * 0.03));
-  const pad = Math.round(z.padding ?? 16);
-  const font = z.fontFile ?? DEJAVU;
-  const colT = ffColor(z.colorTexto, "0xffffff");
-  const colB = ffColor(z.colorBarra, "0x111111");
-  const op = (z.opacidad ?? 0.55).toFixed(2);
-  const ef = efectoDraw(z.efecto);
-  const estilo = z.estilo ?? "barra";
-  const lineH = fs + 8;
-  const Ht = zLines * lineH - 8; // alto del bloque de texto
-
-  // N drawtext, una por línea, alineadas dentro de [L, L+Wr].
-  const perLine = (topY: number, L: number, Wr: number, padL: number, padR: number) =>
-    lineFiles
-      .map(
-        (lf, i) =>
-          `drawtext=fontfile=${font}:textfile=${lf}:fontcolor=${colT}:` +
-          `fontsize=${fs}:x=${xPerLine(z.alineacion, L, Wr, padL, padR)}:` +
-          `y=${topY + i * lineH}${ef}`,
-      )
-      .join(",");
-
-  // Estilos con caja pegada al texto (bloque/resaltado/caja): un solo drawtext.
-  if (estilo === "bloque" || estilo === "resaltado" || estilo === "caja") {
-    const bw = estilo === "resaltado" ? Math.round(pad * 0.5) : pad;
-    const extra = `:box=1:boxcolor=${colB}@${op}:boxborderw=${bw}`;
-    const yBox =
-      z.posicion === "arriba"
-        ? `${pad + bw}`
-        : z.posicion === "centro"
-          ? "(h-text_h)/2"
-          : `h-text_h-${pad + bw}`;
-    const x =
-      z.alineacion === "center"
-        ? "(w-text_w)/2"
-        : z.alineacion === "right"
-          ? `w-text_w-${pad + bw}`
-          : `${pad + bw}`;
-    const chain =
-      `[${last}]drawtext=fontfile=${font}:textfile=${textFile}:fontcolor=${colT}:` +
-      `fontsize=${fs}:line_spacing=8:x=${x}:y=${yBox}${ef}${extra}[zk]`;
-    return { chain, out: "zk" };
-  }
-
-  // degradado: gradiente PNG + texto por línea.
-  if (estilo === "degradado" && gradPath) {
-    const gradH = Math.round(H * 0.44);
-    const arriba = z.posicion === "arriba";
-    const gradY = arriba ? 0 : H - gradH;
-    const topY = arriba ? pad : H - pad - Ht;
-    return {
-      chain:
-        `movie='${gradPath}'[grad];` +
-        `[${last}][grad]overlay=0:${gradY}[gv];` +
-        `[gv]${perLine(topY, 0, W, pad, pad)}[zk]`,
-      out: "zk",
-    };
-  }
-
-  // minimal: solo texto por línea.
-  if (estilo === "minimal") {
-    const topY =
-      z.posicion === "arriba"
-        ? pad
-        : z.posicion === "centro"
-          ? Math.round((H - Ht) / 2)
-          : H - pad - Ht;
-    return { chain: `[${last}]${perLine(topY, 0, W, pad, pad)}[zk]`, out: "zk" };
-  }
-
-  // cinta: tarjeta flotante (margen `pad`) + acento + texto por línea.
-  if (estilo === "cinta") {
-    const accent = 10;
-    const barX = pad;
-    const barW = W - 2 * pad;
-    const barH = Ht + 2 * pad;
-    const barY =
-      z.posicion === "arriba"
-        ? pad
-        : z.posicion === "centro"
-          ? Math.round((H - barH) / 2)
-          : H - barH - pad;
-    const topY = barY + pad;
-    let chain = `[${last}]drawbox=x=${barX}:y=${barY}:w=${barW}:h=${barH}:color=${colB}@${op}:t=fill`;
-    chain += `,drawbox=x=${barX}:y=${barY}:w=${accent}:h=${barH}:color=${ACCENT}:t=fill`;
-    chain += `,${perLine(topY, barX, barW, accent + pad, pad)}[zk]`;
-    return { chain, out: "zk" };
-  }
-
-  // barra: banda de ancho completo + texto por línea.
-  const barH = Ht + 2 * pad;
-  const barY =
-    z.posicion === "arriba"
-      ? 0
-      : z.posicion === "centro"
-        ? Math.round((H - barH) / 2)
-        : H - barH;
-  const topY = barY + pad;
-  const chain =
-    `[${last}]drawbox=x=0:y=${barY}:w=${W}:h=${barH}:color=${colB}@${op}:t=fill` +
-    `,${perLine(topY, 0, W, pad, pad)}[zk]`;
-  return { chain, out: "zk" };
-}
-
-/** Marca de agua: centrada o mosaico (grilla intercalada). */
-function buildMarca(
-  last: string,
-  m: NonNullable<RenderConfig["marca"]>,
-  textFile: string,
-): { chain: string; out: string } {
-  const fs = Math.round(m.fontSize ?? 56);
-  const col = ffColor(m.color, "0xffffff");
-  const op = (m.opacidad ?? 0.14).toFixed(2);
-  const font = m.fontFile ?? DEJAVU;
-  const dt = `drawtext=fontfile=${font}:textfile=${textFile}:fontcolor=${col}@${op}:fontsize=${fs}`;
-
-  if (m.modo === "centro") {
-    return { chain: `[${last}]${dt}:x=(w-text_w)/2:y=(h-text_h)/2[mk]`, out: "mk" };
-  }
-  const cols = [0.18, 0.5, 0.82];
-  const rows = [0.12, 0.32, 0.52, 0.72, 0.92];
-  const draws: string[] = [];
-  rows.forEach((ry, i) => {
-    cols.forEach((cx) => {
-      const off = i % 2 ? 0.1 : 0;
-      draws.push(`${dt}:x=w*${(cx + off).toFixed(2)}-text_w/2:y=h*${ry}-text_h/2`);
-    });
-  });
-  return { chain: `[${last}]${draws.join(",")}[mk]`, out: "mk" };
-}
-
-function buildArgsConfig(
-  input: string,
-  output: string,
-  cfg: RenderConfig,
-  zTextFile?: string,
-  mTextFile?: string,
-  zLines = 1,
-  gradPath?: string,
-  zLineFiles: string[] = [],
-): string[] {
-  const [W, H] = DIMS[cfg.aspecto ?? "9:16"]!;
-  const parts: string[] = [];
-  // Cover: llena el cuadro y recorta (igual que object-cover del preview).
-  parts.push(
-    `[0:v]scale=${W}:${H}:force_original_aspect_ratio=increase,` +
-      `crop=${W}:${H},setsar=1[base]`,
-  );
-  let last = "base";
-
-  // Marca de agua (detrás de todo)
-  if (mTextFile && cfg.marca?.texto) {
-    const r = buildMarca(last, cfg.marca, mTextFile);
-    parts.push(r.chain);
-    last = r.out;
-  }
-
-  // Logo
-  if (cfg.logoPath) {
-    const sz = Math.round((W * (cfg.logoSize ?? 24)) / 100);
-    const aa = ((cfg.logoOpacidad ?? 100) / 100).toFixed(2);
-    parts.push(`[1:v]scale=${sz}:-1,format=rgba,colorchannelmixer=aa=${aa}[lg]`);
-    const x = cfg.logoX ?? 86;
-    const y = cfg.logoY ?? 12;
-    parts.push(`[${last}][lg]overlay=x=${W}*${x}/100-w/2:y=${H}*${y}/100-h/2[v1]`);
-    last = "v1";
-  }
-
-  // Zócalo
-  if (zTextFile && cfg.zocalo?.texto) {
-    const r = buildZocalo(last, W, H, cfg.zocalo, zTextFile, zLines, gradPath, zLineFiles);
-    parts.push(r.chain);
-    last = r.out;
-  }
-
-  const args = ["-y", "-i", input];
-  if (cfg.logoPath) args.push("-i", cfg.logoPath);
-  args.push(
-    "-filter_complex",
-    parts.join(";"),
-    "-map",
-    `[${last}]`,
-    "-map",
-    "0:a?",
-    "-c:v",
-    "libx264",
-    "-preset",
-    "veryfast",
-    "-pix_fmt",
-    "yuv420p",
-    "-c:a",
-    "aac",
-    "-movflags",
-    "+faststart",
-    "-shortest",
-    "-progress",
-    "pipe:1",
-    "-nostats",
-    output,
-  );
-  return args;
-}
-
-/** Render desde config con callback de progreso (0..100). */
 export async function renderFromConfig(
   input: string,
   output: string,
-  cfg: RenderConfig,
+  cfg: Record<string, unknown>,
   onProgress: (pct: number) => void,
 ): Promise<void> {
+  const [W, H] = DIMS[String(cfg.aspecto ?? "9:16")] ?? DIMS["9:16"]!;
   const dur = await probeDuration(input);
-  const [W, H] = DIMS[cfg.aspecto ?? "9:16"]!;
-  const dir = await mkdtemp(join(tmpdir(), "scrapify-cfg-"));
+  const dir = await mkdtemp(join(tmpdir(), "render-"));
   try {
-    let zTextFile: string | undefined;
-    let zLines = 1;
-    const zLineFiles: string[] = [];
-    if (cfg.zocalo?.texto && cfg.zocalo.texto.trim()) {
-      const z = cfg.zocalo;
-      const fs = Math.round(z.fontSize ?? Math.round(H * 0.03));
-      const pad = Math.round(z.padding ?? 16);
-      const font = z.fontFile ?? DEJAVU;
-      // Ancho medio de carácter (× fontSize) por familia. Conservador para que
-      // el texto nunca desborde (sobre todo en estilos sin caja como degradado).
-      const factor = /Anton|Bebas|Oswald/.test(font)
-        ? 0.46
-        : /Serif/.test(font)
-          ? 0.62
-          : 0.56;
-      const estilo = cfg.zocalo.estilo ?? "barra";
-      // Cinta y cajas son tarjetas flotantes: doble padding (margen + interno).
-      const usable =
-        estilo === "cinta"
-          ? W - 4 * pad - 10
-          : estilo === "bloque" || estilo === "resaltado" || estilo === "caja"
-            ? W - 4 * pad
-            : W - 2 * pad;
-      const maxChars = Math.max(8, Math.floor(usable / (fs * factor)));
-      const wrapped = wrapText(cfg.zocalo.texto.trim(), maxChars);
-      const lineas = wrapped.split("\n");
-      zLines = lineas.length;
-      zTextFile = join(dir, "zocalo.txt");
-      await writeFile(zTextFile, wrapped, "utf8");
-      // Un archivo por línea (para alinear cada línea por separado).
-      for (let i = 0; i < lineas.length; i++) {
-        const lf = join(dir, `zl${i}.txt`);
-        await writeFile(lf, lineas[i] ?? "", "utf8");
-        zLineFiles.push(lf);
-      }
-    }
-    let mTextFile: string | undefined;
-    if (cfg.marca?.texto && cfg.marca.texto.trim()) {
-      mTextFile = join(dir, "marca.txt");
-      await writeFile(mTextFile, cfg.marca.texto, "utf8");
-    }
+    const overlay = join(dir, "overlay.png");
+    await renderOverlayHtml(buildOverlayHtml(cfg, W, H), W, H, overlay);
 
-    // Gradiente del zócalo: se pre-renderiza a un PNG de 1 frame (geq una sola
-    // vez = rápido), en vez de evaluar geq por cada fotograma del video.
-    let gradPath: string | undefined;
-    if (cfg.zocalo?.estilo === "degradado" && cfg.zocalo.texto?.trim()) {
-      const z = cfg.zocalo;
-      const gradH = Math.round(H * 0.44);
-      const maxA = Math.round(Math.max(z.opacidad ?? 0.55, 0.6) * 255);
-      const aExpr =
-        z.posicion === "arriba"
-          ? `${maxA}*(1-Y/${gradH})`
-          : `${maxA}*Y/${gradH}`;
-      gradPath = join(dir, "grad.png");
-      await runFfmpeg([
-        "-y",
-        "-f",
-        "lavfi",
-        "-i",
-        `color=c=${ffColor(z.colorBarra, "0x111111")}:s=${W}x${gradH},` +
-          `format=rgba,geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='${aExpr}'`,
-        "-frames:v",
-        "1",
-        gradPath,
-      ]);
-    }
-
-    const args = buildArgsConfig(
+    const args = [
+      "-y",
+      "-i",
       input,
+      "-filter_complex",
+      `[0:v]scale=${W}:${H}:force_original_aspect_ratio=increase,` +
+        `crop=${W}:${H},setsar=1[base];` +
+        `movie='${overlay}'[ov];[base][ov]overlay=0:0[vout]`,
+      "-map",
+      "[vout]",
+      "-map",
+      "0:a?",
+      "-c:v",
+      "libx264",
+      "-preset",
+      "veryfast",
+      "-pix_fmt",
+      "yuv420p",
+      "-c:a",
+      "aac",
+      "-movflags",
+      "+faststart",
+      "-shortest",
+      "-progress",
+      "pipe:1",
+      "-nostats",
       output,
-      cfg,
-      zTextFile,
-      mTextFile,
-      zLines,
-      gradPath,
-      zLineFiles,
-    );
+    ];
     await runWithProgress(args, dur, onProgress);
   } finally {
     await rm(dir, { recursive: true, force: true });
