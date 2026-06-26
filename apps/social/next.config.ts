@@ -10,7 +10,7 @@ try {
 }
 
 const nextConfig: NextConfig = {
-  transpilePackages: ["@scrapify/ui"],
+  transpilePackages: ["@scrapify/ui", "@scrapify/db"],
 };
 
 export default nextConfig;

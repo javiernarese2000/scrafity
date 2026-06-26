@@ -17,6 +17,9 @@ importers:
 
   apps/social:
     dependencies:
+      '@scrapify/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       '@scrapify/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -26,6 +29,9 @@ importers:
       '@supabase/supabase-js':
         specifier: ^2.108.2
         version: 2.108.2
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(@opentelemetry/api@1.9.1)(@types/pg@8.15.6)(postgres@3.4.9)
       framer-motion:
         specifier: ^12.40.0
         version: 12.40.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
