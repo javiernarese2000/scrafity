@@ -265,6 +265,27 @@ Orden de pantallas: Clientes → Cuentas → Estudio (subir+logo+zócalo+preview
   verse en claro/oscuro). Reemplaza los puntitos de color en: cuentas, planificador, dashboard,
   publicaciones, login y selectores del estudio (destino + safe-zones). Reconocimiento visual inmediato.
 
+### Render real — cola + worker (2026-06) — HECHO (motor)
+- **Cola en la base**: tabla `video_renders` (estado en_cola/procesando/listo/error/cancelado,
+  progreso 0-100, config jsonb, source_path, output_path/url, duracion_seg, intentos, started/finished),
+  migración 0020. Bucket Storage **`videos`** creado en dev (público).
+- **Worker** (`apps/worker`): `db.ts` (claim con FOR UPDATE SKIP LOCKED → no duplica, concurrencia 1
+  → no satura), `storage.ts` (supabase service: descargar source / subir output), `render.ts`
+  `renderFromConfig` (baseline: scale 9:16/1:1/16:9 + logo overlay x/y/size/opacidad + zócalo barra
+  drawtext) con **progreso real** vía `-progress pipe:1` (out_time/duración), `queue.ts` (loop poll 3s),
+  `server.ts` (/health + inicia la cola). Deps nuevas: postgres + @supabase/supabase-js.
+- **PROBADO en Docker end-to-end**: seed (sube source + inserta job) → worker claim → progreso
+  0→3→36→74→100% con tiempo → output 1080x1920 subido a Storage (URL pública) → estado listo.
+  Frame verificado (logo + zócalo). ~12s para 3s de video.
+- **INFRA IMPORTANTE**: el worker (contenedor) **NO puede usar la conexión directa** (IPv6) — debe usar
+  el **pooler IPv4**. DEV pooler = `aws-1-us-east-2.pooler.supabase.com:6543`, user
+  `postgres.dnptcdzimdyeoqykywul`. (Para Railway, igual: DATABASE_URL del worker = pooler.)
+- Helpers de test en `apps/worker/sample/` (gitignored): seed-test.mjs, poll.mjs, worker.env.
+- **PENDIENTE del render**: (1) enganchar el Estudio = subir el video a Storage + crear el job +
+  barra de progreso moderna en la UI; (2) fidelidad visual completa (todos los estilos de zócalo,
+  8 fuentes, marca de agua, posición/efectos) — hoy es baseline (logo + zócalo barra); (3) panel/
+  estado de la cola, cancelar, reintentar, miniatura.
+
 ## ESTADO: panel de Redes COMPLETO a nivel UI/UX
 Pantallas: Login ✅, Panel(mock) ✅, Clientes ✅, Cuentas ✅, Estudio (preview en vivo) ✅,
 Publicaciones ✅. Dev server en :5556. Todo en rama `redes`, prod intacto.
