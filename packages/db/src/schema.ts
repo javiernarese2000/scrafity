@@ -19,6 +19,8 @@ import {
 // Enums (ver memory/04-modelo-de-datos.md)
 // ---------------------------------------------------------------------------
 export const userRole = pgEnum("user_role", ["admin", "moderador"]);
+// Área de trabajo: a qué panel(es) accede el usuario (Noticias y/o Redes).
+export const area = pgEnum("area", ["noticias", "redes", "ambos"]);
 export const sourceType = pgEnum("source_type", ["rss", "api", "url"]);
 export const sourceStatus = pgEnum("source_status", ["activa", "pausada", "error"]);
 export const jobStatus = pgEnum("job_status", [
@@ -79,6 +81,19 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   nombre: text("nombre"),
   rol: userRole("rol").notNull().default("moderador"),
+  // A qué panel(es) entra. "ambos" por defecto (no deja a nadie afuera).
+  area: area("area").notNull().default("ambos"),
+  ...timestamps,
+});
+
+// Cliente: agrupa los destinos (WordPress de noticias y/o cuentas sociales).
+// Un cliente puede tener solo noticias, solo redes, o ambas — es emergente de
+// lo que se le cuelgue. Es la única entidad compartida entre los dos paneles.
+export const clientes = pgTable("clientes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  nombre: text("nombre").notNull(),
+  notas: text("notas"),
+  activo: boolean("activo").notNull().default(true),
   ...timestamps,
 });
 
@@ -182,6 +197,10 @@ export const versions = pgTable("versions", {
 
 export const destinations = pgTable("destinations", {
   id: uuid("id").primaryKey().defaultRandom(),
+  // Cliente dueño del destino (null para los destinos previos sin asignar).
+  clienteId: uuid("cliente_id").references(() => clientes.id, {
+    onDelete: "set null",
+  }),
   tipo: destinationType("tipo").notNull(),
   nombre: text("nombre").notNull(),
   configApi: jsonb("config_api").$type<Record<string, unknown>>().default({}),
@@ -391,7 +410,15 @@ export const versionsRelations = relations(versions, ({ one, many }) => ({
   publications: many(publications),
 }));
 
-export const destinationsRelations = relations(destinations, ({ many }) => ({
+export const clientesRelations = relations(clientes, ({ many }) => ({
+  destinations: many(destinations),
+}));
+
+export const destinationsRelations = relations(destinations, ({ one, many }) => ({
+  cliente: one(clientes, {
+    fields: [destinations.clienteId],
+    references: [clientes.id],
+  }),
   publications: many(publications),
 }));
 
