@@ -10,12 +10,14 @@ const DJ = "/usr/share/fonts/truetype/dejavu";
 const ZF = "/usr/share/fonts/truetype/zoocial";
 // El preview del Estudio mide ~380px de ancho; el render es 1080/1920 → se
 // escalan tamaños de texto y padding por width/380.
+// Variantes Bold para darle más cuerpo al texto (el preview usa pesos medium/
+// semibold; DejaVu regular sale flaco en video).
 const FONT_MAP: Record<string, string> = {
-  display: `${DJ}/DejaVuSerif.ttf`,
-  sans: `${DJ}/DejaVuSans.ttf`,
-  inter: `${DJ}/DejaVuSans.ttf`,
+  display: `${DJ}/DejaVuSerif-Bold.ttf`,
+  sans: `${DJ}/DejaVuSans-Bold.ttf`,
+  inter: `${DJ}/DejaVuSans-Bold.ttf`,
   archivo: `${DJ}/DejaVuSans-Bold.ttf`,
-  mono: `${DJ}/DejaVuSansMono.ttf`,
+  mono: `${DJ}/DejaVuSansMono-Bold.ttf`,
   anton: `${ZF}/Anton-Regular.ttf`,
   bebas: `${ZF}/BebasNeue-Regular.ttf`,
   oswald: `${ZF}/Oswald.ttf`,

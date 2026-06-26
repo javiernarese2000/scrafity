@@ -238,9 +238,9 @@ function xExpr(al: string | undefined, pad: number): string {
 }
 
 function yExpr(pos: string | undefined, pad: number): string {
-  if (pos === "arriba") return `${pad + 40}`;
+  if (pos === "arriba") return `${pad}`;
   if (pos === "centro") return "(h-text_h)/2";
-  return `h-text_h-${pad + 80}`;
+  return `h-text_h-${pad}`;
 }
 
 /** Cadena de filtros para el zócalo según su estilo. */
@@ -265,41 +265,46 @@ function buildZocalo(
     `drawtext=fontfile=${font}:textfile=${textFile}:fontcolor=${colT}:` +
     `fontsize=${fs}:line_spacing=8:x=${xExpr(z.alineacion, xPad)}:y=${y}${ef}${extra}`;
 
-  // Estilos con caja pegada al texto
+  // Estilos con caja pegada al texto: la caja se infla `bw` alrededor del texto,
+  // así que el texto va a `pad + bw` para que la caja quede a `pad` del borde.
   if (estilo === "bloque" || estilo === "resaltado" || estilo === "caja") {
-    const bw = estilo === "resaltado" ? Math.round(pad * 0.4) : pad;
-    let extra = `:box=1:boxcolor=${colB}@${op}:boxborderw=${bw}`;
-    if (estilo === "caja") extra = `:box=1:boxcolor=${colB}@${op}:boxborderw=${bw}`;
-    return {
-      chain: `[${last}]${base(extra, pad + 20, yExpr(z.posicion, pad))}[zk]`,
-      out: "zk",
-    };
+    const bw = estilo === "resaltado" ? Math.round(pad * 0.5) : pad;
+    const extra = `:box=1:boxcolor=${colB}@${op}:boxborderw=${bw}`;
+    const yBox =
+      z.posicion === "arriba"
+        ? `${pad + bw}`
+        : z.posicion === "centro"
+          ? "(h-text_h)/2"
+          : `h-text_h-${pad + bw}`;
+    return { chain: `[${last}]${base(extra, pad + bw, yBox)}[zk]`, out: "zk" };
   }
 
   if (estilo === "minimal") {
     return {
-      chain: `[${last}]${base("", pad + 20, yExpr(z.posicion, pad))}[zk]`,
+      chain: `[${last}]${base("", pad, yExpr(z.posicion, pad))}[zk]`,
       out: "zk",
     };
   }
 
-  // barra / degradado / cinta: banda de ancho completo, alto según las líneas
+  // barra / degradado / cinta: banda de ancho completo, alto según las líneas,
+  // con padding interno simétrico = pad.
+  const accent = estilo === "cinta" ? 10 : 0;
   const lineH = fs + 8;
   const barH = Math.max(
     estilo === "degradado" ? Math.round(H * 0.2) : 0,
-    zLines * lineH + Math.round(pad * 1.6),
+    zLines * lineH + 2 * pad,
   );
   const barY =
     z.posicion === "arriba"
-      ? pad
+      ? 0
       : z.posicion === "centro"
         ? Math.round((H - barH) / 2)
-        : H - barH - pad - 40;
+        : H - barH;
   const ty = `${barY}+(${barH}-text_h)/2`;
   let chain = `[${last}]drawbox=x=0:y=${barY}:w=${W}:h=${barH}:color=${colB}@${op}:t=fill`;
   if (estilo === "cinta")
-    chain += `,drawbox=x=0:y=${barY}:w=8:h=${barH}:color=${ACCENT}:t=fill`;
-  chain += `,${base("", pad + 28, ty)}[zk]`;
+    chain += `,drawbox=x=0:y=${barY}:w=${accent}:h=${barH}:color=${ACCENT}:t=fill`;
+  chain += `,${base("", pad + accent, ty)}[zk]`;
   return { chain, out: "zk" };
 }
 
@@ -420,7 +425,8 @@ export async function renderFromConfig(
       const font = z.fontFile ?? DEJAVU;
       // Las fuentes condensadas (Anton/Bebas/Oswald) entran más caracteres.
       const factor = /Anton|Bebas|Oswald/.test(font) ? 0.42 : 0.52;
-      const usable = W - 2 * (pad + 28) - 16;
+      const accent = cfg.zocalo.estilo === "cinta" ? 10 : 0;
+      const usable = W - 2 * pad - accent;
       const maxChars = Math.max(8, Math.floor(usable / (fs * factor)));
       const wrapped = wrapText(cfg.zocalo.texto.trim(), maxChars);
       zLines = wrapped.split("\n").length;
