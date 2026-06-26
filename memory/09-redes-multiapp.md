@@ -137,9 +137,25 @@ Pasos 1 y 2 son la **fundación** y no dependen de Meta/TikTok.
 - Pendiente del modelo (cuando se arme el estudio): `social_accounts`, `video_assets`,
   `video_renders`, `social_publications` (con caption + urlNota opcional).
 
+### Paso — Auth del panel de Redes (2026-06) — HECHO
+- `apps/social`: cliente Supabase (`src/lib/supabase/client.ts` + `server.ts`), **`proxy.ts`**
+  (Next 16 usa `proxy`, no middleware) que redirige a `/login` sin sesión y a `/` si ya logueado.
+  `app/login/page.tsx` split-screen con identidad de Redes (mockup de video 9:16 + chips IG/FB/TikTok),
+  `user-menu` con logout en el topbar, y AppShell saltea el armazón en `/login`.
+- `next.config.ts` ahora carga `../../.env` (como apps/web) para tener las vars NEXT_PUBLIC.
+- Deps: `@supabase/ssr` + `@supabase/supabase-js`. **Build + smoke test OK** (`/`→307→`/login`, `/login`→200).
+- Login con el admin de dev: narese@gmail.com / `scrapify-dev-2026`.
+- **Pendiente fino**: gate por `area` (hoy gate = autenticado). Necesita sincronizar el usuario de
+  Supabase Auth con una fila en la tabla `users` (con su `area`). Se hace cuando importe.
+
+## ESTRATEGIA (definida con el usuario)
+Cerrar TODO el panel a nivel UI/UX primero (con datos dev/mock), y dejar la conexión real a
+Meta/TikTok para el final (pruebas). El usuario dispara las apps/aprobaciones en paralelo.
+Orden de pantallas: Clientes → Cuentas → Estudio (subir+logo+zócalo+preview) → Publicaciones.
+
 ## PENDIENTE / próximo paso
 
-- **Auth del panel de Redes** (`apps/social`): proxy Supabase + login + gate por `area`.
+- **Pantallas del panel** (UI/UX): Clientes (CRUD real contra dev), Cuentas (mock), Estudio, Publicaciones.
 - **De-duplicar `apps/web` → `@scrapify/ui`** (convertir sus `components/ui/*` + `lib/cn` en
   re-exports y agregar `@source "../../../packages/ui/src"` en globals.css). Único cambio que toca
   el escaneo de Tailwind de noticias → hacerlo deliberado, con build + revisión visual.
