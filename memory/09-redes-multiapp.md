@@ -175,9 +175,22 @@ Orden de pantallas: Clientes → Cuentas → Estudio (subir+logo+zócalo+preview
   agregar con selector cliente/plataforma/handle, conectar/desconectar mock, eliminar, banner de
   "OAuth real al final"). Build OK.
 
+### Pantalla Estudio (2026-06) — HECHO (UI, render staged)
+- `apps/social`: `app/estudio/page.tsx` + `components/estudio/estudio-board.tsx`. **Preview en vivo**
+  en frame de teléfono: el `<video>` real (objectURL) con logo y zócalo superpuestos por CSS que se
+  actualizan al toque. Controles: formato 9:16/1:1/16:9, carga de video y logo por drag&drop,
+  posición (4 esquinas) y tamaño del logo, 4 estilos de zócalo (barra/degradado/bloque/minimal),
+  tipografía (display/sans/mono vía vars del tema), tamaño, color de texto y barra, opacidad, y
+  destino (cliente + chips de cuentas). Todo client-side. Build OK.
+- **Render real STAGED**: "Enviar a render" hoy muestra toast. Falta: subir el video a Storage,
+  crear `video_assets`/`video_renders`, encolar al worker (que ya compone con FFmpeg) y traer el MP4.
+  El preview CSS es aproximación; el MP4 final lo hace el worker con el mismo layout.
+
 ## PENDIENTE / próximo paso
 
-- **Estudio** (subir video → logo + zócalo → preview → render con worker).
+- **Publicaciones** (pantalla de estado por red).
+- **Conectar el render**: bucket `videos` en Supabase + tablas `video_assets`/`video_renders`/
+  `social_publications` + worker recibe el job (subir video, componer, devolver MP4).
 - **Publicaciones** (estado por red).
 - Tablas faltantes del modelo: `social_accounts`, `video_assets`, `video_renders`, `social_publications`.
 - **De-duplicar `apps/web` → `@scrapify/ui`** (convertir sus `components/ui/*` + `lib/cn` en
