@@ -7,6 +7,7 @@ node_modules/
 dist/
 out/
 *.tsbuildinfo
+apps/worker/sample/
 
 # env (todos los .env* quedan fuera; solo se versiona el ejemplo)
 .env

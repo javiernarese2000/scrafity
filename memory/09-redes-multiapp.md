@@ -100,6 +100,26 @@ Pasos 1 y 2 son la **fundación** y no dependen de Meta/TikTok.
 - `next.config.ts`: `transpilePackages: ["@scrapify/ui"]`. Sin DB todavía (datos mock).
 - No toca prod: app nueva, sin servicio en Railway → no se despliega.
 
+### Paso 4 — `apps/worker` scaffold + render FFmpeg PROBADO (2026-06) — HECHO
+- Nuevo paquete `@scrapify/worker` (`apps/worker`), **standalone** (sin deps del workspace; solo
+  Node built-ins + typescript de build). Archivos: `src/render.ts` (motor), `src/cli.ts` (CLI de
+  prueba), `src/server.ts` (HTTP mínimo: `/health`), `Dockerfile` (node:22-slim + ffmpeg +
+  fonts-dejavu-core), `.dockerignore`. tsconfig propio (NodeNext, emite a `dist`).
+- **`renderVideo({inputPath, outputPath, logoPath?, zocalo?, width?, height?})`**: escala a 9:16
+  (1080×1920, pad), superpone logo PNG (esquina sup. derecha, `overlay`) y dibuja zócalo (barra
+  `drawbox` translúcida + `drawtext` con `textfile` para evitar escaping). Spawnea `ffmpeg` por
+  `child_process`. Salida h264 + aac, `+faststart`.
+- **PROBADO de verdad en Docker** (no hay ffmpeg local en Windows; sí Docker 29.5.2): se construyó
+  la imagen (`scrapify-worker`, 256MB) y se corrió un self-test que generó video+logo de prueba y
+  renderizó → output verificado **1080×1920 h264 + aac**, con frame de preview. El resultado vive
+  en `apps/worker/sample/` (gitignored).
+- **Bug encontrado y corregido**: `drawbox` no entiende las variables `W`/`H` (sí `overlay`/
+  `drawtext`). Como el frame ya es exactamente W×H tras scale+pad, se usan **posiciones numéricas**.
+- **TODO real para la implementación**: el **texto largo del zócalo se corta a la derecha** (no hay
+  wrap ni auto-fit de fontsize). Resolver al construir el estudio (wrap por ancho o achicar fuente).
+- Pipeline real (recibir jobs por Inngest/DB, bajar inputs de Storage, subir output) → cuando exista
+  el esquema de video. Hoy el server solo expone `/health` para poder desplegarlo aislado.
+
 ## PENDIENTE / próximo paso
 
 - **De-duplicar `apps/web` → `@scrapify/ui`** (convertir sus `components/ui/*` + `lib/cn` en
