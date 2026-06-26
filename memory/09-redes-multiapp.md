@@ -207,6 +207,16 @@ Orden de pantallas: Clientes → Cuentas → Estudio (subir+logo+zócalo+preview
   resaltado/caja/cinta/minimal), padding, posición (abajo/centro/arriba), alineación, MAYÚSCULAS,
   y opacidad del logo.
 
+### Plantillas de diseño en el Estudio (2026-06) — HECHO
+- Tabla **`plantillas`** (id, nombre, clienteId nullable [null=global], config jsonb) + migración 0018.
+- `server/plantillas.ts` (listar/crear[returning]/eliminar). Estudio: menú "Plantillas" en la toolbar
+  con **5 presets de fábrica** (Breaking, Cita, Deportivo, Resaltado, Degradado) + plantillas guardadas
+  (filtradas por global o cliente actual). "Guardar diseño actual" → modal (nombre + alcance global/
+  cliente) guarda `ConfigEstudio` (logo embebido como **data URL**, zócalo, formato; NO el texto ni el
+  video). Aplicar con 1 clic, eliminar. El logo ahora se carga como data URL (FileReader) para poder
+  persistirlo en la plantilla. La lista se maneja en estado del cliente (sin router.refresh, para no
+  resetear el editor).
+
 ## ESTADO: panel de Redes COMPLETO a nivel UI/UX
 Pantallas: Login ✅, Panel(mock) ✅, Clientes ✅, Cuentas ✅, Estudio (preview en vivo) ✅,
 Publicaciones ✅. Dev server en :5556. Todo en rama `redes`, prod intacto.
