@@ -4,15 +4,20 @@ import { Badge } from "@scrapify/ui/badge";
 import { Field, Modal, inputCls } from "@scrapify/ui/modal";
 import { Toast, useToast } from "@scrapify/ui/toast";
 import {
+  AlertCircle,
   AlignCenter,
   AlignLeft,
   AlignRight,
   Check,
+  CheckCircle2,
   ChevronDown,
+  Clock,
+  Download,
   Droplets,
   Globe,
   ImagePlus,
   LayoutTemplate,
+  Loader2,
   ScanLine,
   Save,
   Send,
@@ -24,6 +29,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import {
+  useEffect,
   useRef,
   useState,
   useTransition,
@@ -33,12 +39,14 @@ import {
 } from "react";
 
 import { RedIcon } from "@/components/icons/redes";
+import { createClient as createBrowserClient } from "@/lib/supabase/client";
 import type { ClienteConCuentas } from "@/server/cuentas";
 import {
   crearPlantilla,
   eliminarPlantilla,
   type PlantillaRow,
 } from "@/server/plantillas";
+import { encolarRender, estadoRender, prepararSubida } from "@/server/render";
 
 type Aspecto = "9:16" | "1:1" | "16:9";
 type WmModo = "mosaico" | "centro";
@@ -241,6 +249,18 @@ export function EstudioBoard({
   const [aspecto, setAspecto] = useState<Aspecto>("9:16");
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoName, setVideoName] = useState<string>("");
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+
+  // Render en la cola
+  const [rOpen, setROpen] = useState(false);
+  const [rFase, setRFase] = useState<"subiendo" | "encolado" | "render" | "listo" | "error">("subiendo");
+  const [rProg, setRProg] = useState(0);
+  const [rPos, setRPos] = useState(0);
+  const [rOut, setROut] = useState<string | null>(null);
+  const [rErr, setRErr] = useState<string | null>(null);
+  const [rElapsed, setRElapsed] = useState(0);
+  const rT0 = useRef(0);
+  const rTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [logoX, setLogoX] = useState(86); // % (centro del logo)
   const [logoY, setLogoY] = useState(12);
@@ -293,6 +313,7 @@ export function EstudioBoard({
     if (videoUrl) URL.revokeObjectURL(videoUrl);
     setVideoUrl(URL.createObjectURL(file));
     setVideoName(file.name);
+    setVideoFile(file);
   }
   function cargarLogo(file?: File | null) {
     if (!file) return;
@@ -329,10 +350,80 @@ export function EstudioBoard({
       return n;
     });
   }
-  function enviarRender() {
-    if (!videoUrl) return show("Subí un video primero");
-    show("Render y publicación se conectan en la etapa final");
+  function detenerPoll() {
+    if (rTimer.current) {
+      clearInterval(rTimer.current);
+      rTimer.current = null;
+    }
   }
+
+  useEffect(() => detenerPoll, []);
+
+  async function enviarRender() {
+    if (!videoFile) {
+      show("Subí un video primero");
+      return;
+    }
+    setROpen(true);
+    setRFase("subiendo");
+    setRProg(0);
+    setRPos(0);
+    setROut(null);
+    setRErr(null);
+    setRElapsed(0);
+    detenerPoll();
+
+    try {
+      const ext = (videoFile.name.split(".").pop() ?? "mp4").toLowerCase();
+      const { path, token } = await prepararSubida(ext);
+
+      const supabase = createBrowserClient();
+      const up = await supabase.storage
+        .from("videos")
+        .uploadToSignedUrl(path, token, videoFile);
+      if (up.error) throw new Error("No se pudo subir el video.");
+
+      setRFase("encolado");
+      const cfg = { ...configActual(), texto } as Record<string, unknown>;
+      const id = await encolarRender({
+        sourcePath: path,
+        titulo: videoName || texto.slice(0, 40) || "Video",
+        clienteId: clienteId || null,
+        config: cfg,
+      });
+
+      rT0.current = Date.now();
+      rTimer.current = setInterval(async () => {
+        setRElapsed((Date.now() - rT0.current) / 1000);
+        const st = await estadoRender(id);
+        if (!st) return;
+        if (st.estado === "en_cola") {
+          setRFase("encolado");
+          setRPos(st.posicion);
+        } else if (st.estado === "procesando") {
+          setRFase("render");
+          setRProg(st.progreso);
+        } else if (st.estado === "listo") {
+          setRFase("listo");
+          setRProg(100);
+          setROut(st.outputUrl);
+          detenerPoll();
+        } else if (st.estado === "error") {
+          setRFase("error");
+          setRErr(st.error ?? "Falló el render");
+          detenerPoll();
+        }
+      }, 1200);
+    } catch (e) {
+      setRFase("error");
+      setRErr(e instanceof Error ? e.message : "Error inesperado");
+    }
+  }
+
+  const eta =
+    rFase === "render" && rProg > 4
+      ? Math.max(0, (rElapsed / rProg) * (100 - rProg))
+      : null;
 
   function configActual(): ConfigEstudio {
     return {
@@ -1163,9 +1254,128 @@ export function EstudioBoard({
         </div>
       </Modal>
 
+      {/* Progreso de render */}
+      <Modal
+        open={rOpen}
+        onClose={() => {
+          detenerPoll();
+          setROpen(false);
+        }}
+        title={
+          rFase === "listo"
+            ? "¡Video listo!"
+            : rFase === "error"
+              ? "Hubo un problema"
+              : "Renderizando"
+        }
+      >
+        <div className="space-y-5">
+          {rFase === "subiendo" && (
+            <FaseFila
+              icon={<Loader2 className="size-5 animate-spin text-accent" />}
+              t="Subiendo tu video…"
+              s="No cierres esta ventana."
+            />
+          )}
+          {rFase === "encolado" && (
+            <FaseFila
+              icon={<Clock className="size-5 text-info" />}
+              t={`En cola${rPos > 1 ? ` · puesto ${rPos}` : ""}`}
+              s="Esperando lugar para renderizar…"
+            />
+          )}
+
+          {(rFase === "render" || rFase === "listo") && (
+            <div>
+              <div className="mb-2 flex items-end justify-between">
+                <span className="font-mono text-3xl font-medium text-fg">
+                  {rFase === "listo" ? 100 : rProg}%
+                </span>
+                <span className="text-xs text-muted">
+                  {fmtSeg(rElapsed)} transcurrido
+                  {eta != null ? ` · ~${fmtSeg(eta)} restantes` : ""}
+                </span>
+              </div>
+              <div className="h-2.5 overflow-hidden rounded-full bg-elevated">
+                <div
+                  className="h-full rounded-full bg-accent transition-[width] duration-500"
+                  style={{ width: `${rFase === "listo" ? 100 : rProg}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          {rFase === "listo" && (
+            <>
+              <div className="flex items-center gap-2 rounded-lg border border-success/30 bg-success/10 px-3 py-2.5 text-sm text-fg">
+                <CheckCircle2 className="size-5 text-success" />
+                Tu video está listo para publicar.
+              </div>
+              {rOut && (
+                <video
+                  src={rOut}
+                  controls
+                  className="mx-auto max-h-[42vh] rounded-lg border border-line"
+                />
+              )}
+            </>
+          )}
+
+          {rFase === "error" && (
+            <div className="flex items-start gap-2 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2.5 text-sm text-fg">
+              <AlertCircle className="mt-0.5 size-5 shrink-0 text-danger" />
+              {rErr}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2">
+            {rFase === "listo" && rOut && (
+              <a
+                href={rOut}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex h-9 items-center gap-2 rounded-lg border border-line px-4 text-sm text-fg hover:bg-elevated"
+              >
+                <Download className="size-4" />
+                Ver / descargar
+              </a>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                detenerPoll();
+                setROpen(false);
+              }}
+              className="inline-flex h-9 items-center rounded-lg bg-accent px-4 text-sm font-medium text-brand-foreground transition-all hover:opacity-90 active:scale-[0.98]"
+            >
+              {rFase === "listo" || rFase === "error" ? "Cerrar" : "Ocultar"}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
       <Toast message={message} />
     </div>
   );
+}
+
+function FaseFila({ icon, t, s }: { icon: ReactNode; t: string; s: string }) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-elevated">
+        {icon}
+      </span>
+      <div>
+        <p className="text-sm font-medium text-fg">{t}</p>
+        <p className="text-xs text-muted">{s}</p>
+      </div>
+    </div>
+  );
+}
+
+function fmtSeg(s: number): string {
+  if (s < 60) return `${Math.round(s)}s`;
+  return `${Math.floor(s / 60)}m ${Math.round(s % 60)}s`;
 }
 
 /** Marca de agua sobre el video (mosaico repetido o centrada). */
