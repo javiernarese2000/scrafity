@@ -244,6 +244,17 @@ Orden de pantallas: Clientes → Cuentas → Estudio (subir+logo+zócalo+preview
   `box-shadow` spread grande clippeado por el frame, y marca la zona segura con borde punteado +
   etiqueta. Specs de márgenes por red en const `SAFE`. Ayuda a no poner zócalo/logo tapados.
 
+### Planificador / Agenda (2026-06) — HECHO
+- Campo `programada_en` en `social_publications` (migración 0019). Nav: ítem **Agenda** (CalendarClock).
+- `server/planificador.ts`: listar (por rango de día), crear (returning), mover, actualizar, eliminar.
+- `app/agenda/page.tsx` + `components/planificador/planificador-board.tsx`: **timeline de 24h por día**
+  (HOUR_H=56px), navegación día + Hoy, **línea de ahora**, bloques por hora (color por red, algoritmo
+  de **lanes** para solapados), **arrastre vertical** para reprogramar (snap 5min, persiste con
+  `moverProgramada`), tocar hueco vacío → crear a esa hora, clic en bloque → editar/eliminar (modal con
+  cliente/cuenta/hora/título/caption). La fecha y las horas se manejan en local; se guarda timestamptz.
+- Sembradas 4 programadas de hoy en dev (cliente Diario El Sur).
+- Pendiente futuro: vista semana, y conectar con el despachador real (que suelte a la hora `programada_en`).
+
 ## ESTADO: panel de Redes COMPLETO a nivel UI/UX
 Pantallas: Login ✅, Panel(mock) ✅, Clientes ✅, Cuentas ✅, Estudio (preview en vivo) ✅,
 Publicaciones ✅. Dev server en :5556. Todo en rama `redes`, prod intacto.
