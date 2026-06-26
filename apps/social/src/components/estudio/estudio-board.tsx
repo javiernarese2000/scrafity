@@ -3,6 +3,9 @@
 import { Badge } from "@scrapify/ui/badge";
 import { Toast, useToast } from "@scrapify/ui/toast";
 import {
+  AlignCenter,
+  AlignLeft,
+  AlignRight,
   ImagePlus,
   Send,
   Type,
@@ -11,14 +14,31 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { useRef, useState, type ReactNode } from "react";
+import { useRef, useState, type CSSProperties, type ReactNode } from "react";
 
 import type { ClienteConCuentas, Plataforma } from "@/server/cuentas";
 
 type Aspecto = "9:16" | "1:1" | "16:9";
 type Esquina = "tl" | "tr" | "bl" | "br";
-type ZocaloEstilo = "barra" | "degradado" | "bloque" | "minimal";
-type Fuente = "display" | "sans" | "mono";
+type ZocaloEstilo =
+  | "barra"
+  | "degradado"
+  | "bloque"
+  | "resaltado"
+  | "caja"
+  | "cinta"
+  | "minimal";
+type Fuente =
+  | "display"
+  | "sans"
+  | "anton"
+  | "bebas"
+  | "oswald"
+  | "archivo"
+  | "inter"
+  | "mono";
+type PosicionZ = "abajo" | "centro" | "arriba";
+type Alineacion = "left" | "center" | "right";
 
 const ASPECTOS: { id: Aspecto; res: string; frame: string }[] = [
   { id: "9:16", res: "1080×1920", frame: "h-full aspect-[9/16] max-w-full" },
@@ -29,6 +49,11 @@ const ASPECTOS: { id: Aspecto; res: string; frame: string }[] = [
 const FUENTES: { id: Fuente; label: string; varName: string }[] = [
   { id: "display", label: "Serif", varName: "var(--font-display)" },
   { id: "sans", label: "Sans", varName: "var(--font-sans)" },
+  { id: "anton", label: "Anton", varName: "var(--font-anton)" },
+  { id: "bebas", label: "Bebas", varName: "var(--font-bebas)" },
+  { id: "oswald", label: "Oswald", varName: "var(--font-oswald)" },
+  { id: "archivo", label: "Archivo", varName: "var(--font-archivo)" },
+  { id: "inter", label: "Inter", varName: "var(--font-inter)" },
   { id: "mono", label: "Mono", varName: "var(--font-mono)" },
 ];
 
@@ -36,7 +61,22 @@ const ESTILOS: { id: ZocaloEstilo; label: string }[] = [
   { id: "barra", label: "Barra" },
   { id: "degradado", label: "Degradado" },
   { id: "bloque", label: "Bloque" },
+  { id: "resaltado", label: "Resaltado" },
+  { id: "caja", label: "Caja" },
+  { id: "cinta", label: "Cinta" },
   { id: "minimal", label: "Minimal" },
+];
+
+const POSICIONES_Z: { id: PosicionZ; label: string }[] = [
+  { id: "abajo", label: "Abajo" },
+  { id: "centro", label: "Centro" },
+  { id: "arriba", label: "Arriba" },
+];
+
+const ALINEACIONES: { id: Alineacion; icon: LucideIcon }[] = [
+  { id: "left", icon: AlignLeft },
+  { id: "center", icon: AlignCenter },
+  { id: "right", icon: AlignRight },
 ];
 
 const POSICIONES: { id: Esquina; label: string }[] = [
@@ -91,6 +131,7 @@ export function EstudioBoard({ clientes }: { clientes: ClienteConCuentas[] }) {
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [logoPos, setLogoPos] = useState<Esquina>("tr");
   const [logoSize, setLogoSize] = useState(24);
+  const [logoOpacidad, setLogoOpacidad] = useState(100);
 
   const [zocaloOn, setZocaloOn] = useState(true);
   const [estilo, setEstilo] = useState<ZocaloEstilo>("barra");
@@ -100,6 +141,10 @@ export function EstudioBoard({ clientes }: { clientes: ClienteConCuentas[] }) {
   const [colorTexto, setColorTexto] = useState("#ffffff");
   const [colorBarra, setColorBarra] = useState("#111111");
   const [opacidad, setOpacidad] = useState(0.55);
+  const [posicion, setPosicion] = useState<PosicionZ>("abajo");
+  const [alineacion, setAlineacion] = useState<Alineacion>("left");
+  const [padding, setPadding] = useState(16);
+  const [mayus, setMayus] = useState(false);
 
   const [clienteId, setClienteId] = useState(clientes[0]?.id ?? "");
   const [destinos, setDestinos] = useState<Set<string>>(new Set());
@@ -277,6 +322,13 @@ export function EstudioBoard({ clientes }: { clientes: ClienteConCuentas[] }) {
                   value={logoSize}
                   onChange={setLogoSize}
                 />
+                <Slider
+                  label={`Opacidad · ${logoOpacidad}%`}
+                  min={20}
+                  max={100}
+                  value={logoOpacidad}
+                  onChange={setLogoOpacidad}
+                />
               </div>
             ) : (
               <button
@@ -342,7 +394,7 @@ export function EstudioBoard({ clientes }: { clientes: ClienteConCuentas[] }) {
                 src={logoUrl}
                 alt="logo"
                 className={"absolute " + posCls[logoPos]}
-                style={{ width: `${logoSize}%` }}
+                style={{ width: `${logoSize}%`, opacity: logoOpacidad / 100 }}
               />
             )}
 
@@ -355,6 +407,10 @@ export function EstudioBoard({ clientes }: { clientes: ClienteConCuentas[] }) {
                 colorTexto={colorTexto}
                 colorBarra={colorBarra}
                 opacidad={opacidad}
+                padding={padding}
+                alineacion={alineacion}
+                uppercase={mayus}
+                posicion={posicion}
               />
             )}
           </div>
@@ -440,6 +496,67 @@ export function EstudioBoard({ clientes }: { clientes: ClienteConCuentas[] }) {
                   value={Math.round(opacidad * 100)}
                   onChange={(v) => setOpacidad(v / 100)}
                 />
+
+                <div className="flex items-center gap-2">
+                  <div className="flex-1">
+                    <p className="mb-1.5 text-xs text-muted">Posición</p>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {POSICIONES_Z.map((p) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => setPosicion(p.id)}
+                          className={
+                            "rounded-md border px-1 py-1.5 text-[11px] font-medium transition-colors " +
+                            (posicion === p.id
+                              ? "border-accent bg-accent/10 text-fg"
+                              : "border-line text-muted hover:bg-elevated")
+                          }
+                        >
+                          {p.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="mb-1.5 text-xs text-muted">Alineación</p>
+                    <div className="flex gap-1.5">
+                      {ALINEACIONES.map((a) => (
+                        <button
+                          key={a.id}
+                          type="button"
+                          onClick={() => setAlineacion(a.id)}
+                          className={
+                            "grid size-8 place-items-center rounded-md border transition-colors " +
+                            (alineacion === a.id
+                              ? "border-accent bg-accent/10 text-fg"
+                              : "border-line text-muted hover:bg-elevated")
+                          }
+                        >
+                          <a.icon className="size-4" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <Slider
+                  label={`Padding · ${padding}px`}
+                  min={0}
+                  max={48}
+                  value={padding}
+                  onChange={setPadding}
+                />
+
+                <label className="flex items-center gap-2 text-sm text-fg">
+                  <input
+                    type="checkbox"
+                    checked={mayus}
+                    onChange={(e) => setMayus(e.target.checked)}
+                    className="size-4 accent-[var(--color-accent)]"
+                  />
+                  MAYÚSCULAS
+                </label>
               </div>
             )}
           </Group>
@@ -517,6 +634,10 @@ function Zocalo({
   colorTexto,
   colorBarra,
   opacidad,
+  padding,
+  alineacion,
+  uppercase,
+  posicion,
 }: {
   estilo: ZocaloEstilo;
   texto: string;
@@ -525,24 +646,46 @@ function Zocalo({
   colorTexto: string;
   colorBarra: string;
   opacidad: number;
+  padding: number;
+  alineacion: Alineacion;
+  uppercase: boolean;
+  posicion: PosicionZ;
 }) {
   const baseText = {
     fontFamily: fontVar,
     fontSize: `${fontSize}px`,
     color: colorTexto,
-    lineHeight: 1.15,
-  } as const;
+    lineHeight: 1.18,
+    textAlign: alineacion,
+    textTransform: uppercase ? "uppercase" : "none",
+  } as CSSProperties;
+  const pad = `${padding}px`;
+  const wrap =
+    posicion === "arriba"
+      ? "top-0"
+      : posicion === "centro"
+        ? "top-1/2 -translate-y-1/2"
+        : "bottom-0";
+  const justify =
+    alineacion === "center"
+      ? "center"
+      : alineacion === "right"
+        ? "flex-end"
+        : "flex-start";
 
   if (estilo === "degradado") {
+    const dir = posicion === "arriba" ? "to bottom" : "to top";
     return (
       <div
-        className="absolute inset-x-0 bottom-0 flex items-end p-4"
+        className={"absolute inset-x-0 flex " + wrap}
         style={{
-          height: "42%",
-          background: `linear-gradient(to top, ${rgba(colorBarra, Math.max(opacidad, 0.6))}, transparent)`,
+          height: "44%",
+          padding: pad,
+          alignItems: posicion === "arriba" ? "flex-start" : "flex-end",
+          background: `linear-gradient(${dir}, ${rgba(colorBarra, Math.max(opacidad, 0.6))}, transparent)`,
         }}
       >
-        <p style={baseText} className="font-medium">
+        <p style={{ ...baseText, width: "100%" }} className="font-medium">
           {texto}
         </p>
       </div>
@@ -551,10 +694,17 @@ function Zocalo({
 
   if (estilo === "bloque") {
     return (
-      <div className="absolute inset-x-0 bottom-0 p-4">
+      <div
+        className={"absolute inset-x-0 flex " + wrap}
+        style={{ padding: pad, justifyContent: justify }}
+      >
         <span
-          className="inline-block rounded-lg px-3 py-1.5 font-medium"
-          style={{ ...baseText, backgroundColor: rgba(colorBarra, opacidad) }}
+          className="rounded-lg font-medium"
+          style={{
+            ...baseText,
+            backgroundColor: rgba(colorBarra, opacidad),
+            padding: `${Math.round(padding * 0.45)}px ${Math.max(padding, 10)}px`,
+          }}
         >
           {texto}
         </span>
@@ -562,10 +712,72 @@ function Zocalo({
     );
   }
 
+  if (estilo === "resaltado") {
+    return (
+      <div className={"absolute inset-x-0 " + wrap} style={{ padding: pad }}>
+        <p style={baseText} className="font-semibold leading-relaxed">
+          <span
+            style={{
+              backgroundColor: rgba(colorBarra, opacidad),
+              padding: "0.08em 0.3em",
+              WebkitBoxDecorationBreak: "clone",
+              boxDecorationBreak: "clone",
+            }}
+          >
+            {texto}
+          </span>
+        </p>
+      </div>
+    );
+  }
+
+  if (estilo === "caja") {
+    return (
+      <div className={"absolute inset-x-0 " + wrap} style={{ padding: pad }}>
+        <div
+          className="rounded-lg border-2"
+          style={{
+            borderColor: rgba(colorTexto, 0.9),
+            backgroundColor: rgba(colorBarra, opacidad),
+            padding: pad,
+          }}
+        >
+          <p style={baseText} className="font-medium">
+            {texto}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (estilo === "cinta") {
+    return (
+      <div className={"absolute inset-x-0 " + wrap} style={{ padding: pad }}>
+        <div
+          style={{
+            backgroundColor: rgba(colorBarra, opacidad),
+            borderLeft: "4px solid var(--color-accent)",
+            padding: pad,
+          }}
+        >
+          <p style={baseText} className="font-medium">
+            {texto}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (estilo === "minimal") {
     return (
-      <div className="absolute inset-x-0 bottom-0 p-4">
-        <span className="mb-1.5 block h-[3px] w-8 rounded-full bg-[var(--color-accent)]" />
+      <div className={"absolute inset-x-0 " + wrap} style={{ padding: pad }}>
+        <span
+          className="mb-1.5 block h-[3px] w-8 rounded-full bg-[var(--color-accent)]"
+          style={{
+            marginLeft: alineacion === "left" ? 0 : "auto",
+            marginRight: alineacion === "right" ? 0 : alineacion === "center" ? "auto" : undefined,
+          }}
+        />
         <p
           style={{ ...baseText, textShadow: "0 1px 6px rgba(0,0,0,0.6)" }}
           className="font-medium"
@@ -576,10 +788,11 @@ function Zocalo({
     );
   }
 
+  // barra (default)
   return (
     <div
-      className="absolute inset-x-0 bottom-0 px-4 py-3"
-      style={{ backgroundColor: rgba(colorBarra, opacidad) }}
+      className={"absolute inset-x-0 " + wrap}
+      style={{ backgroundColor: rgba(colorBarra, opacidad), padding: pad }}
     >
       <p style={baseText} className="font-medium">
         {texto}

@@ -1,5 +1,14 @@
 import type { Metadata } from "next";
-import { Fraunces, Geist, Geist_Mono } from "next/font/google";
+import {
+  Anton,
+  Archivo,
+  Bebas_Neue,
+  Fraunces,
+  Geist,
+  Geist_Mono,
+  Inter,
+  Oswald,
+} from "next/font/google";
 
 import { AppShell } from "@/components/shell/app-shell";
 import { ThemeScript } from "@/components/theme/theme-script";
@@ -23,6 +32,35 @@ const geistMono = Geist_Mono({
   display: "swap",
 });
 
+// Tipografías extra para el Estudio (zócalos con impacto).
+const anton = Anton({
+  weight: "400",
+  subsets: ["latin"],
+  variable: "--font-anton",
+  display: "swap",
+});
+const bebas = Bebas_Neue({
+  weight: "400",
+  subsets: ["latin"],
+  variable: "--font-bebas",
+  display: "swap",
+});
+const oswald = Oswald({
+  subsets: ["latin"],
+  variable: "--font-oswald",
+  display: "swap",
+});
+const archivo = Archivo({
+  subsets: ["latin"],
+  variable: "--font-archivo",
+  display: "swap",
+});
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: "Scrapify · Redes",
   description: "Estudio de video y publicación en redes sociales",
@@ -37,7 +75,7 @@ export default function RootLayout({
     <html
       lang="es"
       suppressHydrationWarning
-      className={`${fraunces.variable} ${geist.variable} ${geistMono.variable}`}
+      className={`${fraunces.variable} ${geist.variable} ${geistMono.variable} ${anton.variable} ${bebas.variable} ${oswald.variable} ${archivo.variable} ${inter.variable}`}
     >
       <head>
         <ThemeScript />
