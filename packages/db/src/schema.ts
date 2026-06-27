@@ -306,6 +306,7 @@ export const publications = pgTable(
 // Cola de render de video (worker FFmpeg aislado — panel Zoocial).
 export const videoRenderStatus = pgEnum("video_render_status", [
   "en_cola",
+  "pausado",
   "procesando",
   "listo",
   "error",
@@ -324,6 +325,8 @@ export const videoRenders = pgTable("video_renders", {
   sourcePath: text("source_path").notNull(),
   outputPath: text("output_path"),
   outputUrl: text("output_url"),
+  // Miniatura (un frame del resultado) para el panel de renders.
+  thumbnailUrl: text("thumbnail_url"),
   estado: videoRenderStatus("estado").notNull().default("en_cola"),
   progreso: integer("progreso").notNull().default(0), // 0..100
   duracionSeg: real("duracion_seg"),

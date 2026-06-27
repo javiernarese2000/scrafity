@@ -33,16 +33,25 @@ export async function setProgreso(id: string, pct: number): Promise<void> {
   await sql`update video_renders set progreso = ${pct}, updated_at = now() where id = ${id}`;
 }
 
+/** Estado actual del job (para detectar cancelaciones durante el render). */
+export async function getEstado(id: string): Promise<string | null> {
+  const [r] = await sql<{ estado: string }[]>`
+    select estado from video_renders where id = ${id}`;
+  return r?.estado ?? null;
+}
+
 export async function setListo(
   id: string,
   outputPath: string,
   outputUrl: string,
   durSec: number,
+  thumbnailUrl: string | null,
 ): Promise<void> {
   await sql`
     update video_renders
        set estado = 'listo', progreso = 100, output_path = ${outputPath},
            output_url = ${outputUrl}, duracion_seg = ${durSec},
+           thumbnail_url = ${thumbnailUrl},
            finished_at = now(), updated_at = now()
      where id = ${id}`;
 }

@@ -1,8 +1,9 @@
 "use server";
 
-import { db, videoRenders } from "@scrapify/db";
+import { clientes, db, videoRenders } from "@scrapify/db";
 import { createClient } from "@supabase/supabase-js";
-import { and, eq, lt, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, lt, sql } from "drizzle-orm";
+import { revalidatePath } from "next/cache";
 
 function admin() {
   return createClient(
@@ -89,4 +90,94 @@ export async function estadoRender(id: string): Promise<EstadoRender | null> {
     error: r.error,
     posicion,
   };
+}
+
+// ───────────────────────── Panel de la cola ─────────────────────────
+
+export type RenderRow = {
+  id: string;
+  titulo: string | null;
+  clienteNombre: string | null;
+  estado: string;
+  progreso: number;
+  outputUrl: string | null;
+  thumbnailUrl: string | null;
+  duracionSeg: number | null;
+  error: string | null;
+  createdAt: string;
+};
+
+export async function listarRenders(): Promise<RenderRow[]> {
+  const rows = await db
+    .select({
+      id: videoRenders.id,
+      titulo: videoRenders.titulo,
+      clienteNombre: clientes.nombre,
+      estado: videoRenders.estado,
+      progreso: videoRenders.progreso,
+      outputUrl: videoRenders.outputUrl,
+      thumbnailUrl: videoRenders.thumbnailUrl,
+      duracionSeg: videoRenders.duracionSeg,
+      error: videoRenders.error,
+      createdAt: videoRenders.createdAt,
+    })
+    .from(videoRenders)
+    .leftJoin(clientes, eq(clientes.id, videoRenders.clienteId))
+    .orderBy(desc(videoRenders.createdAt))
+    .limit(100);
+  return rows.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() }));
+}
+
+export async function pausarRender(id: string) {
+  await db
+    .update(videoRenders)
+    .set({ estado: "pausado", updatedAt: new Date() })
+    .where(and(eq(videoRenders.id, id), eq(videoRenders.estado, "en_cola")));
+  revalidatePath("/renders");
+}
+
+export async function reanudarRender(id: string) {
+  await db
+    .update(videoRenders)
+    .set({ estado: "en_cola", updatedAt: new Date() })
+    .where(and(eq(videoRenders.id, id), eq(videoRenders.estado, "pausado")));
+  revalidatePath("/renders");
+}
+
+export async function cancelarRender(id: string) {
+  await db
+    .update(videoRenders)
+    .set({ estado: "cancelado", finishedAt: new Date(), updatedAt: new Date() })
+    .where(
+      and(
+        eq(videoRenders.id, id),
+        inArray(videoRenders.estado, ["en_cola", "pausado", "procesando"]),
+      ),
+    );
+  revalidatePath("/renders");
+}
+
+export async function reintentarRender(id: string) {
+  await db
+    .update(videoRenders)
+    .set({
+      estado: "en_cola",
+      progreso: 0,
+      error: null,
+      startedAt: null,
+      finishedAt: null,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(videoRenders.id, id),
+        inArray(videoRenders.estado, ["error", "cancelado"]),
+      ),
+    );
+  revalidatePath("/renders");
+}
+
+export async function eliminarRender(id: string) {
+  await db.delete(videoRenders).where(eq(videoRenders.id, id));
+  revalidatePath("/renders");
 }

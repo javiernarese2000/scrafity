@@ -2,6 +2,7 @@ import {
   AtSign,
   CalendarClock,
   Clapperboard,
+  Film,
   LayoutDashboard,
   Send,
   Users,
@@ -17,6 +18,7 @@ export type NavItem = {
 export const navItems: NavItem[] = [
   { href: "/", label: "Panel", icon: LayoutDashboard },
   { href: "/estudio", label: "Estudio", icon: Clapperboard },
+  { href: "/renders", label: "Renders", icon: Film },
   { href: "/agenda", label: "Agenda", icon: CalendarClock },
   { href: "/clientes", label: "Clientes", icon: Users },
   { href: "/cuentas", label: "Cuentas", icon: AtSign },

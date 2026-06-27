@@ -41,6 +41,7 @@ export async function renderFromConfig(
   output: string,
   cfg: Record<string, unknown>,
   onProgress: (pct: number) => void,
+  signal?: AbortSignal,
 ): Promise<void> {
   const [W, H] = DIMS[String(cfg.aspecto ?? "9:16")] ?? DIMS["9:16"]!;
   const dur = await probeDuration(input);
@@ -77,19 +78,50 @@ export async function renderFromConfig(
       "-nostats",
       output,
     ];
-    await runWithProgress(args, dur, onProgress);
+    await runWithProgress(args, dur, onProgress, signal);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
+}
+
+/** Error que indica cancelación (para no marcarlo como error real). */
+export class CanceladoError extends Error {
+  constructor() {
+    super("CANCELADO");
+    this.name = "CanceladoError";
+  }
+}
+
+/** Extrae una miniatura (un frame) del video a JPG. */
+export function extractThumbnail(input: string, outJpg: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const p = spawn(
+      "ffmpeg",
+      ["-y", "-ss", "1", "-i", input, "-frames:v", "1", "-vf", "scale=360:-2", "-q:v", "4", outJpg],
+      { stdio: ["ignore", "ignore", "pipe"] },
+    );
+    let err = "";
+    p.stderr.on("data", (d: Buffer) => (err += d.toString()));
+    p.on("error", reject);
+    p.on("close", (code) =>
+      code === 0 ? resolve() : reject(new Error("thumb: " + err.slice(-200))),
+    );
+  });
 }
 
 function runWithProgress(
   args: string[],
   durSec: number,
   onProgress: (pct: number) => void,
+  signal?: AbortSignal,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
+    if (signal?.aborted) return reject(new CanceladoError());
     const proc = spawn("ffmpeg", args, { stdio: ["ignore", "pipe", "pipe"] });
+    signal?.addEventListener("abort", () => {
+      proc.kill("SIGKILL");
+      reject(new CanceladoError());
+    });
     let err = "";
     let buf = "";
     proc.stderr.on("data", (d: Buffer) => {
