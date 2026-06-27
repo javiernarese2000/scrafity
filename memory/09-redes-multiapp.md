@@ -342,3 +342,40 @@ Publicaciones ✅. Dev server en :5556. Todo en rama `redes`, prod intacto.
 - Dockerfile: ffmpeg + `npx playwright install --with-deps chromium`. Imagen más pesada (~1GB) pero fidelidad pixel-perfect.
 - PROBADO: degradado centrado con Fraunces = idéntico al preview.
 - Para Railway: el worker necesita Chromium (ya en el Docker) + DATABASE_URL pooler + bucket videos.
+
+### Panel de la cola de renders + armado de publicación (2026-06) — HECHO
+- Panel `/renders` (`renders-board.tsx`, polling 2.5s): miniatura, estado, barra de progreso en vivo,
+  acciones por estado: Pausar/Reanudar (en_cola↔pausado), Cancelar (aborta el FFmpeg vía AbortSignal — el
+  worker hace `getEstado` cada 2s y mata el proceso si pasó a cancelado), Reintentar (error/cancelado→en_cola),
+  Descargar, Eliminar, Publicar.
+- Migración 0021: enum `video_render_status` suma `pausado`; `video_renders.thumbnail_url` (miniatura
+  `extractThumbnail` → `thumbs/{id}.jpg` al terminar).
+- Armar publicación (migración 0022): `social_publications` enlaza `video_render_id` + `video_url`. Acción
+  `publicarRender({renderId, cuentaIds[], caption, programadaEn})` crea UNA publicación por cuenta en
+  `en_cola`, con el video del render, caption y hora (ahora=now / programar=datetime). Aparecen en Agenda
+  y Publicaciones. El envío real espera OAuth Meta/TikTok.
+- Diálogo `publicar-dialog.tsx`: cuentas con iconos de marca (RedIcon), caption (prefill con título),
+  Ahora/Programar; si el render no tiene cliente, selector de cliente.
+- Decisión del usuario: "las dos" vías → manual desde el panel (HECHO) + auto desde el Estudio (PENDIENTE).
+
+### DIAGNÓSTICO CLAVE: saturación de conexiones del host directo (2026-06) — RESUELTO
+- Síntoma: Storage de dev tiraba "Internal Server Error" / "connection to the database timed out" y
+  `db:migrate` colgaba. PARECÍA proyecto Supabase pausado; NO LO ESTABA.
+- Causa real: `pg_stat_activity` mostró 50 conexiones `postgres.js` idle del usuario directo `postgres`
+  (host `db.<ref>.supabase.co:5432`) con `max_connections=60`. Conexiones FILTRADAS de dev servers viejos.
+  Sin slots, el Storage de Supabase (que también usa el host directo) no podía conectar a su DB → timeouts.
+- Fix permanente: en `.env`, `DATABASE_URL` ahora apunta al POOLER de transacción 6543
+  (`postgres.<ref>@aws-1-us-east-2.pooler.supabase.com:6543`, ya con `prepare:false` en packages/db).
+  `DIRECT_URL` queda en 5432 directo (drizzle-kit migra con DIRECT_URL). Se mataron las 50 idle con
+  `pg_terminate_backend`. Storage volvió a `ok`.
+- Si `db:migrate` cuelga por saturación: aplicar el SQL por el pooler a mano y registrar la migración en
+  `drizzle.__drizzle_migrations` (hash sha256 del .sql + `when` del _journal.json).
+- IMPORTANTE próxima sesión: reiniciar dev servers (web y social) para tomar el `.env` nuevo (pooler).
+  `docker restart zoo-worker` NO recarga `worker.env` (mantiene el env del `docker run`); para cambiarlo hay
+  que recrear el contenedor.
+
+### PENDIENTE inmediato
+1. Auto-publicación desde el Estudio (pre-crear social_publications al mandar a render si hay destinos).
+2. Despachador: cron/worker que tome publicaciones `en_cola` con `programadaEn<=now` y publique (depende
+   del OAuth Meta/TikTok — tarea externa del usuario).
+3. Reiniciar dev servers para el pooler. Limpiar renders de prueba con el botón Eliminar.
