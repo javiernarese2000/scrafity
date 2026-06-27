@@ -17,6 +17,8 @@ import {
 } from "lucide-react";
 import { useEffect, useState, useTransition } from "react";
 
+import { PublicarDialog } from "@/components/renders/publicar-dialog";
+import type { ClienteConCuentas } from "@/server/cuentas";
 import {
   cancelarRender,
   eliminarRender,
@@ -79,9 +81,16 @@ function IconBtn({
   );
 }
 
-export function RendersBoard({ inicial }: { inicial: RenderRow[] }) {
+export function RendersBoard({
+  inicial,
+  clientes,
+}: {
+  inicial: RenderRow[];
+  clientes: ClienteConCuentas[];
+}) {
   const { message, show } = useToast();
   const [rows, setRows] = useState<RenderRow[]>(inicial);
+  const [publicar, setPublicar] = useState<RenderRow | null>(null);
   const [, startTransition] = useTransition();
 
   async function refrescar() {
@@ -213,7 +222,7 @@ export function RendersBoard({ inicial }: { inicial: RenderRow[] }) {
                     <>
                       <button
                         type="button"
-                        onClick={() => show("Publicar a redes se habilita al conectar Meta/TikTok")}
+                        onClick={() => setPublicar(r)}
                         className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-accent px-3 text-xs font-medium text-brand-foreground transition-all hover:opacity-90"
                       >
                         <Send className="size-3.5" />
@@ -245,6 +254,22 @@ export function RendersBoard({ inicial }: { inicial: RenderRow[] }) {
             );
           })}
         </div>
+      )}
+
+      {publicar && (
+        <PublicarDialog
+          render={publicar}
+          clientes={clientes}
+          onClose={() => setPublicar(null)}
+          onDone={(n) => {
+            setPublicar(null);
+            show(
+              n === 1
+                ? "Publicación encolada"
+                : `${n} publicaciones encoladas`,
+            );
+          }}
+        />
       )}
 
       <Toast message={message} />

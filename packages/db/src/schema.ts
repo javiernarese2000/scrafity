@@ -260,6 +260,11 @@ export const socialPublications = pgTable("social_publications", {
     onDelete: "set null",
   }),
   plataforma: socialPlatform("plataforma").notNull(),
+  // Render del que sale el video (se conserva la URL aunque se borre el render).
+  videoRenderId: uuid("video_render_id").references(() => videoRenders.id, {
+    onDelete: "set null",
+  }),
+  videoUrl: text("video_url"),
   videoTitulo: text("video_titulo"),
   caption: text("caption"),
   // URL de la noticia que acompaña al video (opcional, va en el caption).

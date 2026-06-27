@@ -1,6 +1,6 @@
 "use server";
 
-import { clientes, db, videoRenders } from "@scrapify/db";
+import { clientes, db, socialAccounts, socialPublications, videoRenders } from "@scrapify/db";
 import { createClient } from "@supabase/supabase-js";
 import { and, desc, eq, inArray, lt, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -97,6 +97,7 @@ export async function estadoRender(id: string): Promise<EstadoRender | null> {
 export type RenderRow = {
   id: string;
   titulo: string | null;
+  clienteId: string | null;
   clienteNombre: string | null;
   estado: string;
   progreso: number;
@@ -112,6 +113,7 @@ export async function listarRenders(): Promise<RenderRow[]> {
     .select({
       id: videoRenders.id,
       titulo: videoRenders.titulo,
+      clienteId: videoRenders.clienteId,
       clienteNombre: clientes.nombre,
       estado: videoRenders.estado,
       progreso: videoRenders.progreso,
@@ -180,4 +182,67 @@ export async function reintentarRender(id: string) {
 export async function eliminarRender(id: string) {
   await db.delete(videoRenders).where(eq(videoRenders.id, id));
   revalidatePath("/renders");
+}
+
+// ───────────────────────── Armar publicación ─────────────────────────
+
+/**
+ * Arma la publicación a redes a partir de un render listo: una fila de
+ * social_publications por cada cuenta elegida, con el video, el caption y la
+ * hora (ahora o programada). Quedan en estado "en_cola" para que el despachador
+ * las mande cuando esté el OAuth de Meta/TikTok; mientras tanto se ven en la
+ * Agenda y en Publicaciones.
+ */
+export async function publicarRender(input: {
+  renderId: string;
+  cuentaIds: string[];
+  caption: string;
+  programadaEn: string | null; // ISO; null = ahora
+}): Promise<number> {
+  if (!input.cuentaIds.length) throw new Error("Elegí al menos una cuenta.");
+
+  const [r] = await db
+    .select({
+      clienteId: videoRenders.clienteId,
+      titulo: videoRenders.titulo,
+      outputUrl: videoRenders.outputUrl,
+      estado: videoRenders.estado,
+    })
+    .from(videoRenders)
+    .where(eq(videoRenders.id, input.renderId))
+    .limit(1);
+  if (!r) throw new Error("No existe el render.");
+  if (r.estado !== "listo" || !r.outputUrl)
+    throw new Error("El render todavía no está listo.");
+
+  const cuentas = await db
+    .select({
+      id: socialAccounts.id,
+      clienteId: socialAccounts.clienteId,
+      plataforma: socialAccounts.plataforma,
+    })
+    .from(socialAccounts)
+    .where(inArray(socialAccounts.id, input.cuentaIds));
+  if (!cuentas.length) throw new Error("No se encontraron las cuentas.");
+
+  const cuando = input.programadaEn ? new Date(input.programadaEn) : new Date();
+
+  await db.insert(socialPublications).values(
+    cuentas.map((c) => ({
+      clienteId: c.clienteId,
+      socialAccountId: c.id,
+      plataforma: c.plataforma,
+      videoRenderId: input.renderId,
+      videoUrl: r.outputUrl,
+      videoTitulo: r.titulo,
+      caption: input.caption.trim() || null,
+      estado: "en_cola" as const,
+      programadaEn: cuando,
+    })),
+  );
+
+  revalidatePath("/renders");
+  revalidatePath("/agenda");
+  revalidatePath("/publicaciones");
+  return cuentas.length;
 }
