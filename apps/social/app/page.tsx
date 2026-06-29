@@ -220,8 +220,8 @@ export default async function PanelRedes() {
         </div>
       </div>
 
-      {/* Actividad reciente + Acciones */}
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
+      {/* Actividad reciente + Tips + Accesos directos (3 columnas) */}
+      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_280px]">
         <div className="rounded-[var(--radius-lg)] border border-line/70 bg-surface p-5 shadow-soft">
           <div className="mb-4 flex items-center justify-between">
             <p className="text-sm font-medium text-fg">Actividad reciente</p>
@@ -268,6 +268,9 @@ export default async function PanelRedes() {
           )}
         </div>
 
+        {/* Tips rotativos */}
+        <TipsCard />
+
         <div className="space-y-3">
           {ACCIONES.map((a) => (
             <Link
@@ -287,9 +290,6 @@ export default async function PanelRedes() {
           ))}
         </div>
       </div>
-
-      {/* Tips rotativos */}
-      <TipsCard />
     </div>
   );
 }

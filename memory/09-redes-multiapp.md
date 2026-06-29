@@ -598,6 +598,20 @@ Antes: bucket `videos` plano por tipo con nombres UUID (`sources/<uuid>`, `rende
   raíz). **OJO**: antes de mergear redes→main, separar config por servicio para no romper Noticias.
   Proyecto Railway del test: "passionate-kindness" (trial). El usuario se mareó con la UI; se resolvió
   desde el código (config-as-code) para minimizar clics.
+- **Variables prod (panel)**: 10 cargadas (las 9 + DIRECT_URL que agregó Railway). DATABASE_URL=pooler.
+  META_REDIRECT_URI=`https://<dominio>/api/meta/callback`. CRON_SECRET generado. OJO: en Railway las
+  variables quedan **staged**; hay que apretar **"Apply N changes / Deploy"** (no "Redeploy") para que
+  el contenedor las tome (síntoma: "DATABASE_URL no está definida" en Deploy Logs).
+- **Dominio público**: `scrapifyweb-production.up.railway.app` (editable a `zoocial.up.railway.app` desde
+  Networking → Public Networking; si se cambia, actualizar META_REDIRECT_URI).
+- **Watch Paths**: hay un filtro que saltea deploys ("No changes to watched files"); si un push no
+  redeploya, apretar Deploy a mano (o limpiar el watch path).
+
+### Dashboard: saludo + tips + menú usuario (2026-06) — HECHO
+- Nav "Panel" → **"Dashboard"** (también el título del topbar). `app/page.tsx`: header con **saludo por
+  hora + primer nombre** (de `user_metadata.nombre` o del email). **`components/dashboard/tips-card.tsx`**
+  (cliente, framer-motion): tips que rotan cada 6.5s con puntitos. `user-menu.tsx`: dropdown con **nombre**
+  arriba + **email más chico** (sin "Sesión iniciada"); avatar con iniciales del nombre.
 
 ### Gate de roles — Usuarios solo-admin (2026-06) — HECHO
 - `src/lib/roles.ts`: `rolDeUsuario`/`esAdmin`. Regla: **admin salvo `user_metadata.rol === "moderador"`**
