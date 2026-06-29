@@ -643,3 +643,17 @@ Antes: bucket `videos` plano por tipo con nombres UUID (`sources/<uuid>`, `rende
 2. Despachador: cron/worker que tome publicaciones `en_cola` con `programadaEn<=now` y publique (depende
    del OAuth Meta/TikTok — tarea externa del usuario).
 3. Reiniciar dev servers para el pooler. Limpiar renders de prueba con el botón Eliminar.
+
+### Panel de Tendencias (2026-06) — HECHO
+- **/tendencias** (nav "Tendencias", icono TrendingUp, junto al Dashboard; visible para todos).
+  Trae **tendencias de búsqueda reales en vivo** de **Google Trends RSS** (`trends.google.com/trending/
+  rss?geo=XX`) — gratis, sin API key ni auth. Funciona desde server. (IG/FB no tienen API de "trending
+  en vivo"; Google Trends es la señal real/gratis. TikTok Creative Center = otra opción a futuro.)
+- `src/server/tendencias.ts` ("use server", solo `getTendencias(geo)`: fetch + parse del RSS con regex —
+  término, approx_traffic→número, imagen, noticia relacionada title/url/source). `src/lib/tendencias.ts`
+  (NO use-server): tipos + `REGIONES` (AR/MX/ES/CL/CO/US). **OJO regla Next**: un archivo "use server"
+  solo puede exportar funciones async → constantes/tipos van en lib aparte (esto rompió el build 1ª vez).
+- `components/tendencias/tendencias-board.tsx`: UI animada (framer-motion) — podio top-3 con badges
+  gradiente (oro/plata/bronce) + llama, **barras de volumen que crecen**, **count-up** del número de
+  búsquedas, noticia relacionada (fuente+titular linkeado), miniatura, CTA "Crear video"→/estudio.
+  Selector de región (chips con bandera), badge "en vivo", botón Actualizar.

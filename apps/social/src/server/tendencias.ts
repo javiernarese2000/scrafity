@@ -22,6 +22,18 @@ function pick(block: string, tag: string): string | null {
   return m ? decode(m[1]!) : null;
 }
 
+/** Heurística simple: ¿el texto parece español? (para no mostrar noticias en inglés). */
+function pareceEspanol(t: string): boolean {
+  const s = " " + t.toLowerCase() + " ";
+  const es =
+    (s.match(/\b(de|la|el|en|por|que|con|del|los|las|un|una|para|como|qué|dónde|vivo|partido|según|más|sobre)\b/g)?.length ?? 0) +
+    (/[áéíóúñ¿¡]/.test(s) ? 2 : 0);
+  const en =
+    s.match(/\b(the|of|in|for|with|and|to|on|at|his|her|world|cup|star|fans|shock|boss|decision|live|vs|was|it|that|who|what)\b/g)?.length ?? 0;
+  // Necesita al menos una marca de español y no estar dominado por inglés.
+  return es > 0 && es >= en;
+}
+
 /** "500+", "1K+", "2M+" → número aproximado. */
 function parseTraffic(s: string | null): number {
   if (!s) return 0;
@@ -44,24 +56,33 @@ export async function getTendencias(geo = "AR"): Promise<Tendencia[]> {
     if (!res.ok) return [];
     const xml = await res.text();
 
+    // En regiones hispanohablantes preferimos noticias en español; en US, no.
+    const preferEs = region !== "US";
+
     const items = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)];
     return items.slice(0, 15).map((m, i) => {
       const b = m[1]!;
-      const noticiaBlock =
-        b.match(/<ht:news_item>([\s\S]*?)<\/ht:news_item>/)?.[1] ?? "";
       const traffic = pick(b, "ht:approx_traffic") ?? "";
-      const titulo = pick(noticiaBlock, "ht:news_item_title");
-      const url = pick(noticiaBlock, "ht:news_item_url");
+
+      // Cada tendencia trae varias noticias: elegimos la 1ª válida (en español si corresponde).
+      let noticia: Tendencia["noticia"] = null;
+      for (const n of b.matchAll(/<ht:news_item>([\s\S]*?)<\/ht:news_item>/g)) {
+        const nb = n[1]!;
+        const titulo = pick(nb, "ht:news_item_title");
+        const url = pick(nb, "ht:news_item_url");
+        if (!titulo || !url) continue;
+        if (preferEs && !pareceEspanol(titulo)) continue;
+        noticia = { titulo, url, fuente: pick(nb, "ht:news_item_source") };
+        break;
+      }
+
       return {
         rank: i + 1,
         termino: pick(b, "title") ?? "—",
         traffic,
         trafficNum: parseTraffic(traffic),
         imagen: pick(b, "ht:picture"),
-        noticia:
-          titulo && url
-            ? { titulo, url, fuente: pick(noticiaBlock, "ht:news_item_source") }
-            : null,
+        noticia,
       };
     });
   } catch {
