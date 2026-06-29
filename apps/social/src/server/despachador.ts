@@ -5,8 +5,13 @@ import { and, asc, eq, inArray, isNotNull, lte } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 import { registrar } from "@/lib/auditoria";
-import { decrypt } from "@/lib/crypto";
+import { decrypt, encrypt } from "@/lib/crypto";
 import { publicarReelInstagram, publicarVideoFacebook } from "@/lib/meta";
+import {
+  refreshToken,
+  subirVideoTikTok,
+  type TikTokCreds,
+} from "@/lib/tiktok";
 
 type Resultado = { ok: boolean; url?: string; error?: string };
 
@@ -50,40 +55,47 @@ export async function publicarUna(pubId: string): Promise<Resultado> {
     return falla(pubId, "La cuenta no está conectada (falta token). Reconectá con Meta.");
   }
 
-  let token: string;
-  try {
-    token = decrypt(acc.credencialesCifradas);
-  } catch {
-    return falla(pubId, "No se pudo leer el token de la cuenta.");
-  }
-
   const caption = pub.caption ?? "";
   try {
-    let res;
-    if (pub.plataforma === "facebook") {
-      res = await publicarVideoFacebook({
-        pageId: acc.externalId,
-        token,
-        videoUrl: pub.videoUrl,
-        caption,
-      });
-    } else if (pub.plataforma === "instagram") {
-      res = await publicarReelInstagram({
-        igUserId: acc.externalId,
-        token,
-        videoUrl: pub.videoUrl,
-        caption,
-      });
+    let externalId: string;
+    let url: string | null;
+
+    if (pub.plataforma === "tiktok") {
+      // El video va a los BORRADORES del usuario; finaliza en la app de TikTok.
+      const access = await accesoTikTok(pub.socialAccountId, acc.credencialesCifradas);
+      externalId = await subirVideoTikTok(access, pub.videoUrl);
+      url = null;
     } else {
-      return falla(pubId, "TikTok todavía no está conectado.");
+      const token = decrypt(acc.credencialesCifradas);
+      if (pub.plataforma === "facebook") {
+        const r = await publicarVideoFacebook({
+          pageId: acc.externalId,
+          token,
+          videoUrl: pub.videoUrl,
+          caption,
+        });
+        externalId = r.id;
+        url = r.url;
+      } else if (pub.plataforma === "instagram") {
+        const r = await publicarReelInstagram({
+          igUserId: acc.externalId,
+          token,
+          videoUrl: pub.videoUrl,
+          caption,
+        });
+        externalId = r.id;
+        url = r.url;
+      } else {
+        return falla(pubId, "Plataforma no soportada.");
+      }
     }
 
     await db
       .update(socialPublications)
       .set({
         estado: "publicada",
-        urlPublicada: res.url,
-        externalId: res.id,
+        urlPublicada: url,
+        externalId,
         error: null,
         publicadaEn: new Date(),
         updatedAt: new Date(),
@@ -93,13 +105,37 @@ export async function publicarUna(pubId: string): Promise<Resultado> {
       accion: "publicacion.publicar",
       entidad: "publicacion",
       entidadId: pubId,
-      resumen: `Publicó en ${pub.plataforma} (@${acc.nombre})`,
-      meta: { plataforma: pub.plataforma, url: res.url },
+      resumen:
+        pub.plataforma === "tiktok"
+          ? `Envió a TikTok como borrador (@${acc.nombre})`
+          : `Publicó en ${pub.plataforma} (@${acc.nombre})`,
+      meta: { plataforma: pub.plataforma, url },
     });
-    return { ok: true, url: res.url };
+    return { ok: true, url: url ?? undefined };
   } catch (e) {
     return falla(pubId, e instanceof Error ? e.message : "Error al publicar.", pub.plataforma);
   }
+}
+
+/** Devuelve un access token de TikTok válido (refresca y persiste si venció). */
+async function accesoTikTok(accountId: string, cifrado: string): Promise<string> {
+  const creds = JSON.parse(decrypt(cifrado)) as TikTokCreds;
+  if (Date.now() < creds.exp - 60_000) return creds.a;
+  const t = await refreshToken(creds.r);
+  const nuevo: TikTokCreds = {
+    a: t.access_token,
+    r: t.refresh_token,
+    exp: Date.now() + t.expires_in * 1000,
+  };
+  await db
+    .update(socialAccounts)
+    .set({
+      credencialesCifradas: encrypt(JSON.stringify(nuevo)),
+      expiraEn: new Date(nuevo.exp),
+      updatedAt: new Date(),
+    })
+    .where(eq(socialAccounts.id, accountId));
+  return nuevo.a;
 }
 
 async function falla(

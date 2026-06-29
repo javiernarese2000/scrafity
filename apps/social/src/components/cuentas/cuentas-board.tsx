@@ -41,17 +41,22 @@ export function CuentasBoard({ clientes }: { clientes: ClienteConCuentas[] }) {
 
   const hayClientes = clientes.length > 0;
 
-  // Resultado de la vuelta de Meta (?meta=ok|error).
+  // Resultado de la vuelta de Meta (?meta=) o TikTok (?tt=).
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search);
     const meta = sp.get("meta");
-    if (!meta) return;
+    const tt = sp.get("tt");
+    if (!meta && !tt) return;
     if (meta === "ok") {
       show(
         `Meta conectado: ${sp.get("fb") ?? 0} Página(s) y ${sp.get("ig") ?? 0} cuenta(s) de IG`,
       );
-    } else {
+    } else if (meta) {
       show("No se pudo conectar Meta: " + (sp.get("msg") ?? "error"));
+    } else if (tt === "ok") {
+      show("TikTok conectado");
+    } else if (tt) {
+      show("No se pudo conectar TikTok: " + (sp.get("msg") ?? "error"));
     }
     window.history.replaceState({}, "", "/cuentas");
     router.refresh();
@@ -159,7 +164,14 @@ export function CuentasBoard({ clientes }: { clientes: ClienteConCuentas[] }) {
                     className="inline-flex items-center gap-1.5 rounded-lg bg-[#1877F2] px-3 py-1.5 text-xs font-medium text-white transition-opacity hover:opacity-90"
                   >
                     <RedIcon plataforma="facebook" className="size-3.5 [&_path]:fill-white" />
-                    Conectar con Meta
+                    Meta
+                  </a>
+                  <a
+                    href={`/api/tiktok/login?cliente=${c.id}`}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white transition-opacity hover:opacity-90"
+                  >
+                    <RedIcon plataforma="tiktok" className="size-3.5 [&_path]:fill-white" />
+                    TikTok
                   </a>
                 </div>
 
