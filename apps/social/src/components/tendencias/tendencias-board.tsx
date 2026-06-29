@@ -3,17 +3,48 @@
 import { PageHeader } from "@scrapify/ui/page-header";
 import { AnimatePresence, motion, useMotionValue, useTransform, animate } from "framer-motion";
 import {
+  ArrowUpRight,
   Clapperboard,
   ExternalLink,
   Flame,
+  Hash,
+  Music,
   RefreshCw,
+  Search,
   TrendingUp,
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 
+import { RedIcon } from "@/components/icons/redes";
 import { REGIONES, type Tendencia } from "@/lib/tendencias";
 import { getTendencias } from "@/server/tendencias";
+
+const CC = "https://ads.tiktok.com/business/creativecenter/inspiration/popular";
+
+/** Links al Creative Center oficial de TikTok, por región. */
+function tiktokLinks(geo: string) {
+  return [
+    {
+      icon: Hash,
+      titulo: "Hashtags en tendencia",
+      desc: "Los hashtags que más crecen ahora mismo en TikTok.",
+      url: `${CC}/hashtag/pc/en?region=${geo}`,
+    },
+    {
+      icon: Music,
+      titulo: "Sonidos en tendencia",
+      desc: "Audios y canciones que están explotando. Usá uno y sumás alcance.",
+      url: `${CC}/music/pc/en?region=${geo}`,
+    },
+    {
+      icon: Flame,
+      titulo: "Creadores y videos top",
+      desc: "Qué formatos y creadores están pegando en tu país.",
+      url: `https://ads.tiktok.com/business/creativecenter/inspiration/popular/creator/pc/en?region=${geo}`,
+    },
+  ];
+}
 
 /** Número que cuenta hacia arriba al aparecer. */
 function CountUp({ to }: { to: number }) {
@@ -48,6 +79,7 @@ export function TendenciasBoard({
   const [rows, setRows] = useState<Tendencia[]>(inicial);
   const [pending, startTransition] = useTransition();
   const [actualizado, setActualizado] = useState<Date>(new Date());
+  const [vista, setVista] = useState<"google" | "tiktok">("google");
 
   const max = Math.max(1, ...rows.map((r) => r.trafficNum));
 
@@ -82,6 +114,32 @@ export function TendenciasBoard({
         }
       />
 
+      {/* Tabs de fuente */}
+      <div className="mb-4 inline-flex rounded-lg border border-line bg-surface p-0.5">
+        <button
+          type="button"
+          onClick={() => setVista("google")}
+          className={
+            "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors " +
+            (vista === "google" ? "bg-elevated text-fg" : "text-muted hover:text-fg")
+          }
+        >
+          <Search className="size-3.5" />
+          Búsquedas (Google)
+        </button>
+        <button
+          type="button"
+          onClick={() => setVista("tiktok")}
+          className={
+            "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors " +
+            (vista === "tiktok" ? "bg-elevated text-fg" : "text-muted hover:text-fg")
+          }
+        >
+          <RedIcon plataforma="tiktok" className="size-3.5" />
+          TikTok
+        </button>
+      </div>
+
       {/* Fuente + región */}
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-1.5">
@@ -105,24 +163,27 @@ export function TendenciasBoard({
             );
           })}
         </div>
-        <div className="flex items-center gap-3 text-xs text-muted">
-          <span className="inline-flex items-center gap-1.5">
-            <span className="relative flex size-1.5">
-              <span className="absolute inline-flex size-full animate-ping rounded-full bg-success/70" />
-              <span className="relative inline-flex size-1.5 rounded-full bg-success" />
+        {vista === "google" && (
+          <div className="flex items-center gap-3 text-xs text-muted">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="relative flex size-1.5">
+                <span className="absolute inline-flex size-full animate-ping rounded-full bg-success/70" />
+                <span className="relative inline-flex size-1.5 rounded-full bg-success" />
+              </span>
+              Google Trends · en vivo
             </span>
-            Google Trends · en vivo
-          </span>
-          <span className="hidden sm:inline">
-            {actualizado.toLocaleTimeString("es-AR", {
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
-          </span>
-        </div>
+            <span className="hidden sm:inline">
+              {actualizado.toLocaleTimeString("es-AR", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </span>
+          </div>
+        )}
       </div>
 
-      {rows.length === 0 ? (
+      {vista === "google" ? (
+        rows.length === 0 ? (
         <div className="rounded-[var(--radius-lg)] border border-line/70 bg-surface py-16 text-center text-sm text-muted shadow-soft">
           {pending ? "Buscando tendencias…" : "No se pudieron traer las tendencias ahora. Probá actualizar."}
         </div>
@@ -228,11 +289,42 @@ export function TendenciasBoard({
             })}
           </motion.div>
         </AnimatePresence>
+        )
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {tiktokLinks(geo).map((c) => (
+            <a
+              key={c.titulo}
+              href={c.url}
+              target="_blank"
+              rel="noreferrer"
+              className="group relative overflow-hidden rounded-[var(--radius-lg)] border border-line/70 bg-surface p-5 shadow-soft transition-shadow hover:shadow-float"
+            >
+              <div className="pointer-events-none absolute -right-10 -top-10 size-32 rounded-full bg-accent/15 blur-3xl" />
+              <div className="relative flex items-start justify-between">
+                <span className="grid size-11 place-items-center rounded-xl bg-elevated text-accent">
+                  <c.icon className="size-5" />
+                </span>
+                <ArrowUpRight className="size-4 text-muted transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+              </div>
+              <p className="relative mt-4 font-display text-lg font-medium text-fg">
+                {c.titulo}
+              </p>
+              <p className="relative mt-1 text-sm text-muted">{c.desc}</p>
+              <span className="relative mt-4 inline-flex items-center gap-1.5 text-xs font-medium text-accent">
+                <RedIcon plataforma="tiktok" className="size-3.5" />
+                Ver en Creative Center
+              </span>
+            </a>
+          ))}
+        </div>
       )}
 
       <p className="mt-5 flex items-center justify-center gap-1.5 text-center text-xs text-muted">
         <TrendingUp className="size-3.5" />
-        Las tendencias de TikTok suelen cruzar a Reels 1–2 días después — ideá tu contenido con esto.
+        {vista === "google"
+          ? "Las tendencias de TikTok suelen cruzar a Reels 1–2 días después — ideá tu contenido con esto."
+          : "Abre el Creative Center oficial de TikTok (gratis), ya filtrado por tu país."}
       </p>
     </div>
   );
