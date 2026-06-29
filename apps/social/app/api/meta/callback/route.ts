@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
 
+import { baseUrl } from "@/lib/base-url";
 import { exchangeCode, listPagesWithIg, longLivedToken } from "@/lib/meta";
 import { conectarPaginas } from "@/server/meta";
 
@@ -8,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 function err(req: NextRequest, msg: string) {
   return NextResponse.redirect(
-    new URL(`/cuentas?meta=error&msg=${encodeURIComponent(msg)}`, req.url),
+    new URL(`/cuentas?meta=error&msg=${encodeURIComponent(msg)}`, baseUrl(req)),
   );
 }
 
@@ -51,7 +52,7 @@ export async function GET(req: NextRequest) {
 
     const { fb, ig } = await conectarPaginas(parsed.c, pages);
     return NextResponse.redirect(
-      new URL(`/cuentas?meta=ok&fb=${fb}&ig=${ig}`, req.url),
+      new URL(`/cuentas?meta=ok&fb=${fb}&ig=${ig}`, baseUrl(req)),
     );
   } catch (e) {
     return err(req, e instanceof Error ? e.message : "Error al conectar con Meta.");

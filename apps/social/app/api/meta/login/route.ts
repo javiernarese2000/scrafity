@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { cookies } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
 
+import { baseUrl } from "@/lib/base-url";
 import { authUrl } from "@/lib/meta";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +12,7 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const clienteId = req.nextUrl.searchParams.get("cliente") ?? "";
   if (!clienteId) {
-    return NextResponse.redirect(new URL("/cuentas?meta=error&msg=Falta+el+cliente", req.url));
+    return NextResponse.redirect(new URL("/cuentas?meta=error&msg=Falta+el+cliente", baseUrl(req)));
   }
 
   // state = {cliente, nonce} (base64url); el nonce se verifica con la cookie (CSRF).

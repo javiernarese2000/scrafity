@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { cookies } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
 
+import { baseUrl } from "@/lib/base-url";
 import { authUrl } from "@/lib/tiktok";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +14,7 @@ export async function GET(req: NextRequest) {
     const clienteId = req.nextUrl.searchParams.get("cliente") ?? "";
     if (!clienteId) {
       return NextResponse.redirect(
-        new URL("/cuentas?tt=error&msg=Falta+el+cliente", req.url),
+        new URL("/cuentas?tt=error&msg=Falta+el+cliente", baseUrl(req)),
       );
     }
 
@@ -34,7 +35,7 @@ export async function GET(req: NextRequest) {
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Error al iniciar TikTok.";
     return NextResponse.redirect(
-      new URL(`/cuentas?tt=error&msg=${encodeURIComponent(msg)}`, req.url),
+      new URL(`/cuentas?tt=error&msg=${encodeURIComponent(msg)}`, baseUrl(req)),
     );
   }
 }
