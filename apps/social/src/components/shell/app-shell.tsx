@@ -31,8 +31,10 @@ export function AppShell({
     });
   }
 
-  // El login se muestra sin el armazón de la app.
-  if (pathname === "/login") return <>{children}</>;
+  // El login y las páginas legales se muestran sin el armazón de la app.
+  if (pathname === "/login" || pathname === "/terms" || pathname === "/privacy") {
+    return <>{children}</>;
+  }
 
   // El Estudio y el Compositor son editores a pantalla completa (sin scroll de página).
   const isEditor = pathname === "/estudio" || pathname === "/componer";

@@ -37,6 +37,11 @@ export async function proxy(request: NextRequest) {
     return response;
   }
 
+  // Páginas legales: públicas (ToS/Privacidad para las apps de Meta/TikTok).
+  if (path === "/terms" || path === "/privacy") {
+    return response;
+  }
+
   if (!user && path !== "/login") {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
