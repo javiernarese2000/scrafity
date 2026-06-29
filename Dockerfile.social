@@ -1,0 +1,21 @@
+FROM node:22-slim AS base
+RUN corepack enable
+WORKDIR /app
+
+FROM base AS build
+# NEXT_PUBLIC_* se inlinean en build-time. Son valores PÚBLICOS (van al navegador,
+# los datos los protege RLS). Para el test apuntan al Supabase DEV; Railway puede
+# sobreescribirlos con build-args del mismo nombre.
+ARG NEXT_PUBLIC_SUPABASE_URL=https://dnptcdzimdyeoqykywul.supabase.co
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_VDv8oVED7ettVvRcZWam2w_Qa-ebiJ4
+ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL \
+    NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
+COPY . .
+RUN pnpm install --frozen-lockfile
+RUN pnpm --filter @scrapify/social build
+
+FROM base AS run
+ENV NODE_ENV=production
+COPY --from=build /app /app
+EXPOSE 3000
+CMD ["pnpm", "--filter", "@scrapify/social", "start"]
