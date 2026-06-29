@@ -7,6 +7,7 @@ import {
   Megaphone,
   ScrollText,
   Send,
+  TrendingUp,
   UserCog,
   Users,
   type LucideIcon,
@@ -21,6 +22,7 @@ export type NavItem = {
 
 export const navItems: NavItem[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/tendencias", label: "Tendencias", icon: TrendingUp },
   { href: "/estudio", label: "Estudio", icon: Clapperboard },
   { href: "/renders", label: "Renders", icon: Film },
   { href: "/componer", label: "Componer", icon: Megaphone },
