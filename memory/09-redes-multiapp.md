@@ -590,6 +590,14 @@ Antes: bucket `videos` plano por tipo con nombres UUID (`sources/<uuid>`, `rende
 - **Falta (lo hace el usuario en Railway/Meta)**: resetear App Secret de Meta, crear los 2 servicios,
   pegar vars (valores del `.env` local), setear redirect URI de prod + reconectar Meta, completar
   DISPATCH_URL. App Review de Meta = para clientes reales (después).
+- **Config fix (2026-06)**: había un `railway.json` en la RAÍZ apuntando a Noticias (DOCKERFILE
+  `Dockerfile` + start `@scrapify/web`) → el servicio nuevo construía Noticias. Fix en rama `redes`:
+  nuevo **`Dockerfile.social`** + `railway.json` → `Dockerfile.social` + start `@scrapify/social`
+  (NEXT_PUBLIC del Supabase DEV como build-args). El servicio panel redeploya solo con la app correcta.
+  Worker = servicio aparte con Root Directory `apps/worker` (su propio Dockerfile, no lee el railway.json
+  raíz). **OJO**: antes de mergear redes→main, separar config por servicio para no romper Noticias.
+  Proyecto Railway del test: "passionate-kindness" (trial). El usuario se mareó con la UI; se resolvió
+  desde el código (config-as-code) para minimizar clics.
 
 ### Gate de roles — Usuarios solo-admin (2026-06) — HECHO
 - `src/lib/roles.ts`: `rolDeUsuario`/`esAdmin`. Regla: **admin salvo `user_metadata.rol === "moderador"`**

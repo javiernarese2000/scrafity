@@ -17,12 +17,22 @@ function iniciales(email: string) {
 export function UserMenu() {
   const router = useRouter();
   const [email, setEmail] = useState<string | null>(null);
+  const [nombre, setNombre] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const supabase = createClient();
-    supabase.auth.getUser().then(({ data }) => setEmail(data.user?.email ?? null));
+    supabase.auth.getUser().then(({ data }) => {
+      const u = data.user;
+      setEmail(u?.email ?? null);
+      const m = (u?.user_metadata ?? {}) as Record<string, unknown>;
+      const n =
+        typeof m.nombre === "string" && m.nombre.trim()
+          ? m.nombre.trim()
+          : (u?.email?.split("@")[0] ?? "");
+      setNombre(n ? n.charAt(0).toUpperCase() + n.slice(1) : null);
+    });
   }, []);
 
   useEffect(() => {
@@ -48,7 +58,7 @@ export function UserMenu() {
         aria-label="Menú de usuario"
         className="grid size-9 place-items-center rounded-full bg-accent/15 text-sm font-medium text-accent transition-colors hover:bg-accent/25"
       >
-        {email ? iniciales(email) : "·"}
+        {nombre || email ? iniciales(nombre ?? email ?? "") : "·"}
       </button>
 
       <AnimatePresence>
@@ -61,8 +71,10 @@ export function UserMenu() {
             className="absolute right-0 top-11 z-50 w-56 rounded-[var(--radius)] border border-line bg-surface p-1.5 shadow-float"
           >
             <div className="px-3 py-2">
-              <p className="text-xs text-muted">Sesión iniciada</p>
-              <p className="truncate text-sm font-medium text-fg">{email ?? "—"}</p>
+              <p className="truncate text-sm font-medium text-fg">
+                {nombre ?? "—"}
+              </p>
+              <p className="truncate text-xs text-muted">{email ?? ""}</p>
             </div>
             <div className="my-1 h-px bg-line" />
             <button

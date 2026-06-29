@@ -20,7 +20,7 @@ export type NavItem = {
 };
 
 export const navItems: NavItem[] = [
-  { href: "/", label: "Panel", icon: LayoutDashboard },
+  { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/estudio", label: "Estudio", icon: Clapperboard },
   { href: "/renders", label: "Renders", icon: Film },
   { href: "/componer", label: "Componer", icon: Megaphone },

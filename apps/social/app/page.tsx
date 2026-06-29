@@ -11,8 +11,32 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
+import { TipsCard } from "@/components/dashboard/tips-card";
 import { RedIcon } from "@/components/icons/redes";
+import { createClient } from "@/lib/supabase/server";
 import { getResumenRedes } from "@/server/dashboard";
+
+/** Primer nombre del usuario (de su metadata o, si no, del email). */
+function primerNombre(user: {
+  email?: string | null;
+  user_metadata?: Record<string, unknown> | null;
+} | null): string {
+  const meta = (user?.user_metadata ?? {}) as Record<string, unknown>;
+  const raw =
+    typeof meta.nombre === "string" && meta.nombre.trim()
+      ? meta.nombre.trim()
+      : (user?.email?.split("@")[0] ?? "");
+  const p = raw.split(/[\s._-]+/)[0] ?? "";
+  return p ? p.charAt(0).toUpperCase() + p.slice(1) : "";
+}
+
+function saludoHora(): string {
+  const h = new Date().getHours();
+  if (h < 6) return "Buenas noches";
+  if (h < 13) return "Buen día";
+  if (h < 20) return "Buenas tardes";
+  return "Buenas noches";
+}
 
 const TONO = {
   brand: { bar: "bg-brand", tint: "bg-brand/12", text: "text-brand" },
@@ -86,8 +110,13 @@ function fmt(d: Date) {
 }
 
 export default async function PanelRedes() {
-  const r = await getResumenRedes();
+  const sb = await createClient();
+  const [r, { data: { user } }] = await Promise.all([
+    getResumenRedes(),
+    sb.auth.getUser(),
+  ]);
   const maxRed = Math.max(1, ...REDES.map((x) => r.porPlataforma[x.id]));
+  const nombre = primerNombre(user);
 
   return (
     <div className="w-full space-y-6">
@@ -95,10 +124,11 @@ export default async function PanelRedes() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h2 className="font-display text-[2.2rem] font-medium tracking-tight text-fg">
-            Panel
+            {saludoHora()}
+            {nombre ? `, ${nombre}` : ""} 👋
           </h2>
           <p className="mt-1 text-sm text-muted">
-            Tu centro de mando para video y redes sociales.
+            Esto es lo que está pasando con tus videos y redes.
           </p>
         </div>
         <Link
@@ -257,6 +287,9 @@ export default async function PanelRedes() {
           ))}
         </div>
       </div>
+
+      {/* Tips rotativos */}
+      <TipsCard />
     </div>
   );
 }
