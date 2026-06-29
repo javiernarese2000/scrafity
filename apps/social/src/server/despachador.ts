@@ -4,6 +4,7 @@ import { db, socialAccounts, socialPublications } from "@scrapify/db";
 import { and, asc, eq, inArray, isNotNull, lte } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
+import { registrar } from "@/lib/auditoria";
 import { decrypt } from "@/lib/crypto";
 import { publicarReelInstagram, publicarVideoFacebook } from "@/lib/meta";
 
@@ -39,6 +40,7 @@ export async function publicarUna(pubId: string): Promise<Resultado> {
       externalId: socialAccounts.externalId,
       credencialesCifradas: socialAccounts.credencialesCifradas,
       estado: socialAccounts.estado,
+      nombre: socialAccounts.nombre,
     })
     .from(socialAccounts)
     .where(eq(socialAccounts.id, pub.socialAccountId))
@@ -87,17 +89,36 @@ export async function publicarUna(pubId: string): Promise<Resultado> {
         updatedAt: new Date(),
       })
       .where(eq(socialPublications.id, pubId));
+    await registrar({
+      accion: "publicacion.publicar",
+      entidad: "publicacion",
+      entidadId: pubId,
+      resumen: `Publicó en ${pub.plataforma} (@${acc.nombre})`,
+      meta: { plataforma: pub.plataforma, url: res.url },
+    });
     return { ok: true, url: res.url };
   } catch (e) {
-    return falla(pubId, e instanceof Error ? e.message : "Error al publicar.");
+    return falla(pubId, e instanceof Error ? e.message : "Error al publicar.", pub.plataforma);
   }
 }
 
-async function falla(pubId: string, msg: string): Promise<Resultado> {
+async function falla(
+  pubId: string,
+  msg: string,
+  plataforma?: string,
+): Promise<Resultado> {
   await db
     .update(socialPublications)
     .set({ estado: "error", error: msg.slice(0, 1000), updatedAt: new Date() })
     .where(eq(socialPublications.id, pubId));
+  await registrar({
+    accion: "publicacion.publicar",
+    entidad: "publicacion",
+    entidadId: pubId,
+    resumen: `Falló la publicación${plataforma ? ` en ${plataforma}` : ""}`,
+    resultado: "error",
+    error: msg,
+  });
   return { ok: false, error: msg };
 }
 

@@ -5,6 +5,8 @@ import { createClient } from "@supabase/supabase-js";
 import { and, desc, eq, inArray, lt, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
+import { registrar } from "@/lib/auditoria";
+
 function admin() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -75,6 +77,13 @@ export async function encolarRender(input: {
       estado: "en_cola",
     })
     .returning({ id: videoRenders.id });
+  await registrar({
+    accion: "render.crear",
+    entidad: "render",
+    entidadId: row!.id,
+    resumen: `Envió a render "${input.titulo.trim() || "Sin título"}"`,
+    meta: { clienteId: input.clienteId },
+  });
   return row!.id;
 }
 
@@ -273,6 +282,14 @@ export async function publicarRender(input: {
       programadaEn: cuando,
     })),
   );
+
+  await registrar({
+    accion: "publicacion.armar",
+    entidad: "render",
+    entidadId: input.renderId,
+    resumen: `Armó la publicación de "${r.titulo ?? "video"}" para ${cuentas.length} cuenta(s)${input.programadaEn ? " (programada)" : ""}`,
+    meta: { cuentas: cuentas.length, programadaEn: input.programadaEn },
+  });
 
   revalidatePath("/renders");
   revalidatePath("/agenda");

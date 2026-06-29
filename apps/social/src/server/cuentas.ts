@@ -4,6 +4,8 @@ import { clientes, db, socialAccounts } from "@scrapify/db";
 import { asc, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
+import { registrar } from "@/lib/auditoria";
+
 export type Plataforma = "instagram" | "facebook" | "tiktok";
 export type EstadoCuenta = "conectada" | "desconectada" | "error";
 
@@ -55,6 +57,11 @@ export async function agregarCuenta(
     nombre: n,
     estado: "desconectada",
   });
+  await registrar({
+    accion: "cuenta.agregar",
+    entidad: "cuenta",
+    resumen: `Agregó la cuenta @${n} (${plataforma})`,
+  });
   revalidatePath("/cuentas");
 }
 
@@ -71,6 +78,17 @@ export async function toggleCuentaConexion(id: string, conectar: boolean) {
 }
 
 export async function eliminarCuenta(id: string) {
+  const [acc] = await db
+    .select({ nombre: socialAccounts.nombre, plataforma: socialAccounts.plataforma })
+    .from(socialAccounts)
+    .where(eq(socialAccounts.id, id))
+    .limit(1);
   await db.delete(socialAccounts).where(eq(socialAccounts.id, id));
+  await registrar({
+    accion: "cuenta.eliminar",
+    entidad: "cuenta",
+    entidadId: id,
+    resumen: `Eliminó la cuenta @${acc?.nombre ?? id} (${acc?.plataforma ?? "—"})`,
+  });
   revalidatePath("/cuentas");
 }

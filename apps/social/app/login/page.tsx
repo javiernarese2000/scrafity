@@ -6,6 +6,7 @@ import { useState } from "react";
 
 import { RedIcon } from "@/components/icons/redes";
 import { createClient } from "@/lib/supabase/client";
+import { registrarLogin } from "@/server/auditoria";
 
 const REDES = [
   { p: "instagram" as const, n: "Instagram" },
@@ -107,6 +108,7 @@ export default function LoginPage() {
       setLoading(false);
       return;
     }
+    await registrarLogin().catch(() => {});
     router.push("/");
     router.refresh();
   }

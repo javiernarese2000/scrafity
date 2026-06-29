@@ -5,6 +5,8 @@ import { createClient } from "@supabase/supabase-js";
 import { desc, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
+import { registrar } from "@/lib/auditoria";
+
 function admin() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -47,7 +49,16 @@ export async function listarClientes(): Promise<ClienteRow[]> {
 export async function crearCliente(nombre: string, notas?: string) {
   const n = nombre.trim();
   if (!n) throw new Error("El nombre es obligatorio.");
-  await db.insert(clientes).values({ nombre: n, notas: notas?.trim() || null });
+  const [row] = await db
+    .insert(clientes)
+    .values({ nombre: n, notas: notas?.trim() || null })
+    .returning({ id: clientes.id });
+  await registrar({
+    accion: "cliente.crear",
+    entidad: "cliente",
+    entidadId: row?.id,
+    resumen: `Creó el cliente "${n}"`,
+  });
   revalidatePath("/clientes");
 }
 
@@ -58,6 +69,12 @@ export async function actualizarCliente(id: string, nombre: string, notas?: stri
     .update(clientes)
     .set({ nombre: n, notas: notas?.trim() || null, updatedAt: new Date() })
     .where(eq(clientes.id, id));
+  await registrar({
+    accion: "cliente.editar",
+    entidad: "cliente",
+    entidadId: id,
+    resumen: `Editó el cliente "${n}"`,
+  });
   revalidatePath("/clientes");
 }
 
@@ -74,6 +91,12 @@ export async function toggleClienteActivo(id: string, activo: boolean) {
  * y, en cascada, sus cuentas de redes y publicaciones. Irreversible.
  */
 export async function eliminarCliente(id: string) {
+  const [cli] = await db
+    .select({ nombre: clientes.nombre })
+    .from(clientes)
+    .where(eq(clientes.id, id))
+    .limit(1);
+
   // 1) Archivos de Storage de los renders del cliente (original, resultado, miniatura).
   const renders = await db
     .select({
@@ -108,6 +131,14 @@ export async function eliminarCliente(id: string) {
 
   // 3) Borrar el cliente → cascada de cuentas (social_accounts) y publicaciones.
   await db.delete(clientes).where(eq(clientes.id, id));
+
+  await registrar({
+    accion: "cliente.eliminar",
+    entidad: "cliente",
+    entidadId: id,
+    resumen: `Eliminó el cliente "${cli?.nombre ?? id}" y todo su contenido`,
+    meta: { renders: renders.length },
+  });
 
   revalidatePath("/clientes");
   revalidatePath("/renders");

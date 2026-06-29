@@ -576,8 +576,48 @@ Antes: bucket `videos` plano por tipo con nombres UUID (`sources/<uuid>`, `rende
   el gate por `area` que también está pendiente. El admin sembrado (narese@gmail.com) no tiene metadata
   rol/area todavía; se le puede setear editándolo desde la propia pantalla.
 
-### PENDIENTE inmediato
-1. Auto-publicación desde el Estudio (pre-crear social_publications al mandar a render si hay destinos).
+### Deploy a la nube (2026-06) — EN CURSO
+- **Rama `redes` pusheada a GitHub** (`github.com/javiernarese2000/scrafity`, 47 archivos, sin secretos:
+  `.env*` y `apps/worker/sample/` ignorados; verificado). `main` (Noticias en Railway) intacto.
+- **`DEPLOY.md`** (raíz) = runbook: 2 servicios Railway desde el mismo repo, rama `redes`.
+  - Worker: Root `apps/worker` (Dockerfile). Vars: DATABASE_URL(pooler), NEXT_PUBLIC_SUPABASE_URL,
+    SUPABASE_SERVICE_ROLE_KEY, DISPATCH_URL(=panel/api/cron/despachar?key=CRON_SECRET).
+  - Panel: Root = raíz repo. Build `pnpm install --frozen-lockfile && pnpm --filter @scrapify/social build`,
+    Start `pnpm --filter @scrapify/social start`. Vars: NEXT_PUBLIC_SUPABASE_URL/ANON_KEY,
+    SUPABASE_SERVICE_ROLE_KEY, DATABASE_URL, ENCRYPTION_KEY, META_APP_ID/SECRET, META_REDIRECT_URI,
+    CRON_SECRET.
+  - Para el TEST: reusar el Supabase DEV (free); pasar a Pro en producción real.
+- **Falta (lo hace el usuario en Railway/Meta)**: resetear App Secret de Meta, crear los 2 servicios,
+  pegar vars (valores del `.env` local), setear redirect URI de prod + reconectar Meta, completar
+  DISPATCH_URL. App Review de Meta = para clientes reales (después).
+
+### Gate de roles — Usuarios solo-admin (2026-06) — HECHO
+- `src/lib/roles.ts`: `rolDeUsuario`/`esAdmin`. Regla: **admin salvo `user_metadata.rol === "moderador"`**
+  (evita lockout de usuarios viejos sin metadata; los moderadores creados a propósito sí quedan limitados).
+- `nav.ts`: NavItem con `adminOnly`; Usuarios marcado adminOnly. `sidebar.tsx` filtra (`isAdmin` prop).
+  `app-shell.tsx` recibe `isAdmin` y lo pasa a los dos sidebars. `layout.tsx` (ahora async) hace
+  `getUser()` → `esAdmin` → AppShell. `/usuarios/page.tsx` **redirige a `/` si no es admin** (gate real,
+  no solo ocultar el menú). `listarUsuarios` también default missing→admin para que el badge sea consistente.
+- Nuevos usuarios se crean como **moderador** por defecto (no ven Usuarios). El admin se setea explícito.
+- PENDIENTE relacionado: gate por `area` (que un user de "solo redes" no vea cosas de noticias y viceversa)
+  cuando se unifique; y un **panel de logs/auditoría** solo-admin (PROPUESTO, ver abajo).
+
+### Panel de Auditoría / Logs (2026-06) — HECHO
+- Tabla **`social_audit_log`** (migración **0025**; OJO: ya existía `audit_log` de Noticias con otra
+  forma → la de Redes se llama `social_audit_log`). Campos: actorId/actorEmail/actorNombre (denormalizado),
+  accion (namespaced), entidad/entidadId, resumen, meta jsonb, resultado ok|error, error, createdAt + index.
+- `src/lib/auditoria.ts` `registrar(evento)`: nunca lanza; toma el actor de la sesión (createClient server
+  → getUser) o "Sistema" si no hay (worker/cron). `src/server/auditoria.ts`: `listarAuditoria` (últimos 500
+  desc) + `registrarLogin` (la llama el login).
+- **Instrumentado**: login (auth.login), render.crear (encolarRender), publicacion.armar (publicarRender),
+  publicacion.publicar ok/error (despachador publicarUna/falla — actor "Sistema" si lo despacha el worker),
+  cliente.crear/editar/eliminar, cuenta.agregar/conectar(Meta)/eliminar, usuario.crear/editar/eliminar.
+- Pantalla **/auditoria** (nav "Auditoría", icono ScrollText, **adminOnly** + gate server-side):
+  `components/auditoria/auditoria-board.tsx`. Timeline agrupado por día (Hoy/Ayer/fecha), ícono+color por
+  categoría (publicacion=verde, render=accent, cliente=warning, cuenta/auth=info, usuario=accent; error=rojo),
+  KPIs (acciones/publicaciones/errores/usuarios hoy), filtros (buscar, categoría, usuario, "solo errores"),
+  filas expandibles (cuándo exacto, acción, id, error, meta JSON), auto-refresh 15s, export CSV.
+
 2. Despachador: cron/worker que tome publicaciones `en_cola` con `programadaEn<=now` y publique (depende
    del OAuth Meta/TikTok — tarea externa del usuario).
 3. Reiniciar dev servers para el pooler. Limpiar renders de prueba con el botón Eliminar.

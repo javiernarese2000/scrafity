@@ -15,12 +15,15 @@ export function SidebarContent({
   onNavigate,
   collapsed = false,
   onToggle,
+  isAdmin = true,
 }: {
   onNavigate?: () => void;
   collapsed?: boolean;
   onToggle?: () => void;
+  isAdmin?: boolean;
 }) {
   const pathname = usePathname();
+  const items = navItems.filter((i) => !i.adminOnly || isAdmin);
 
   return (
     <div className="flex h-full flex-col">
@@ -39,7 +42,7 @@ export function SidebarContent({
       </div>
 
       <nav className="flex flex-1 flex-col gap-1 px-3 py-2">
-        {navItems.map((item) => {
+        {items.map((item) => {
           const active = isActive(pathname, item.href);
           const Icon = item.icon;
           return (

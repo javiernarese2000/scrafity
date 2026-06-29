@@ -1,9 +1,10 @@
 "use server";
 
-import { db, socialAccounts } from "@scrapify/db";
+import { clientes, db, socialAccounts } from "@scrapify/db";
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
+import { registrar } from "@/lib/auditoria";
 import { encrypt } from "@/lib/crypto";
 import type { MetaPage } from "@/lib/meta";
 import type { Plataforma } from "@/server/cuentas";
@@ -63,6 +64,20 @@ export async function conectarPaginas(
       ig++;
     }
   }
+
+  const [cli] = await db
+    .select({ nombre: clientes.nombre })
+    .from(clientes)
+    .where(eq(clientes.id, clienteId))
+    .limit(1);
+  await registrar({
+    accion: "cuenta.conectar",
+    entidad: "cliente",
+    entidadId: clienteId,
+    resumen: `Conectó Meta a "${cli?.nombre ?? clienteId}": ${fb} Página(s) y ${ig} IG`,
+    meta: { fb, ig },
+  });
+
   revalidatePath("/cuentas");
   return { fb, ig };
 }

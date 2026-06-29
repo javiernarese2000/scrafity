@@ -176,6 +176,13 @@
       "when": 1782699106768,
       "tag": "0024_serious_ultragirl",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1782741798185,
+      "tag": "0025_sharp_wiccan",
+      "breakpoints": true
     }
   ]
 }

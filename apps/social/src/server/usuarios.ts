@@ -3,6 +3,8 @@
 import { createClient } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
 
+import { registrar } from "@/lib/auditoria";
+
 export type Rol = "admin" | "moderador";
 export type Area = "noticias" | "redes" | "ambos";
 
@@ -74,6 +76,11 @@ export async function crearUsuario(input: {
     },
   });
   if (error) throw new Error(error.message);
+  await registrar({
+    accion: "usuario.crear",
+    entidad: "usuario",
+    resumen: `Creó el usuario ${email} (${input.rol}, ${input.area})`,
+  });
   revalidatePath("/usuarios");
 }
 
@@ -82,6 +89,7 @@ export async function actualizarUsuario(
   id: string,
   input: { nombre?: string; rol: Rol; area: Area },
 ): Promise<void> {
+  const { data: prev } = await admin().auth.admin.getUserById(id);
   const { error } = await admin().auth.admin.updateUserById(id, {
     user_metadata: {
       nombre: input.nombre?.trim() || null,
@@ -90,11 +98,24 @@ export async function actualizarUsuario(
     },
   });
   if (error) throw new Error(error.message);
+  await registrar({
+    accion: "usuario.editar",
+    entidad: "usuario",
+    entidadId: id,
+    resumen: `Editó al usuario ${prev.user?.email ?? id} → ${input.rol}, ${input.area}`,
+  });
   revalidatePath("/usuarios");
 }
 
 export async function eliminarUsuario(id: string): Promise<void> {
+  const { data: prev } = await admin().auth.admin.getUserById(id);
   const { error } = await admin().auth.admin.deleteUser(id);
   if (error) throw new Error(error.message);
+  await registrar({
+    accion: "usuario.eliminar",
+    entidad: "usuario",
+    entidadId: id,
+    resumen: `Eliminó el acceso de ${prev.user?.email ?? id}`,
+  });
   revalidatePath("/usuarios");
 }

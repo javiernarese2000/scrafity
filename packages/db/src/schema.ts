@@ -2,6 +2,7 @@ import { relations, sql } from "drizzle-orm";
 import {
   bigint,
   boolean,
+  index,
   integer,
   jsonb,
   numeric,
@@ -279,6 +280,36 @@ export const socialPublications = pgTable("social_publications", {
   publicadaEn: timestamp("publicada_en", { withTimezone: true }),
   ...timestamps,
 });
+
+/**
+ * Bitácora de auditoría (solo-admin). Inmutable: solo se inserta. El actor se
+ * guarda denormalizado (email/nombre) para que el registro siga siendo legible
+ * aunque el usuario o la entidad se borren después. Sin FKs por la misma razón.
+ */
+export const socialAuditLog = pgTable(
+  "social_audit_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    // Actor: persona (id+email) o "Sistema" (worker/cron) si no hay sesión.
+    actorId: uuid("actor_id"),
+    actorEmail: text("actor_email"),
+    actorNombre: text("actor_nombre"),
+    // Acción namespaced: "publicacion.publicar", "cliente.eliminar", "auth.login", …
+    accion: text("accion").notNull(),
+    entidad: text("entidad"), // "cliente" | "publicacion" | "cuenta" | "render" | "usuario"
+    entidadId: text("entidad_id"),
+    // Texto legible para el feed.
+    resumen: text("resumen").notNull(),
+    // Detalle estructurado (antes→después, plataforma, url, etc.).
+    meta: jsonb("meta").$type<Record<string, unknown>>(),
+    resultado: text("resultado").notNull().default("ok"), // ok | error
+    error: text("error"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("social_audit_log_created_idx").on(t.createdAt)],
+);
 
 export const publications = pgTable(
   "publications",

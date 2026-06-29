@@ -12,6 +12,8 @@ import {
 
 import { AppShell } from "@/components/shell/app-shell";
 import { ThemeScript } from "@/components/theme/theme-script";
+import { esAdmin } from "@/lib/roles";
+import { createClient } from "@/lib/supabase/server";
 import "./globals.css";
 
 const fraunces = Fraunces({
@@ -66,11 +68,17 @@ export const metadata: Metadata = {
   description: "Estudio de video y publicación en redes sociales",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const sb = await createClient();
+  const {
+    data: { user },
+  } = await sb.auth.getUser();
+  const isAdmin = esAdmin(user);
+
   return (
     <html
       lang="es"
@@ -81,7 +89,7 @@ export default function RootLayout({
         <ThemeScript />
       </head>
       <body>
-        <AppShell>{children}</AppShell>
+        <AppShell isAdmin={isAdmin}>{children}</AppShell>
       </body>
     </html>
   );

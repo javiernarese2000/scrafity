@@ -5,6 +5,7 @@ import {
   Film,
   LayoutDashboard,
   Megaphone,
+  ScrollText,
   Send,
   UserCog,
   Users,
@@ -15,6 +16,7 @@ export type NavItem = {
   href: string;
   label: string;
   icon: LucideIcon;
+  adminOnly?: boolean;
 };
 
 export const navItems: NavItem[] = [
@@ -26,7 +28,8 @@ export const navItems: NavItem[] = [
   { href: "/clientes", label: "Clientes", icon: Users },
   { href: "/cuentas", label: "Cuentas", icon: AtSign },
   { href: "/publicaciones", label: "Publicaciones", icon: Send },
-  { href: "/usuarios", label: "Usuarios", icon: UserCog },
+  { href: "/usuarios", label: "Usuarios", icon: UserCog, adminOnly: true },
+  { href: "/auditoria", label: "Auditoría", icon: ScrollText, adminOnly: true },
 ];
 
 export function titleForPath(pathname: string): string {
