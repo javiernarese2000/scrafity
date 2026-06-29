@@ -24,45 +24,46 @@ export function TipsCard() {
   }, []);
 
   return (
-    <div className="relative overflow-hidden rounded-[var(--radius-lg)] border border-accent/25 bg-accent/[0.06] p-5 shadow-soft">
-      <div className="flex items-start gap-3">
+    <div className="flex h-full flex-col overflow-hidden rounded-[var(--radius-lg)] border border-accent/25 bg-accent/[0.06] p-5 shadow-soft">
+      <div className="flex items-center gap-2.5">
         <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-accent/15 text-accent">
           <Lightbulb className="size-5" />
         </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-xs font-medium uppercase tracking-widest text-accent">
-            Tip
-          </p>
-          <div className="mt-1 min-h-[2.75rem]">
-            <AnimatePresence mode="wait">
-              <motion.p
-                key={i}
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }}
-                transition={{ duration: 0.35 }}
-                className="text-sm leading-relaxed text-fg"
-              >
-                {TIPS[i]}
-              </motion.p>
-            </AnimatePresence>
-          </div>
-          {/* Puntitos de progreso */}
-          <div className="mt-3 flex gap-1.5">
-            {TIPS.map((_, idx) => (
-              <button
-                key={idx}
-                type="button"
-                aria-label={`Tip ${idx + 1}`}
-                onClick={() => setI(idx)}
-                className={
-                  "h-1.5 rounded-full transition-all " +
-                  (idx === i ? "w-5 bg-accent" : "w-1.5 bg-accent/25 hover:bg-accent/50")
-                }
-              />
-            ))}
-          </div>
-        </div>
+        <p className="text-xs font-medium uppercase tracking-widest text-accent">
+          Tip
+        </p>
+      </div>
+
+      {/* El tip queda centrado verticalmente y ocupa el alto disponible */}
+      <div className="flex flex-1 items-center py-4">
+        <AnimatePresence mode="wait">
+          <motion.p
+            key={i}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.35 }}
+            className="text-sm leading-relaxed text-fg"
+          >
+            {TIPS[i]}
+          </motion.p>
+        </AnimatePresence>
+      </div>
+
+      {/* Puntitos de progreso, anclados abajo */}
+      <div className="flex gap-1.5">
+        {TIPS.map((_, idx) => (
+          <button
+            key={idx}
+            type="button"
+            aria-label={`Tip ${idx + 1}`}
+            onClick={() => setI(idx)}
+            className={
+              "h-1.5 rounded-full transition-all " +
+              (idx === i ? "w-5 bg-accent" : "w-1.5 bg-accent/25 hover:bg-accent/50")
+            }
+          />
+        ))}
       </div>
     </div>
   );
