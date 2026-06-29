@@ -657,3 +657,21 @@ Antes: bucket `videos` plano por tipo con nombres UUID (`sources/<uuid>`, `rende
   gradiente (oro/plata/bronce) + llama, **barras de volumen que crecen**, **count-up** del número de
   búsquedas, noticia relacionada (fuente+titular linkeado), miniatura, CTA "Crear video"→/estudio.
   Selector de región (chips con bandera), badge "en vivo", botón Actualizar.
+
+### Conexión + publicación a TikTok (2026-06) — HECHO (código)
+- Credenciales en `.env`: TIKTOK_CLIENT_KEY/SECRET + TIKTOK_REDIRECT_URI (=Railway, no localhost — TikTok
+  exige URL registrada; se conecta desde el panel deployado). El usuario debe agregarlas a Railway.
+- `src/lib/tiktok.ts`: authUrl (Login Kit v2), exchangeCode/refreshToken (`/v2/oauth/token/`), getUserInfo,
+  **subirVideoTikTok** (Content Posting API, scope `video.upload` → inbox/BORRADORES, FILE_UPLOAD un chunk
+  ≤64MB; PULL_FROM_URL no se usa porque requiere verificar dominio). Tipo TikTokCreds {a,r,exp}.
+- `src/server/tiktok.ts` `conectarTikTok` (upsert social_accounts plataforma=tiktok, externalId=open_id,
+  tokens access+refresh cifrados como JSON). `api/tiktok/login`+`callback` (state+cookie CSRF, igual que Meta).
+- Despachador `publicarUna`: rama tiktok → `accesoTikTok` (refresca+persiste si el access venció ~24h) →
+  `subirVideoTikTok`. Queda como "publicada" pero es **borrador** (urlPublicada=null); el usuario finaliza
+  en la app de TikTok. El caption NO va (lo pone la persona en la app, limitación de video.upload).
+- UI: botón **"TikTok"** (negro) en /cuentas + toast `?tt=ok|error`. Botón Meta renombrado a "Meta".
+- **Páginas legales** públicas `/terms` y `/privacy` (LegalPage, sin login/shell; proxy las deja pasar) →
+  para los formularios de Meta/TikTok. URLs: zoocial.up.railway.app/terms y /privacy.
+- **PENDIENTE usuario**: (1) agregar las 3 vars TikTok a Railway + Deploy; (2) en la app TikTok: Login Kit
+  Configure for Web + redirect URI, y **agregar su cuenta como Target User (sandbox)** para autorizar la app
+  sin auditar; (3) la **auditoría** de TikTok para publicar PÚBLICO (Direct Post) — hasta entonces, borradores.

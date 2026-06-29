@@ -42,6 +42,11 @@ export async function proxy(request: NextRequest) {
     return response;
   }
 
+  // Archivos de verificación de dominio (TikTok/Meta) en la raíz, ej. tiktokXXX.txt.
+  if (path.endsWith(".txt")) {
+    return response;
+  }
+
   if (!user && path !== "/login") {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
