@@ -162,6 +162,20 @@
       "when": 1782557254637,
       "tag": "0022_motionless_baron_zemo",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1782669117189,
+      "tag": "0023_exotic_the_leader",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1782699106768,
+      "tag": "0024_serious_ultragirl",
+      "breakpoints": true
     }
   ]
 }

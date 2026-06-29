@@ -13,12 +13,43 @@ function admin() {
   );
 }
 
-/** URL firmada para que el navegador suba el video directo a Storage. */
-export async function prepararSubida(
-  ext: string,
-): Promise<{ path: string; token: string }> {
-  const limpia = ext.replace(/[^a-z0-9]/gi, "").slice(0, 5) || "mp4";
-  const path = `sources/${crypto.randomUUID()}.${limpia}`;
+/** Slug seguro para nombres de archivo / carpetas (sin acentos ni símbolos). */
+function slug(s: string): string {
+  return (s || "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40);
+}
+
+/**
+ * URL firmada para subir el video directo a Storage. Los archivos se organizan
+ * por cliente y mes con nombres legibles:
+ *   <cliente-slug>--<id8>/<YYYY-MM>/src/<titulo-slug>-<rnd6>.<ext>
+ * El worker deja el resultado y la miniatura en esa misma carpeta (out/ y thumb/).
+ */
+export async function prepararSubida(input: {
+  ext: string;
+  clienteId: string | null;
+  titulo?: string;
+}): Promise<{ path: string; token: string }> {
+  const ext = input.ext.replace(/[^a-z0-9]/gi, "").slice(0, 5) || "mp4";
+
+  let carpeta = "sin-cliente";
+  if (input.clienteId) {
+    const [c] = await db
+      .select({ nombre: clientes.nombre })
+      .from(clientes)
+      .where(eq(clientes.id, input.clienteId))
+      .limit(1);
+    carpeta = `${slug(c?.nombre ?? "") || "cliente"}--${input.clienteId.slice(0, 8)}`;
+  }
+  const mes = new Date().toISOString().slice(0, 7); // YYYY-MM
+  const nombre = `${slug(input.titulo ?? "") || "video"}-${crypto.randomUUID().slice(0, 6)}.${ext}`;
+  const path = `${carpeta}/${mes}/src/${nombre}`;
+
   const { data, error } = await admin()
     .storage.from("videos")
     .createSignedUploadUrl(path);
@@ -105,6 +136,7 @@ export type RenderRow = {
   thumbnailUrl: string | null;
   duracionSeg: number | null;
   error: string | null;
+  sourceEliminado: boolean;
   createdAt: string;
 };
 
@@ -121,6 +153,7 @@ export async function listarRenders(): Promise<RenderRow[]> {
       thumbnailUrl: videoRenders.thumbnailUrl,
       duracionSeg: videoRenders.duracionSeg,
       error: videoRenders.error,
+      sourceEliminado: videoRenders.sourceEliminado,
       createdAt: videoRenders.createdAt,
     })
     .from(videoRenders)

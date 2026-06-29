@@ -35,3 +35,9 @@ export async function subir(
 export function urlPublica(path: string): string {
   return supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
 }
+
+/** Borra un archivo del bucket (idempotente: no falla si ya no está). */
+export async function borrar(path: string): Promise<void> {
+  const { error } = await supabase.storage.from(BUCKET).remove([path]);
+  if (error) throw new Error(`No se pudo borrar ${path}: ${error.message}`);
+}

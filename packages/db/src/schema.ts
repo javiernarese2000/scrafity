@@ -61,6 +61,7 @@ export const socialAccountStatus = pgEnum("social_account_status", [
 export const socialPublicationStatus = pgEnum("social_publication_status", [
   "pendiente",
   "en_cola",
+  "publicando",
   "publicada",
   "error",
 ]);
@@ -328,6 +329,8 @@ export const videoRenders = pgTable("video_renders", {
   config: jsonb("config").$type<Record<string, unknown>>().notNull(),
   // Ruta en Storage del video original subido y del resultado.
   sourcePath: text("source_path").notNull(),
+  // El original se borra a los 14 días (retención); el resultado queda.
+  sourceEliminado: boolean("source_eliminado").notNull().default(false),
   outputPath: text("output_path"),
   outputUrl: text("output_url"),
   // Miniatura (un frame del resultado) para el panel de renders.

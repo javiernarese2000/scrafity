@@ -374,6 +374,208 @@ Publicaciones ✅. Dev server en :5556. Todo en rama `redes`, prod intacto.
   `docker restart zoo-worker` NO recarga `worker.env` (mantiene el env del `docker run`); para cambiarlo hay
   que recrear el contenedor.
 
+### Sección "Componer" — compositor de publicaciones (2026-06) — HECHO (UI)
+- Nueva pantalla **/componer** (nav "Componer", icono Megaphone, entre Renders y Agenda): editor a
+  pantalla completa (agregado a `isEditor` en `app-shell`, igual que el Estudio).
+- **3 paneles**: (izq) rail de **videos listos** (renders `estado='listo'` con `outputUrl`, miniatura,
+  seleccionable); (centro) **escenario oscuro con teléfono** que **emula la publicación** según la red,
+  con segmented control TikTok/Reel/Feed; (der) inspector: Cliente (fijo si el render trae cliente, si no
+  selector), **Cuentas destino** (chips con RedIcon + punto verde/ámbar conectada/sin conectar, contador
+  "listas"), **caption** con **EmojiPicker** propio (popover por categorías, inserta en el cursor del
+  textarea) + contador con límite por red (min entre redes seleccionadas: IG/TikTok 2200, FB 5000),
+  Cuándo (Ahora/Programar datetime-local), CTA fija.
+- **Phone preview** (`components/componer/phone-preview.tsx`): 3 skins fieles — TikTok (rail de acciones,
+  disco girando, "Para ti"), Instagram Reel (rail IG, "Reels", botón Seguir), Facebook Feed (card con
+  header avatar+Globe, texto arriba, video cuadrado, barra Me gusta/Comentar/Compartir). `<video>`
+  real (muted/loop/autoplay) del render elegido + caption en vivo. Frame de teléfono con notch.
+- **Reusa `publicarRender`** (server/render.ts) tal cual → crea `social_publications` `en_cola` por
+  cuenta (ahora o programadaEn). No hizo falta server action nueva. Aparecen en Agenda y Publicaciones.
+- Archivos: `app/componer/page.tsx` (carga clientes con cuentas + renders listos), `componer-board.tsx`,
+  `phone-preview.tsx`, `emoji-picker.tsx`. Build + typecheck OK.
+- El envío real a las redes sigue esperando OAuth Meta/TikTok (banner lo aclara).
+
+### Mejoras Renders + Estudio (2026-06) — HECHO
+- **Renders** (`renders-board.tsx`): (1) la **miniatura es clickeable** → abre un modal con el
+  **video** (`<video controls autoPlay>`) + descarga; hover muestra botón play. (2) **Eliminar ahora
+  pide confirmación** ("¿Eliminar este contenido?") en vez de borrar directo — modal propio con
+  Cancelar/Eliminar (estados `preview`/`confirmDel`). La miniatura ya existía (worker la genera).
+- **Estudio — Marco / margen del video**: nuevo grupo "Marco / margen" (icono Frame) en el rail
+  izquierdo. Estado `margen` (0–35% inset uniforme) + `margenColor`. Achica el video y lo enmarca
+  con un color para que el contenido quede dentro de la zona segura. Preview: el `<video>` pasa a
+  `object-contain` con `inset:margen%` y el frame toma `backgroundColor=margenColor`; logo/zócalo/
+  guías quedan full-frame (igual que el render). Se guarda en `ConfigEstudio` (margen, margenColor) →
+  plantillas.
+- **Worker** (`apps/worker/src/render.ts`): `renderFromConfig` replica el margen — si `margen>0`,
+  arma `color=c=<hex>:s=WxH[bg]` + `scale=iw:ih:force_original_aspect_ratio=decrease` (sin recortar) +
+  `overlay=(W-w)/2:(H-h)/2:shortest=1`, y el overlay PNG queda full-frame. Helpers `even()` y
+  `ffColor()` (#rrggbb→0xrrggbb). `queue.ts` pasa `job.config` crudo, así que los campos nuevos llegan.
+- **OJO deploy**: el contenedor `zoo-worker` corre la imagen vieja → para que el **render** aplique el
+  margen hay que **reconstruir la imagen del worker y recrear el contenedor**. El preview del Estudio
+  ya funciona sin rebuild.
+
+### Fix margen video + Margen del borde del zócalo (2026-06) — HECHO
+- **Bug del "Marco / margen" del video**: el shorthand `inset:${margen}%` no se expandía (el video
+  quedaba chico arriba-izquierda). Fix: longhands explícitos `top/left/right/bottom` en el style del
+  `<video>` (estudio-board). Ahora a 1% el video se achica centrado y enmarcado, correcto.
+- **NUEVO: "Margen del borde" del zócalo** (lo que el usuario realmente necesitaba): slider 0–40% en
+  el grupo Zócalo (se oculta si posición=centro). Separa el zócalo del borde para meterlo en la zona
+  segura de las guías. Estado `zocaloMargen` → `ConfigEstudio.zocaloMargen` (plantillas). El componente
+  `Zocalo` recibe `margenBorde` y usa `wrapStyle` (`bottom:${m}%` si abajo / `top:${m}%` si arriba)
+  mergeado en los 7 estilos de zócalo (antes era `bottom-0`/`top-0` fijo).
+- **Worker** (`overlay.ts`): el `wrap` del zócalo ahora usa `top:${mB}%`/`bottom:${mB}%` con
+  `mB=cfg.zocaloMargen` (% del alto), replicando el preview. Requiere rebuild del worker para el render.
+- **Fix degradado con margen** (2026-06): al levantar el degradado quedaba una **línea dura** abajo
+  (el borde sólido flotando). Solución: el estilo degradado (abajo/arriba) ahora es **2 capas** — el
+  gradiente queda **pegado al borde** (height `44+margen%`, se desvanece natural, sin línea) y el
+  **texto** se separa del borde por el margen. Centro queda igual (banda centrada). Aplicado en preview
+  (estudio-board) y worker (overlay.ts).
+
+### Organización de archivos en Storage + retención de originales (2026-06) — HECHO
+Antes: bucket `videos` plano por tipo con nombres UUID (`sources/<uuid>`, `renders/<jobId>`,
+`thumbs/<jobId>`); los originales (lo más pesado) nunca se borraban.
+- **(1) Paths por cliente/mes + nombres legibles**: `prepararSubida({ext, clienteId, titulo})`
+  (`apps/social/src/server/render.ts`) ahora arma
+  `<cliente-slug>--<id8>/<YYYY-MM>/src/<titulo-slug>-<rnd6>.<ext>` (carpeta `sin-cliente` si no hay
+  cliente). El **worker** (`queue.ts`) deriva el resultado/miniatura de la carpeta del source:
+  `<carpeta>/out/<titulo>-<id6>.mp4` y `<carpeta>/thumb/<...>.jpg`. Si el source es viejo (esquema
+  plano) cae al `renders/<id>.mp4` de antes. Helper `slug/slugify` en web y worker (sin deps).
+  Estudio pasa `clienteId` + `titulo` a `prepararSubida`.
+- **(2) Retención de originales (TTL 14d)**: columna **`video_renders.source_eliminado`** (bool,
+  migración **0023**). Worker: `retencion.ts` `iniciarRetencion()` (loop cada 6h, 1ª pasada a los 30s)
+  borra de Storage los `source_path` de renders en estado terminal (listo/error/cancelado) con
+  >14 días y marca `source_eliminado=true`. `db.ts`: `sourcesParaLimpiar(dias)` (usa
+  `make_interval(days=>)`) + `marcarSourceEliminado`. `storage.ts`: `borrar(path)`. Arrancado en
+  `server.ts`. El **resultado y la miniatura quedan**; solo se borra el original.
+- UI: `listarRenders` expone `sourceEliminado`; en `renders-board`, si el original se borró, en
+  error/cancelado se muestra "original borrado" en vez de **Reintentar** (reintentar necesita el source).
+- **DECISIÓN pendiente del usuario**: en vez de solo borrar, guardar una **copia liviana** del original
+  (baja resolución) — a definir después.
+- **OJO deploy**: los paths nuevos del **source** ya aplican (los arma la app social). La derivación
+  del **output/thumb** y la **retención** son código del worker → requieren **rebuild de `zoo-worker`**.
+  La migración 0023 ya está aplicada a dev.
+
+### Conexión con Meta (OAuth) — Fase 1 HECHA (2026-06)
+- **App de Meta del usuario** creada (developers.facebook.com, tipo Business). Credenciales en `.env`:
+  `META_APP_ID`, `META_APP_SECRET`, `META_REDIRECT_URI=http://localhost:5556/api/meta/callback`.
+  (El App Secret se pegó en el chat → **recordar resetearlo** al terminar las pruebas.)
+- **Flujo OAuth (server-side)**: `src/lib/meta.ts` (authUrl, exchangeCode, longLivedToken `fb_exchange_token`,
+  listPagesWithIg vía `/me/accounts?fields=name,access_token,instagram_business_account{id,username}`,
+  Graph v21.0, SCOPES = pages_show_list/read_engagement/manage_posts + instagram_basic/content_publish +
+  business_management). `app/api/meta/login/route.ts` (arranca con `?cliente=<id>`, state=base64{c,n} +
+  cookie `meta_oauth` para CSRF). `app/api/meta/callback/route.ts` (verifica state, code→token corto→
+  largo→Páginas, `conectarPaginas`, redirige a `/cuentas?meta=ok&fb=&ig=` o `&error&msg=`).
+- **`src/server/meta.ts` `conectarPaginas`**: por cada Página hace upsert de una cuenta `facebook`
+  (externalId=pageId, token cifrado) y, si tiene IG vinculado, una `instagram` (externalId=igUserId,
+  MISMO token de Página). Idempotente por cliente+plataforma+externalId. `src/lib/crypto.ts` copiado de
+  Noticias (AES-256-GCM, ENCRYPTION_KEY).
+- **UI** (`cuentas-board.tsx`): botón **"Conectar con Meta"** (azul FB) por cliente → `<a>` a
+  `/api/meta/login?cliente=<id>` (navegación real, no router). Toast del resultado leyendo
+  `?meta=` de la URL + `router.refresh()`. Banner actualizado.
+- **Modo desarrollo**: como el usuario es admin de la app, los permisos avanzados se otorgan **sin App
+  Review** para sus propias Páginas/IG. Local sin HTTPS funciona (Meta exime `localhost`).
+- **Prerrequisitos del usuario a verificar**: IG debe ser **Profesional (Business/Creator) vinculada a
+  una Página de FB** (estaba "no seguro" → el propio flujo lo revela: si no hay `ig`, conecta solo FB).
+- Dev server reiniciado para tomar el `.env` nuevo (las vars se cargan al arrancar).
+- **RESULTADO de la 1ª prueba (2026-06)**: conectó la **Página de FB "Zoocial"** ✅ (valida OAuth +
+  token + cifrado end-to-end). NO apareció IG porque el usuario **todavía no tiene cuenta de IG** — la
+  está creando y la va a vincular a la Página (después reconecta y aparece).
+
+### Publicación real a Meta — Fase 2 HECHA (2026-06)
+- **`src/lib/meta.ts`** sumó: `publicarVideoFacebook({pageId,token,videoUrl,caption})` → `POST
+  /{pageId}/videos` con `file_url` (Meta baja el MP4 público) + `description`; `publicarReelInstagram(
+  {igUserId,token,videoUrl,caption})` → `POST /media` (media_type=REELS) → **poll** `status_code` hasta
+  FINISHED (hasta ~90s) → `POST /media_publish` → permalink best-effort. Helper `postJson` + `sleep`.
+- **`src/server/despachador.ts`**: `publicarUna(pubId)` (carga la social_publication + su cuenta,
+  descifra el token, publica según plataforma, marca `publicada` con url/externalId o `error`;
+  idempotente si ya está publicada); `despachar()` (toma `en_cola` con `programadaEn<=now`, publica
+  hasta 20); `publicarYa(pubId)` (botón). TikTok devuelve error "todavía no".
+- **`app/api/cron/despachar/route.ts`** (GET → `despachar`): para un cron externo en prod; con
+  `CRON_SECRET` pide `?key=`, en dev queda abierto.
+- **UI** `publicaciones-board.tsx`: botón **"Despachar pendientes (N)"** en el header + por fila
+  **"Publicar ahora"** (en_cola) / **"Reintentar"** (error) + Toast.
+- El video sale del render (`social_publications.videoUrl` = output público del worker). El bucket
+  `videos` es público en dev → Meta puede bajarlo.
+- **PENDIENTE Fase 2**: despacho automático real (hoy es manual/botón o cron externo; falta cron en
+  prod), refresh de tokens largos (~60d), y TikTok.
+
+### WORKER RECONSTRUIDO (2026-06) — todos los cambios pendientes ya están vivos
+- Se reconstruyó la imagen `scrapify-worker` y se recreó el contenedor `zoo-worker`
+  (`--restart unless-stopped --env-file sample/worker.env`, sin puertos). Logs confirman:
+  "cola de render iniciada" + "retención de originales activa (TTL 14d)" + "escuchando en :8080".
+- Con esto quedaron **activos en el render**: margen del zócalo (`zocaloMargen`), fix del degradado
+  (2 capas), marco/margen del video, paths nuevos por cliente/mes + nombres legibles, y la retención
+  de originales. (Antes el contenedor corría imagen vieja → el render no reflejaba el preview.)
+- **Síntoma que lo disparó**: zócalo con margen del borde 16% se veía bien en el preview pero **abajo
+  en el render** → era la imagen vieja del worker.
+- Comandos de rebuild (para repetir): `docker build -t scrapify-worker apps/worker` →
+  `docker stop/rm zoo-worker` → `docker run -d --name zoo-worker --restart unless-stopped
+  --env-file sample/worker.env scrapify-worker`. (Capas pesadas —ffmpeg/npm/Chromium— quedan cacheadas;
+  solo recompila `src`, ~20s.)
+- **Fix Server Actions (2026-06)**: `apps/social/next.config.ts` → `experimental.serverActions.
+  bodySizeLimit: "8mb"` (el render manda la config con el logo embebido como data URL; 1 MB se quedaba
+  corto). Requirió reiniciar el dev server. Mejora futura opcional: achicar el logo en el cliente.
+
+### PUBLICACIÓN REAL VERIFICADA end-to-end (2026-06) ✅
+- Se publicó un mismo video a **Facebook (Página Zoocial)** y a **Instagram (Reel)** con éxito, sin
+  errores. URLs reales: FB `facebook.com/2196235624547222`, IG `instagram.com/reel/DaJgBp2Dyxt/`.
+  Confirma OAuth + token + cifrado + `publicarVideoFacebook` + `publicarReelInstagram` (container→poll
+  FINISHED→publish) de punta a punta. El IG del usuario quedó bien configurado (Reel publicado).
+- **Causa del "no las veo"**: las publicaciones quedaban en **`en_cola`** y **nunca se despachaban**
+  (no hay despacho automático corriendo). Se dispararon con `GET /api/cron/despachar` → `{publicadas:2}`.
+- **`proxy.ts`**: ahora deja pasar `/api/cron/*` sin sesión (lo llama un cron externo; se protege con
+  CRON_SECRET). El resto sigue detrás del login.
+- **Producción**: el auto-despacho ya está listo a nivel código (endpoint `/api/cron/despachar`); solo
+  falta **configurar un cron** que lo pegue cada 1 min al deployar.
+- **Auto-despacho — HECHO (2026-06)**: dos mecanismos.
+  1. **En el panel**: toggle "Auto ON/OFF" en /publicaciones (setInterval 60s → `despachar()`, persistido
+     en localStorage). Sirve sólo con el panel abierto.
+  2. **24/7 sin navegador (el bueno)**: el **worker** (siempre on) le pega cada 60s al endpoint
+     `/api/cron/despachar`. `apps/worker/src/despacho.ts` `iniciarDespacho()` (lee `DISPATCH_URL`,
+     guard `corriendo`, 1ª pasada a los 15s) arrancado en server.ts. `worker.env` →
+     `DISPATCH_URL=http://host.docker.internal:5556/api/cron/despachar` (dev). **Verificado**: el
+     contenedor alcanza el panel del host (`{"publicadas":0}`). En prod = URL pública del panel + `?key=CRON_SECRET`.
+- **Doble-publicación evitada (claim atómico)**: con dos despachadores (worker + panel) había riesgo de
+  publicar 2 veces el mismo ítem (sobre todo IG, que tarda ~90s). Fix: enum `social_publication_status`
+  suma **`publicando`** (migración **0024**, BEFORE 'publicada'). `publicarUna` ahora hace un UPDATE
+  atómico a `publicando` WHERE estado IN (en_cola,error,pendiente) RETURNING; si no devuelve fila, otro
+  ya lo tomó → no repite. Tipo `EstadoPub` + board (badge "Publicando…" warning) + dashboard actualizados.
+- **CAUSA del "no se dispararon"**: el toggle del panel sólo corre con el navegador abierto y estaba
+  OFF/cerrado. Ahora el worker lo hace solo. **OJO dev**: el worker pega al **Next dev server** (debe
+  estar corriendo). Edge conocido: un ítem que quede en `publicando` por crash del worker no se
+  reintenta solo (recuperación pendiente si pasa).
+
+### Confirmaciones lindas + borrado en cascada del cliente (2026-06) — HECHO
+- Se reemplazaron TODOS los `window.confirm` del panel por modales del design system (`Modal` +
+  Button `variant="danger"`): **Clientes** (clientes-board) y **Cuentas** (cuentas-board). Renders ya
+  tenía su modal propio. No quedan alerts del navegador en apps/social.
+- **`eliminarCliente`** (server/clientes.ts) ahora borra **todo el contenido del cliente**: junta los
+  archivos de Storage de sus renders (sourcePath, outputPath, thumb derivado de thumbnailUrl con
+  `pathDeUrl`), los borra del bucket `videos` (service role, en lotes de 100, best-effort), borra las
+  filas `video_renders` (su FK era set null) y borra el cliente → cascada de `social_accounts` y
+  `social_publications`. Irreversible; el modal lo advierte. revalida /clientes /renders /publicaciones.
+
+### Estudio: Destino arriba + tipografía en dropdown (2026-06) — HECHO
+- **Destino movido al TOPE del inspector derecho** (antes estaba al fondo y quedaba oculto con scroll →
+  el usuario rendereó/publicó a un cliente equivocado sin querer). Va en un recuadro resaltado
+  (border-accent/bg-accent) para que no se pase por alto.
+- **Tipografía**: la grilla de 8 botones de fuente pasó a un **`<select>` nativo** ("Tipografía"). Se
+  usó select nativo (no popover custom) para que NO se corte dentro del rail con `overflow-y-auto`. El
+  trigger y las opciones muestran cada nombre en su propia fuente.
+
+### Módulo de Usuarios (2026-06) — HECHO
+- Pantalla **/usuarios** (nav "Usuarios", icono UserCog). Gestiona los **usuarios de Supabase Auth**
+  (los que pueden loguear), no la tabla `users`. `src/server/usuarios.ts` (admin API con service role):
+  `listarUsuarios` (auth.admin.listUsers, lee nombre/rol/area de `user_metadata`), `crearUsuario`
+  (createUser con `email_confirm:true` → entra sin verificar mail; pass ≥8), `actualizarUsuario`
+  (updateUserById metadata: nombre/rol/area), `eliminarUsuario` (deleteUser).
+- `components/usuarios/usuarios-board.tsx`: lista (avatar, nombre/email, último acceso, badges rol/área),
+  alta/edición en modal (email solo al crear, password texto plano para pasársela, rol admin|moderador,
+  área ambos|redes|noticias), borrado con modal de confirmación. Marca al usuario actual ("vos") y
+  **no deja auto-eliminarse**. rol/area se guardan en `user_metadata` (no en la tabla `users`).
+- **PENDIENTE**: gatear la página solo para `rol=admin` (hoy entra cualquier logueado) — va junto con
+  el gate por `area` que también está pendiente. El admin sembrado (narese@gmail.com) no tiene metadata
+  rol/area todavía; se le puede setear editándolo desde la propia pantalla.
+
 ### PENDIENTE inmediato
 1. Auto-publicación desde el Estudio (pre-crear social_publications al mandar a render si hay destinos).
 2. Despachador: cron/worker que tome publicaciones `en_cola` con `programadaEn<=now` y publique (depende

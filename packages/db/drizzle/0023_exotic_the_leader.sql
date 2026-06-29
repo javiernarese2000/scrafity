@@ -1,0 +1,1 @@
+ALTER TABLE "video_renders" ADD COLUMN "source_eliminado" boolean DEFAULT false NOT NULL;

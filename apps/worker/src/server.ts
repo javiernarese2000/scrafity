@@ -1,6 +1,8 @@
 import { createServer } from "node:http";
 
+import { iniciarDespacho } from "./despacho.js";
 import { iniciarCola } from "./queue.js";
+import { iniciarRetencion } from "./retencion.js";
 
 // Servicio del worker: expone /health y corre la cola de render.
 const port = Number(process.env.PORT ?? 8080);
@@ -18,3 +20,5 @@ createServer((req, res) => {
 });
 
 iniciarCola();
+iniciarRetencion();
+iniciarDespacho();

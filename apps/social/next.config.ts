@@ -11,6 +11,11 @@ try {
 
 const nextConfig: NextConfig = {
   transpilePackages: ["@scrapify/ui", "@scrapify/db"],
+  experimental: {
+    // El render manda la config con el logo embebido (data URL); el límite de
+    // 1 MB por defecto se queda corto con logos grandes.
+    serverActions: { bodySizeLimit: "8mb" },
+  },
 };
 
 export default nextConfig;

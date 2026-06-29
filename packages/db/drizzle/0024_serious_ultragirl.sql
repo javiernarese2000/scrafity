@@ -1,0 +1,1 @@
+ALTER TYPE "public"."social_publication_status" ADD VALUE 'publicando' BEFORE 'publicada';

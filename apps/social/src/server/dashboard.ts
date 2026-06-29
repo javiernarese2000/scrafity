@@ -60,6 +60,7 @@ export async function getResumenRedes(): Promise<ResumenRedes> {
   const porEstado: Record<EstadoPub, number> = {
     pendiente: 0,
     en_cola: 0,
+    publicando: 0,
     publicada: 0,
     error: 0,
   };

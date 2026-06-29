@@ -91,6 +91,8 @@ export function RendersBoard({
   const { message, show } = useToast();
   const [rows, setRows] = useState<RenderRow[]>(inicial);
   const [publicar, setPublicar] = useState<RenderRow | null>(null);
+  const [preview, setPreview] = useState<RenderRow | null>(null);
+  const [confirmDel, setConfirmDel] = useState<RenderRow | null>(null);
   const [, startTransition] = useTransition();
 
   async function refrescar() {
@@ -150,19 +152,44 @@ export function RendersBoard({
                 key={r.id}
                 className="flex items-center gap-3 rounded-[var(--radius-lg)] border border-line/70 bg-surface p-3 shadow-soft"
               >
-                {/* Miniatura */}
-                <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-lg bg-elevated">
-                  {r.thumbnailUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={r.thumbnailUrl}
-                      alt=""
-                      className="size-full object-cover"
-                    />
-                  ) : (
-                    <Film className="size-5 text-muted" />
-                  )}
-                </div>
+                {/* Miniatura (clic = ver el video si está listo) */}
+                {r.outputUrl ? (
+                  <button
+                    type="button"
+                    onClick={() => setPreview(r)}
+                    title="Ver video"
+                    className="group relative grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-lg bg-elevated"
+                  >
+                    {r.thumbnailUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={r.thumbnailUrl}
+                        alt=""
+                        className="size-full object-cover transition-transform group-hover:scale-105"
+                      />
+                    ) : (
+                      <Film className="size-5 text-muted" />
+                    )}
+                    <span className="absolute inset-0 grid place-items-center bg-black/30 opacity-0 transition-opacity group-hover:opacity-100">
+                      <span className="grid size-7 place-items-center rounded-full bg-white/90 text-neutral-900">
+                        <Play className="size-3.5 translate-x-px" fill="currentColor" />
+                      </span>
+                    </span>
+                  </button>
+                ) : (
+                  <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-lg bg-elevated">
+                    {r.thumbnailUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={r.thumbnailUrl}
+                        alt=""
+                        className="size-full object-cover"
+                      />
+                    ) : (
+                      <Film className="size-5 text-muted" />
+                    )}
+                  </div>
+                )}
 
                 {/* Info */}
                 <div className="min-w-0 flex-1">
@@ -240,13 +267,22 @@ export function RendersBoard({
                           <Download className="size-4" />
                         </a>
                       )}
-                      <IconBtn icon={Trash2} title="Eliminar" danger onClick={() => accion(eliminarRender, r.id, "Eliminado")} />
+                      <IconBtn icon={Trash2} title="Eliminar" danger onClick={() => setConfirmDel(r)} />
                     </>
                   )}
                   {(r.estado === "error" || r.estado === "cancelado") && (
                     <>
-                      <IconBtn icon={RotateCcw} title="Reintentar" onClick={() => accion(reintentarRender, r.id, "Reencolado")} />
-                      <IconBtn icon={Trash2} title="Eliminar" danger onClick={() => accion(eliminarRender, r.id, "Eliminado")} />
+                      {r.sourceEliminado ? (
+                        <span
+                          title="El video original se borró (retención de 14 días). Volvé a subirlo desde el Estudio."
+                          className="hidden text-[11px] text-muted sm:block"
+                        >
+                          original borrado
+                        </span>
+                      ) : (
+                        <IconBtn icon={RotateCcw} title="Reintentar" onClick={() => accion(reintentarRender, r.id, "Reencolado")} />
+                      )}
+                      <IconBtn icon={Trash2} title="Eliminar" danger onClick={() => setConfirmDel(r)} />
                     </>
                   )}
                 </div>
@@ -270,6 +306,111 @@ export function RendersBoard({
             );
           }}
         />
+      )}
+
+      {/* Preview del video */}
+      {preview?.outputUrl && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          onClick={() => setPreview(null)}
+        >
+          <div
+            className="flex max-h-full w-full max-w-sm flex-col overflow-hidden rounded-[var(--radius-lg)] border border-line bg-surface shadow-float"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-3 border-b border-line/70 px-4 py-3">
+              <p className="min-w-0 truncate font-display text-sm font-medium text-fg">
+                {preview.titulo || "Sin título"}
+              </p>
+              <button
+                type="button"
+                onClick={() => setPreview(null)}
+                aria-label="Cerrar"
+                className="grid size-8 shrink-0 place-items-center rounded-lg text-muted hover:bg-elevated hover:text-fg"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+            <div className="grid place-items-center bg-black">
+              {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+              <video
+                src={preview.outputUrl}
+                controls
+                autoPlay
+                playsInline
+                className="max-h-[70vh] w-full object-contain"
+              />
+            </div>
+            <div className="flex items-center justify-between gap-2 border-t border-line/70 px-4 py-3">
+              <span className="text-xs text-muted">
+                {preview.clienteNombre ?? "—"}
+                {preview.duracionSeg ? ` · ${fmtDur(preview.duracionSeg)}` : ""}
+              </span>
+              <a
+                href={preview.outputUrl}
+                target="_blank"
+                rel="noreferrer"
+                download
+                className="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-muted hover:bg-elevated hover:text-fg"
+              >
+                <Download className="size-3.5" />
+                Descargar
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmación de borrado */}
+      {confirmDel && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setConfirmDel(null)}
+        >
+          <div
+            className="w-full max-w-sm rounded-[var(--radius-lg)] border border-line bg-surface p-5 shadow-float"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-3">
+              <span className="grid size-10 shrink-0 place-items-center rounded-full bg-danger/10 text-danger">
+                <Trash2 className="size-5" />
+              </span>
+              <div className="min-w-0">
+                <p className="font-display text-base font-medium text-fg">
+                  ¿Eliminar este contenido?
+                </p>
+                <p className="mt-1 text-sm text-muted">
+                  Vas a borrar{" "}
+                  <span className="font-medium text-fg">
+                    {confirmDel.titulo || "este render"}
+                  </span>
+                  . Esta acción no se puede deshacer.
+                </p>
+              </div>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmDel(null)}
+                className="rounded-lg border border-line px-3 py-2 text-xs font-medium text-muted hover:bg-elevated hover:text-fg"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const id = confirmDel.id;
+                  setConfirmDel(null);
+                  accion(eliminarRender, id, "Eliminado");
+                }}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-danger px-4 py-2 text-xs font-medium text-white transition-all hover:opacity-90"
+              >
+                <Trash2 className="size-3.5" />
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <Toast message={message} />

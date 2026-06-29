@@ -1,13 +1,17 @@
 "use client";
 
 import { Badge } from "@scrapify/ui/badge";
+import { Button } from "@scrapify/ui/button";
 import { Card, CardBody } from "@scrapify/ui/card";
 import { PageHeader } from "@scrapify/ui/page-header";
-import { ExternalLink, Send } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Toast, useToast } from "@scrapify/ui/toast";
+import { ExternalLink, RotateCcw, Send, Zap } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 
 import { RedIcon } from "@/components/icons/redes";
 import type { Plataforma } from "@/server/cuentas";
+import { despachar, publicarYa } from "@/server/despachador";
 import type { EstadoPub, PublicacionRow } from "@/server/publicaciones";
 
 const LABEL_PLAT: Record<Plataforma, string> = {
@@ -16,9 +20,10 @@ const LABEL_PLAT: Record<Plataforma, string> = {
   tiktok: "TikTok",
 };
 
-const ESTADOS: { id: EstadoPub; label: string; tone: "neutral" | "info" | "success" | "danger" }[] = [
+const ESTADOS: { id: EstadoPub; label: string; tone: "neutral" | "info" | "warning" | "success" | "danger" }[] = [
   { id: "pendiente", label: "Pendiente", tone: "neutral" },
   { id: "en_cola", label: "En cola", tone: "info" },
+  { id: "publicando", label: "Publicando…", tone: "warning" },
   { id: "publicada", label: "Publicada", tone: "success" },
   { id: "error", label: "Error", tone: "danger" },
 ];
@@ -38,9 +43,74 @@ export function PublicacionesBoard({
 }: {
   publicaciones: PublicacionRow[];
 }) {
+  const router = useRouter();
+  const { message, show } = useToast();
+  const [pending, startTransition] = useTransition();
   const [cliente, setCliente] = useState("todos");
   const [plataforma, setPlataforma] = useState<"todas" | Plataforma>("todas");
   const [estado, setEstado] = useState<"todos" | EstadoPub>("todos");
+
+  const enCola = useMemo(
+    () => publicaciones.filter((p) => p.estado === "en_cola").length,
+    [publicaciones],
+  );
+
+  // Despacho automático (mientras el panel está abierto): cada 60s suelta las
+  // programadas vencidas. Para 24/7 sin panel, va un cron a /api/cron/despachar.
+  const [auto, setAuto] = useState(false);
+  const firing = useRef(false);
+
+  useEffect(() => {
+    setAuto(localStorage.getItem("redes-auto-despacho") === "1");
+  }, []);
+
+  function toggleAuto() {
+    setAuto((a) => {
+      localStorage.setItem("redes-auto-despacho", a ? "0" : "1");
+      return !a;
+    });
+  }
+
+  useEffect(() => {
+    if (!auto) return;
+    const tick = async () => {
+      if (firing.current) return;
+      firing.current = true;
+      try {
+        const r = await despachar();
+        if (r.publicadas > 0) {
+          show(`${r.publicadas} publicada(s) automáticamente`);
+          router.refresh();
+        }
+      } catch {
+        // un fallo puntual no debe cortar el loop
+      } finally {
+        firing.current = false;
+      }
+    };
+    const id = setInterval(tick, 60_000);
+    return () => clearInterval(id);
+  }, [auto, show, router]);
+
+  function publicar(id: string) {
+    startTransition(async () => {
+      const r = await publicarYa(id);
+      router.refresh();
+      show(r.ok ? "Publicado" : `No se pudo: ${r.error ?? ""}`);
+    });
+  }
+
+  function despacharPendientes() {
+    startTransition(async () => {
+      const r = await despachar();
+      router.refresh();
+      show(
+        r.publicadas > 0 || r.errores.length === 0
+          ? `${r.publicadas} publicada(s)${r.errores.length ? `, ${r.errores.length} con error` : ""}`
+          : `No se publicó nada: ${r.errores[0] ?? ""}`,
+      );
+    });
+  }
 
   const clientesUnicos = useMemo(() => {
     const m = new Map<string, string>();
@@ -59,6 +129,7 @@ export function PublicacionesBoard({
     const c: Record<EstadoPub, number> = {
       pendiente: 0,
       en_cola: 0,
+      publicando: 0,
       publicada: 0,
       error: 0,
     };
@@ -71,10 +142,44 @@ export function PublicacionesBoard({
       <PageHeader
         title="Publicaciones"
         subtitle="Historial y estado de lo que sale a las redes."
+        action={
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={toggleAuto}
+              title="Despacha solo las programadas vencidas cada 60s (mientras el panel está abierto)"
+              className={
+                "inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors " +
+                (auto
+                  ? "border-success/40 bg-success/10 text-fg"
+                  : "border-line text-muted hover:bg-elevated hover:text-fg")
+              }
+            >
+              <span className="relative flex size-2">
+                {auto && (
+                  <span className="absolute inline-flex size-full animate-ping rounded-full bg-success/70" />
+                )}
+                <span
+                  className={
+                    "relative inline-flex size-2 rounded-full " +
+                    (auto ? "bg-success" : "bg-muted/50")
+                  }
+                />
+              </span>
+              Auto {auto ? "ON" : "OFF"}
+            </button>
+            {enCola > 0 && (
+              <Button onClick={despacharPendientes} disabled={pending}>
+                <Send className="size-4" />
+                {pending ? "Publicando…" : `Despachar pendientes (${enCola})`}
+              </Button>
+            )}
+          </div>
+        }
       />
 
       {/* Métricas */}
-      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {ESTADOS.map((e) => (
           <Card key={e.id}>
             <CardBody className="py-4">
@@ -173,6 +278,26 @@ export function PublicacionesBoard({
                   <Badge tone={tone}>
                     {ESTADOS.find((e) => e.id === p.estado)?.label}
                   </Badge>
+                  {(p.estado === "en_cola" || p.estado === "error") && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => publicar(p.id)}
+                      disabled={pending}
+                    >
+                      {p.estado === "error" ? (
+                        <>
+                          <RotateCcw className="size-3.5" />
+                          Reintentar
+                        </>
+                      ) : (
+                        <>
+                          <Zap className="size-3.5" />
+                          Publicar ahora
+                        </>
+                      )}
+                    </Button>
+                  )}
                   {p.urlPublicada && (
                     <a
                       href={p.urlPublicada}
@@ -190,6 +315,8 @@ export function PublicacionesBoard({
           })}
         </div>
       )}
+
+      <Toast message={message} />
     </div>
   );
 }

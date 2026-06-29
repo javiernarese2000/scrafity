@@ -11,6 +11,18 @@ const DIMS: Record<string, [number, number]> = {
   "16:9": [1920, 1080],
 };
 
+/** Redondea a entero par (FFmpeg / yuv420p exige dimensiones pares). */
+function even(n: number): number {
+  const r = Math.round(n);
+  return r % 2 === 0 ? r : r - 1;
+}
+
+/** "#rrggbb" → "0xrrggbb" para los sources de color de FFmpeg. */
+function ffColor(hex: string): string {
+  const m = /^#?([0-9a-fA-F]{6})$/.exec(hex.trim());
+  return m ? `0x${m[1]}` : "0x000000";
+}
+
 /** Duración del video en segundos (ffprobe). */
 export function probeDuration(input: string): Promise<number> {
   return new Promise((resolve) => {
@@ -50,14 +62,33 @@ export async function renderFromConfig(
     const overlay = join(dir, "overlay.png");
     await renderOverlayHtml(buildOverlayHtml(cfg, W, H), W, H, overlay);
 
+    // Marco / margen: si hay margen, el video se achica para entrar (sin
+    // recortar) dentro del recuadro interno y se centra sobre un fondo de color;
+    // el overlay (logo/zócalo) se mantiene full-frame, igual que el preview.
+    const margen = Math.max(0, Math.min(35, Number(cfg.margen ?? 0)));
+    let base: string;
+    if (margen > 0) {
+      const mx = even((margen / 100) * W);
+      const my = even((margen / 100) * H);
+      const iw = even(W - 2 * mx);
+      const ih = even(H - 2 * my);
+      const col = ffColor(String(cfg.margenColor ?? "#000000"));
+      base =
+        `color=c=${col}:s=${W}x${H}[bg];` +
+        `[0:v]scale=${iw}:${ih}:force_original_aspect_ratio=decrease,setsar=1[v];` +
+        `[bg][v]overlay=(W-w)/2:(H-h)/2:shortest=1[base];`;
+    } else {
+      base =
+        `[0:v]scale=${W}:${H}:force_original_aspect_ratio=increase,` +
+        `crop=${W}:${H},setsar=1[base];`;
+    }
+
     const args = [
       "-y",
       "-i",
       input,
       "-filter_complex",
-      `[0:v]scale=${W}:${H}:force_original_aspect_ratio=increase,` +
-        `crop=${W}:${H},setsar=1[base];` +
-        `movie='${overlay}'[ov];[base][ov]overlay=0:0[vout]`,
+      base + `movie='${overlay}'[ov];[base][ov]overlay=0:0[vout]`,
       "-map",
       "[vout]",
       "-map",

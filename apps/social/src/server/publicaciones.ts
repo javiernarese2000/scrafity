@@ -5,7 +5,12 @@ import { desc, eq } from "drizzle-orm";
 
 import type { Plataforma } from "./cuentas";
 
-export type EstadoPub = "pendiente" | "en_cola" | "publicada" | "error";
+export type EstadoPub =
+  | "pendiente"
+  | "en_cola"
+  | "publicando"
+  | "publicada"
+  | "error";
 
 export type PublicacionRow = {
   id: string;

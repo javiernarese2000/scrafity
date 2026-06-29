@@ -28,6 +28,7 @@ export function ClientesBoard({ inicial }: { inicial: ClienteRow[] }) {
   const [nombre, setNombre] = useState("");
   const [notas, setNotas] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [confirmDel, setConfirmDel] = useState<ClienteRow | null>(null);
 
   function abrirNuevo() {
     setEditing(null);
@@ -71,15 +72,12 @@ export function ClientesBoard({ inicial }: { inicial: ClienteRow[] }) {
     });
   }
 
-  function borrar(c: ClienteRow) {
-    if (
-      !window.confirm(
-        `¿Eliminar el cliente "${c.nombre}"? Sus destinos quedan sin asignar.`,
-      )
-    )
-      return;
+  function confirmarBorrado() {
+    if (!confirmDel) return;
+    const id = confirmDel.id;
+    setConfirmDel(null);
     startTransition(async () => {
-      await eliminarCliente(c.id);
+      await eliminarCliente(id);
       router.refresh();
       show("Cliente eliminado");
     });
@@ -152,7 +150,7 @@ export function ClientesBoard({ inicial }: { inicial: ClienteRow[] }) {
                   </Button>
                   <button
                     type="button"
-                    onClick={() => borrar(c)}
+                    onClick={() => setConfirmDel(c)}
                     aria-label="Eliminar"
                     className="ml-auto grid size-8 place-items-center rounded-lg text-muted transition-colors hover:bg-danger/10 hover:text-danger"
                   >
@@ -196,6 +194,45 @@ export function ClientesBoard({ inicial }: { inicial: ClienteRow[] }) {
             </Button>
             <Button onClick={guardar} disabled={pending}>
               {pending ? "Guardando…" : editing ? "Guardar" : "Crear"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={!!confirmDel}
+        onClose={() => setConfirmDel(null)}
+        title="Eliminar cliente"
+      >
+        <div className="space-y-4">
+          <div className="flex items-start gap-3">
+            <span className="grid size-10 shrink-0 place-items-center rounded-full bg-danger/10 text-danger">
+              <Trash2 className="size-5" />
+            </span>
+            <div className="min-w-0 text-sm text-fg">
+              <p>
+                Vas a eliminar a{" "}
+                <span className="font-medium">{confirmDel?.nombre}</span>.
+              </p>
+              <p className="mt-1 text-muted">
+                Se borrará <span className="font-medium text-fg">todo su contenido</span>:
+                cuentas de redes conectadas, publicaciones (programadas y
+                publicadas) y sus videos renderizados (incluidos los archivos).
+                Esta acción no se puede deshacer.
+              </p>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-1">
+            <Button variant="outline" onClick={() => setConfirmDel(null)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="danger"
+              onClick={confirmarBorrado}
+              disabled={pending}
+            >
+              <Trash2 className="size-4" />
+              Eliminar cliente
             </Button>
           </div>
         </div>

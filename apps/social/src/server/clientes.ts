@@ -1,8 +1,24 @@
 "use server";
 
-import { clientes, db, destinations } from "@scrapify/db";
+import { clientes, db, destinations, videoRenders } from "@scrapify/db";
+import { createClient } from "@supabase/supabase-js";
 import { desc, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+
+function admin() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false } },
+  );
+}
+
+/** Extrae el path dentro del bucket "videos" desde una URL pública. */
+function pathDeUrl(url: string | null): string | null {
+  if (!url) return null;
+  const i = url.indexOf("/videos/");
+  return i === -1 ? null : url.slice(i + "/videos/".length);
+}
 
 export type ClienteRow = {
   id: string;
@@ -53,7 +69,47 @@ export async function toggleClienteActivo(id: string, activo: boolean) {
   revalidatePath("/clientes");
 }
 
+/**
+ * Borra el cliente y TODO su contenido: sus renders (filas + archivos de Storage)
+ * y, en cascada, sus cuentas de redes y publicaciones. Irreversible.
+ */
 export async function eliminarCliente(id: string) {
+  // 1) Archivos de Storage de los renders del cliente (original, resultado, miniatura).
+  const renders = await db
+    .select({
+      sourcePath: videoRenders.sourcePath,
+      outputPath: videoRenders.outputPath,
+      thumbnailUrl: videoRenders.thumbnailUrl,
+    })
+    .from(videoRenders)
+    .where(eq(videoRenders.clienteId, id));
+
+  const paths = new Set<string>();
+  for (const r of renders) {
+    if (r.sourcePath) paths.add(r.sourcePath);
+    if (r.outputPath) paths.add(r.outputPath);
+    const tp = pathDeUrl(r.thumbnailUrl);
+    if (tp) paths.add(tp);
+  }
+  if (paths.size > 0) {
+    const sb = admin();
+    const arr = [...paths];
+    for (let i = 0; i < arr.length; i += 100) {
+      try {
+        await sb.storage.from("videos").remove(arr.slice(i, i + 100));
+      } catch {
+        // un archivo que ya no está no debe frenar el borrado del cliente
+      }
+    }
+  }
+
+  // 2) Borrar las filas de renders (su FK al cliente es set null, no se borran solas).
+  await db.delete(videoRenders).where(eq(videoRenders.clienteId, id));
+
+  // 3) Borrar el cliente → cascada de cuentas (social_accounts) y publicaciones.
   await db.delete(clientes).where(eq(clientes.id, id));
+
   revalidatePath("/clientes");
+  revalidatePath("/renders");
+  revalidatePath("/publicaciones");
 }

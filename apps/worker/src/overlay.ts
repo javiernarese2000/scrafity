@@ -95,19 +95,29 @@ export function buildOverlayHtml(cfg: Cfg, W: number, H: number): string {
       efCss = `-webkit-text-stroke:${Math.max(1, px(1.5))}px #000;paint-order:stroke fill;text-shadow:0 ${px(2)}px ${px(8)}px rgba(0,0,0,.7);`;
 
     const baseText = `margin:0;font-family:${fam};font-size:${fs}px;color:${colT};line-height:1.18;text-align:${al};font-weight:600;${efCss}`;
+    // Separación del borde (% del alto del frame), para meterlo en la zona segura.
+    const mB = num(cfg.zocaloMargen, 0);
     const wrap =
       pos === "arriba"
-        ? "top:0;left:0;right:0"
+        ? `top:${mB}%;left:0;right:0`
         : pos === "centro"
           ? "top:50%;left:0;right:0;transform:translateY(-50%)"
-          : "bottom:0;left:0;right:0";
+          : `bottom:${mB}%;left:0;right:0`;
     const justify = al === "center" ? "center" : al === "right" ? "flex-end" : "flex-start";
 
     const P = `<p style="${baseText}">${html}</p>`;
 
     if (estilo === "degradado") {
       const dir = pos === "arriba" ? "to bottom" : "to top";
-      zocalo = `<div style="position:absolute;${wrap};height:44%;display:flex;align-items:${pos === "arriba" ? "flex-start" : "flex-end"};padding:${pad}px;background:linear-gradient(${dir},${rgba(colB, Math.max(op, 0.6))},transparent)"><p style="${baseText};width:100%">${html}</p></div>`;
+      const grad = `linear-gradient(${dir},${rgba(colB, Math.max(op, 0.6))},transparent)`;
+      if (pos === "centro") {
+        zocalo = `<div style="position:absolute;top:50%;left:0;right:0;transform:translateY(-50%);height:44%;display:flex;align-items:center;padding:${pad}px;background:${grad}"><p style="${baseText};width:100%">${html}</p></div>`;
+      } else {
+        // Degradado pegado al borde (sin línea dura) + texto separado por el margen.
+        const edge = pos === "arriba" ? "top:0" : "bottom:0";
+        const textPos = pos === "arriba" ? `top:${mB}%` : `bottom:${mB}%`;
+        zocalo = `<div style="position:absolute;top:0;left:0;right:0;bottom:0"><div style="position:absolute;left:0;right:0;${edge};height:${44 + mB}%;background:${grad}"></div><div style="position:absolute;left:0;right:0;${textPos};padding:${pad}px"><p style="${baseText};width:100%">${html}</p></div></div>`;
+      }
     } else if (estilo === "bloque") {
       zocalo = `<div style="position:absolute;${wrap};display:flex;justify-content:${justify};padding:${pad}px"><span style="${baseText};display:inline-block;background:${rgba(colB, op)};border-radius:${px(12)}px;padding:${Math.round(pad * 0.5)}px ${pad}px">${html}</span></div>`;
     } else if (estilo === "resaltado") {

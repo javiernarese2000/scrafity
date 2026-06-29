@@ -8,7 +8,7 @@ import { PageHeader } from "@scrapify/ui/page-header";
 import { Toast, useToast } from "@scrapify/ui/toast";
 import { Info, Link2, Plus, Power, Trash2, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 
 import { RedIcon } from "@/components/icons/redes";
 import {
@@ -35,8 +35,27 @@ export function CuentasBoard({ clientes }: { clientes: ClienteConCuentas[] }) {
   const [plataforma, setPlataforma] = useState<Plataforma>("instagram");
   const [nombre, setNombre] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [delCuenta, setDelCuenta] = useState<{ id: string; label: string } | null>(
+    null,
+  );
 
   const hayClientes = clientes.length > 0;
+
+  // Resultado de la vuelta de Meta (?meta=ok|error).
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search);
+    const meta = sp.get("meta");
+    if (!meta) return;
+    if (meta === "ok") {
+      show(
+        `Meta conectado: ${sp.get("fb") ?? 0} Página(s) y ${sp.get("ig") ?? 0} cuenta(s) de IG`,
+      );
+    } else {
+      show("No se pudo conectar Meta: " + (sp.get("msg") ?? "error"));
+    }
+    window.history.replaceState({}, "", "/cuentas");
+    router.refresh();
+  }, [show, router]);
 
   function abrir() {
     setClienteId(clientes[0]?.id ?? "");
@@ -69,8 +88,10 @@ export function CuentasBoard({ clientes }: { clientes: ClienteConCuentas[] }) {
     });
   }
 
-  function borrar(id: string, label: string) {
-    if (!window.confirm(`¿Eliminar la cuenta "${label}"?`)) return;
+  function confirmarBorrado() {
+    if (!delCuenta) return;
+    const id = delCuenta.id;
+    setDelCuenta(null);
     startTransition(async () => {
       await eliminarCuenta(id);
       router.refresh();
@@ -96,9 +117,9 @@ export function CuentasBoard({ clientes }: { clientes: ClienteConCuentas[] }) {
       <div className="mb-6 flex items-start gap-2.5 rounded-[var(--radius)] border border-info/30 bg-info/8 px-4 py-3 text-sm text-fg">
         <Info className="mt-0.5 size-4 shrink-0 text-info" />
         <p>
-          Por ahora cargás y administrás las cuentas. La{" "}
-          <strong className="font-medium">conexión real con Meta y TikTok</strong>{" "}
-          (OAuth) se habilita al final, para las pruebas de publicación.
+          Usá <strong className="font-medium">Conectar con Meta</strong> en cada
+          cliente para vincular sus Páginas de Facebook y cuentas de Instagram
+          por OAuth. TikTok se habilita más adelante.
         </p>
       </div>
 
@@ -133,6 +154,13 @@ export function CuentasBoard({ clientes }: { clientes: ClienteConCuentas[] }) {
                     {c.cuentas.length}{" "}
                     {c.cuentas.length === 1 ? "cuenta" : "cuentas"}
                   </span>
+                  <a
+                    href={`/api/meta/login?cliente=${c.id}`}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-[#1877F2] px-3 py-1.5 text-xs font-medium text-white transition-opacity hover:opacity-90"
+                  >
+                    <RedIcon plataforma="facebook" className="size-3.5 [&_path]:fill-white" />
+                    Conectar con Meta
+                  </a>
                 </div>
 
                 {c.cuentas.length === 0 ? (
@@ -170,7 +198,7 @@ export function CuentasBoard({ clientes }: { clientes: ClienteConCuentas[] }) {
                             </Button>
                             <button
                               type="button"
-                              onClick={() => borrar(a.id, a.nombre)}
+                              onClick={() => setDelCuenta({ id: a.id, label: a.nombre })}
                               aria-label="Eliminar"
                               className="grid size-8 place-items-center rounded-lg text-muted transition-colors hover:bg-danger/10 hover:text-danger"
                             >
@@ -249,6 +277,40 @@ export function CuentasBoard({ clientes }: { clientes: ClienteConCuentas[] }) {
             </Button>
             <Button onClick={guardar} disabled={pending}>
               {pending ? "Agregando…" : "Agregar"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={!!delCuenta}
+        onClose={() => setDelCuenta(null)}
+        title="Eliminar cuenta"
+      >
+        <div className="space-y-4">
+          <div className="flex items-start gap-3">
+            <span className="grid size-10 shrink-0 place-items-center rounded-full bg-danger/10 text-danger">
+              <Trash2 className="size-5" />
+            </span>
+            <div className="min-w-0 text-sm text-fg">
+              <p>
+                Vas a eliminar la cuenta{" "}
+                <span className="font-medium">@{delCuenta?.label}</span>.
+              </p>
+              <p className="mt-1 text-muted">
+                Se borra la conexión y su token; vas a tener que reconectarla para
+                volver a publicar. Las publicaciones ya hechas quedan en el
+                historial.
+              </p>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-1">
+            <Button variant="outline" onClick={() => setDelCuenta(null)}>
+              Cancelar
+            </Button>
+            <Button variant="danger" onClick={confirmarBorrado} disabled={pending}>
+              <Trash2 className="size-4" />
+              Eliminar cuenta
             </Button>
           </div>
         </div>

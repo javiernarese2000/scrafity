@@ -28,8 +28,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // El login se muestra sin el armazón de la app.
   if (pathname === "/login") return <>{children}</>;
 
-  // El Estudio es un editor a pantalla completa (sin scroll de página).
-  const isEditor = pathname === "/estudio";
+  // El Estudio y el Compositor son editores a pantalla completa (sin scroll de página).
+  const isEditor = pathname === "/estudio" || pathname === "/componer";
 
   return (
     <div className={cn("flex", isEditor ? "h-dvh overflow-hidden" : "min-h-dvh")}>

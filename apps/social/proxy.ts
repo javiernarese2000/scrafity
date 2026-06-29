@@ -31,6 +31,12 @@ export async function proxy(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
 
+  // El cron de despacho lo llama un servicio externo (sin sesión); se protege
+  // con CRON_SECRET, no con el login del panel.
+  if (path.startsWith("/api/cron")) {
+    return response;
+  }
+
   if (!user && path !== "/login") {
     const url = request.nextUrl.clone();
     url.pathname = "/login";

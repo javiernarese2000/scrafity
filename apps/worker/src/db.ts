@@ -63,3 +63,29 @@ export async function setError(id: string, msg: string): Promise<void> {
            finished_at = now(), updated_at = now()
      where id = ${id}`;
 }
+
+// ───────────────────────── Retención de originales ─────────────────────────
+
+/**
+ * Originales (source) a borrar: renders en estado terminal, con más de `dias`
+ * días y cuyo original sigue en Storage. No toca jobs activos (en_cola/
+ * procesando/pausado) ni los ya limpiados.
+ */
+export async function sourcesParaLimpiar(
+  dias: number,
+): Promise<{ id: string; source_path: string }[]> {
+  return sql<{ id: string; source_path: string }[]>`
+    select id, source_path
+      from video_renders
+     where source_eliminado = false
+       and estado in ('listo', 'error', 'cancelado')
+       and created_at < now() - make_interval(days => ${dias})
+     limit 200`;
+}
+
+export async function marcarSourceEliminado(id: string): Promise<void> {
+  await sql`
+    update video_renders
+       set source_eliminado = true, updated_at = now()
+     where id = ${id}`;
+}

@@ -11,6 +11,17 @@ import {
 } from "./render.js";
 import { descargar, subir, urlPublica } from "./storage.js";
 
+/** Slug seguro para nombres de archivo (sin acentos ni símbolos). */
+function slugify(s: string | null): string {
+  return (s ?? "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40);
+}
+
 /** Procesa UN trabajo de la cola. Devuelve false si no había nada. */
 export async function procesarUno(): Promise<boolean> {
   const job = await claimNext();
@@ -47,12 +58,20 @@ export async function procesarUno(): Promise<boolean> {
       controller.signal,
     );
 
+    // Resultado y miniatura van a la misma carpeta del source (<cliente>/<mes>/),
+    // en out/ y thumb/. Si el source es viejo (esquema plano) se cae al de antes.
+    const carpeta = job.source_path.replace(/\/src\/[^/]+$/, "");
+    const nuevaRuta = carpeta !== job.source_path;
+    const id6 = job.id.slice(0, 6);
+    const nombre = `${slugify(job.titulo) || "video"}-${id6}`;
+    const outPath = nuevaRuta ? `${carpeta}/out/${nombre}.mp4` : `renders/${job.id}.mp4`;
+    const thumbPath = nuevaRuta ? `${carpeta}/thumb/${nombre}.jpg` : `thumbs/${job.id}.jpg`;
+
     // Miniatura
     let thumbUrl: string | null = null;
     try {
       const thumb = join(dir, "thumb.jpg");
       await extractThumbnail(out, thumb);
-      const thumbPath = `thumbs/${job.id}.jpg`;
       await subir(thumbPath, thumb, "image/jpeg");
       thumbUrl = urlPublica(thumbPath);
     } catch {
@@ -60,7 +79,6 @@ export async function procesarUno(): Promise<boolean> {
     }
 
     const dur = await probeDuration(out);
-    const outPath = `renders/${job.id}.mp4`;
     await subir(outPath, out);
     await setListo(job.id, outPath, urlPublica(outPath), dur, thumbUrl);
     console.log(`✅ render ${job.id} listo en ${((Date.now() - t0) / 1000).toFixed(1)}s`);

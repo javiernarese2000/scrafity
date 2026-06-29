@@ -14,6 +14,7 @@ import {
   Clock,
   Download,
   Droplets,
+  Frame,
   Globe,
   ImagePlus,
   LayoutTemplate,
@@ -164,8 +165,11 @@ type ConfigEstudio = {
   posicion?: PosicionZ;
   alineacion?: Alineacion;
   padding?: number;
+  zocaloMargen?: number;
   mayus?: boolean;
   efecto?: EfectoTexto;
+  margen?: number;
+  margenColor?: string;
 };
 
 // Presets de fábrica (no tocan logo ni formato; solo el look del zócalo).
@@ -276,6 +280,11 @@ export function EstudioBoard({
   const [wmModo, setWmModo] = useState<WmModo>("mosaico");
   const [wmColor, setWmColor] = useState("#ffffff");
 
+  // Marco / margen del video (lo achica y lo enmarca con un color para que el
+  // contenido quede dentro de la zona segura).
+  const [margen, setMargen] = useState(0); // % de inset uniforme
+  const [margenColor, setMargenColor] = useState("#000000");
+
   const frameRef = useRef<HTMLDivElement>(null);
   const arrastrando = useRef(false);
 
@@ -290,6 +299,8 @@ export function EstudioBoard({
   const [posicion, setPosicion] = useState<PosicionZ>("abajo");
   const [alineacion, setAlineacion] = useState<Alineacion>("left");
   const [padding, setPadding] = useState(16);
+  // Separación del zócalo respecto del borde (para meterlo en la zona segura).
+  const [zocaloMargen, setZocaloMargen] = useState(0);
   const [mayus, setMayus] = useState(false);
   const [efecto, setEfecto] = useState<EfectoTexto>("ninguno");
 
@@ -376,7 +387,11 @@ export function EstudioBoard({
 
     try {
       const ext = (videoFile.name.split(".").pop() ?? "mp4").toLowerCase();
-      const { path, token } = await prepararSubida(ext);
+      const { path, token } = await prepararSubida({
+        ext,
+        clienteId: clienteId || null,
+        titulo: videoName || texto,
+      });
 
       const supabase = createBrowserClient();
       const up = await supabase.storage
@@ -451,8 +466,11 @@ export function EstudioBoard({
       posicion,
       alineacion,
       padding,
+      zocaloMargen,
       mayus,
       efecto,
+      margen,
+      margenColor,
     };
   }
 
@@ -479,8 +497,11 @@ export function EstudioBoard({
     if (c.posicion) setPosicion(c.posicion);
     if (c.alineacion) setAlineacion(c.alineacion);
     if (c.padding != null) setPadding(c.padding);
+    if (c.zocaloMargen != null) setZocaloMargen(c.zocaloMargen);
     if (c.mayus != null) setMayus(c.mayus);
     if (c.efecto) setEfecto(c.efecto);
+    if (c.margen != null) setMargen(c.margen);
+    if (c.margenColor) setMargenColor(c.margenColor);
   }
 
   function guardarPlantilla() {
@@ -714,6 +735,36 @@ export function EstudioBoard({
             )}
           </Group>
 
+          <Group icon={Frame} title="Marco / margen">
+            <p className="mb-3 text-xs text-muted">
+              Achicá el video y enmarcalo con un color para que su contenido no
+              quede tapado por la interfaz de la red.
+            </p>
+            <Slider
+              label={`Margen · ${margen}%`}
+              min={0}
+              max={35}
+              value={margen}
+              onChange={setMargen}
+            />
+            {margen > 0 && (
+              <div className="mt-3 flex items-center gap-4">
+                <ColorField
+                  label="Color del marco"
+                  value={margenColor}
+                  onChange={setMargenColor}
+                />
+                <button
+                  type="button"
+                  onClick={() => setMargen(0)}
+                  className="ml-auto text-xs font-medium text-muted hover:text-fg hover:underline"
+                >
+                  Quitar
+                </button>
+              </div>
+            )}
+          </Group>
+
           <Group icon={ImagePlus} title="Logo">
             <input
               ref={logoInput}
@@ -881,6 +932,7 @@ export function EstudioBoard({
               "relative overflow-hidden rounded-[1.4rem] bg-black shadow-[0_30px_80px_-20px_rgba(0,0,0,0.8)] ring-1 ring-white/10 " +
               asp.frame
             }
+            style={margen > 0 ? { backgroundColor: margenColor } : undefined}
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => {
               e.preventDefault();
@@ -890,7 +942,22 @@ export function EstudioBoard({
             {videoUrl ? (
               <video
                 src={videoUrl}
-                className="absolute inset-0 size-full object-cover"
+                className={
+                  "absolute " +
+                  (margen > 0
+                    ? "object-contain"
+                    : "inset-0 size-full object-cover")
+                }
+                style={
+                  margen > 0
+                    ? {
+                        top: `${margen}%`,
+                        left: `${margen}%`,
+                        right: `${margen}%`,
+                        bottom: `${margen}%`,
+                      }
+                    : undefined
+                }
                 autoPlay
                 loop
                 muted
@@ -951,6 +1018,7 @@ export function EstudioBoard({
                 alineacion={alineacion}
                 uppercase={mayus}
                 posicion={posicion}
+                margenBorde={zocaloMargen}
                 efecto={efecto}
               />
             )}
@@ -962,6 +1030,62 @@ export function EstudioBoard({
 
         {/* Rail derecho: inspector */}
         <aside className="w-[300px] shrink-0 space-y-5 overflow-y-auto border-l border-line p-4">
+          {/* Destino primero: evita render/publicar al cliente equivocado. */}
+          <div className="rounded-lg border border-accent/30 bg-accent/5 p-3">
+            <Group icon={Send} title="Destino">
+              {clientes.length === 0 ? (
+                <p className="text-xs text-muted">
+                  Creá un cliente y conectale cuentas para elegir destino.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  <select
+                    value={clienteId}
+                    onChange={(e) => {
+                      setClienteId(e.target.value);
+                      setDestinos(new Set());
+                    }}
+                    className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg focus:outline-none focus:ring-2 focus:ring-accent/30"
+                  >
+                    {clientes.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.nombre}
+                      </option>
+                    ))}
+                  </select>
+
+                  {cliente && cliente.cuentas.length === 0 ? (
+                    <p className="text-xs text-muted">
+                      Este cliente no tiene cuentas. Agregalas en Cuentas.
+                    </p>
+                  ) : (
+                    <div className="flex flex-wrap gap-1.5">
+                      {cliente?.cuentas.map((a) => {
+                        const sel = destinos.has(a.id);
+                        return (
+                          <button
+                            key={a.id}
+                            type="button"
+                            onClick={() => toggleDestino(a.id)}
+                            className={
+                              "flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-medium transition-colors " +
+                              (sel
+                                ? "border-accent bg-accent/10 text-fg"
+                                : "border-line text-muted hover:bg-elevated")
+                            }
+                          >
+                            <RedIcon plataforma={a.plataforma} className="size-4" />
+                            @{a.nombre}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </Group>
+          </div>
+
           <Group icon={Type} title="Zócalo">
             <label className="mb-3 flex items-center gap-2 text-sm text-fg">
               <input
@@ -1001,23 +1125,20 @@ export function EstudioBoard({
                   ))}
                 </div>
 
-                <div className="grid grid-cols-3 gap-1.5">
-                  {FUENTES.map((f) => (
-                    <button
-                      key={f.id}
-                      type="button"
-                      onClick={() => setFuente(f.id)}
-                      style={{ fontFamily: f.varName }}
-                      className={
-                        "rounded-md border px-1 py-1.5 text-sm transition-colors " +
-                        (fuente === f.id
-                          ? "border-accent bg-accent/10 text-fg"
-                          : "border-line text-muted hover:bg-elevated")
-                      }
-                    >
-                      {f.label}
-                    </button>
-                  ))}
+                <div>
+                  <p className="mb-1.5 text-xs text-muted">Tipografía</p>
+                  <select
+                    value={fuente}
+                    onChange={(e) => setFuente(e.target.value as Fuente)}
+                    style={{ fontFamily: fontVar }}
+                    className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-fg focus:outline-none focus:ring-2 focus:ring-accent/30"
+                  >
+                    {FUENTES.map((f) => (
+                      <option key={f.id} value={f.id} style={{ fontFamily: f.varName }}>
+                        {f.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <Slider
@@ -1092,6 +1213,16 @@ export function EstudioBoard({
                   onChange={setPadding}
                 />
 
+                {posicion !== "centro" && (
+                  <Slider
+                    label={`Margen del borde · ${zocaloMargen}%`}
+                    min={0}
+                    max={40}
+                    value={zocaloMargen}
+                    onChange={setZocaloMargen}
+                  />
+                )}
+
                 <label className="flex items-center gap-2 text-sm text-fg">
                   <input
                     type="checkbox"
@@ -1122,61 +1253,6 @@ export function EstudioBoard({
                     ))}
                   </div>
                 </div>
-              </div>
-            )}
-          </Group>
-
-          <div className="h-px bg-line" />
-
-          <Group icon={Send} title="Destino">
-            {clientes.length === 0 ? (
-              <p className="text-xs text-muted">
-                Creá un cliente y conectale cuentas para elegir destino.
-              </p>
-            ) : (
-              <div className="space-y-3">
-                <select
-                  value={clienteId}
-                  onChange={(e) => {
-                    setClienteId(e.target.value);
-                    setDestinos(new Set());
-                  }}
-                  className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg focus:outline-none focus:ring-2 focus:ring-accent/30"
-                >
-                  {clientes.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.nombre}
-                    </option>
-                  ))}
-                </select>
-
-                {cliente && cliente.cuentas.length === 0 ? (
-                  <p className="text-xs text-muted">
-                    Este cliente no tiene cuentas. Agregalas en Cuentas.
-                  </p>
-                ) : (
-                  <div className="flex flex-wrap gap-1.5">
-                    {cliente?.cuentas.map((a) => {
-                      const sel = destinos.has(a.id);
-                      return (
-                        <button
-                          key={a.id}
-                          type="button"
-                          onClick={() => toggleDestino(a.id)}
-                          className={
-                            "flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-medium transition-colors " +
-                            (sel
-                              ? "border-accent bg-accent/10 text-fg"
-                              : "border-line text-muted hover:bg-elevated")
-                          }
-                        >
-                          <RedIcon plataforma={a.plataforma} className="size-4" />
-                          @{a.nombre}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
               </div>
             )}
           </Group>
@@ -1607,6 +1683,7 @@ function Zocalo({
   alineacion,
   uppercase,
   posicion,
+  margenBorde,
   efecto,
 }: {
   estilo: ZocaloEstilo;
@@ -1620,6 +1697,7 @@ function Zocalo({
   alineacion: Alineacion;
   uppercase: boolean;
   posicion: PosicionZ;
+  margenBorde: number;
   efecto: EfectoTexto;
 }) {
   const baseText = {
@@ -1632,12 +1710,14 @@ function Zocalo({
     ...efectoCss(efecto),
   } as CSSProperties;
   const pad = `${padding}px`;
-  const wrap =
+  // Separación del borde (en % del alto del frame). Centro queda centrado.
+  const wrap = posicion === "centro" ? "top-1/2 -translate-y-1/2" : "";
+  const wrapStyle: CSSProperties =
     posicion === "arriba"
-      ? "top-0"
+      ? { top: `${margenBorde}%` }
       : posicion === "centro"
-        ? "top-1/2 -translate-y-1/2"
-        : "bottom-0";
+        ? {}
+        : { bottom: `${margenBorde}%` };
   const justify =
     alineacion === "center"
       ? "center"
@@ -1647,19 +1727,36 @@ function Zocalo({
 
   if (estilo === "degradado") {
     const dir = posicion === "arriba" ? "to bottom" : "to top";
+    const grad = `linear-gradient(${dir}, ${rgba(colorBarra, Math.max(opacidad, 0.6))}, transparent)`;
+    if (posicion === "centro") {
+      return (
+        <div
+          className="absolute inset-x-0 top-1/2 flex -translate-y-1/2"
+          style={{ height: "44%", padding: pad, alignItems: "center", background: grad }}
+        >
+          <p style={{ ...baseText, width: "100%" }} className="font-medium">
+            {texto}
+          </p>
+        </div>
+      );
+    }
+    // Abajo / arriba: el degradado queda pegado al borde (se desvanece natural,
+    // sin línea dura) y el texto se separa del borde según el margen.
     return (
-      <div
-        className={"absolute inset-x-0 flex " + wrap}
-        style={{
-          height: "44%",
-          padding: pad,
-          alignItems: posicion === "arriba" ? "flex-start" : "flex-end",
-          background: `linear-gradient(${dir}, ${rgba(colorBarra, Math.max(opacidad, 0.6))}, transparent)`,
-        }}
-      >
-        <p style={{ ...baseText, width: "100%" }} className="font-medium">
-          {texto}
-        </p>
+      <div className="absolute inset-0">
+        <div
+          className="absolute inset-x-0"
+          style={{
+            ...(posicion === "arriba" ? { top: 0 } : { bottom: 0 }),
+            height: `${44 + margenBorde}%`,
+            background: grad,
+          }}
+        />
+        <div className="absolute inset-x-0" style={{ ...wrapStyle, padding: pad }}>
+          <p style={{ ...baseText, width: "100%" }} className="font-medium">
+            {texto}
+          </p>
+        </div>
       </div>
     );
   }
@@ -1668,7 +1765,7 @@ function Zocalo({
     return (
       <div
         className={"absolute inset-x-0 flex " + wrap}
-        style={{ padding: pad, justifyContent: justify }}
+        style={{ ...wrapStyle, padding: pad, justifyContent: justify }}
       >
         <span
           className="rounded-lg font-medium"
@@ -1686,7 +1783,7 @@ function Zocalo({
 
   if (estilo === "resaltado") {
     return (
-      <div className={"absolute inset-x-0 " + wrap} style={{ padding: pad }}>
+      <div className={"absolute inset-x-0 " + wrap} style={{ ...wrapStyle, padding: pad }}>
         <p style={baseText} className="font-semibold leading-relaxed">
           <span
             style={{
@@ -1705,7 +1802,7 @@ function Zocalo({
 
   if (estilo === "caja") {
     return (
-      <div className={"absolute inset-x-0 " + wrap} style={{ padding: pad }}>
+      <div className={"absolute inset-x-0 " + wrap} style={{ ...wrapStyle, padding: pad }}>
         <div
           className="rounded-lg border-2"
           style={{
@@ -1724,7 +1821,7 @@ function Zocalo({
 
   if (estilo === "cinta") {
     return (
-      <div className={"absolute inset-x-0 " + wrap} style={{ padding: pad }}>
+      <div className={"absolute inset-x-0 " + wrap} style={{ ...wrapStyle, padding: pad }}>
         <div
           style={{
             backgroundColor: rgba(colorBarra, opacidad),
@@ -1742,7 +1839,7 @@ function Zocalo({
 
   if (estilo === "minimal") {
     return (
-      <div className={"absolute inset-x-0 " + wrap} style={{ padding: pad }}>
+      <div className={"absolute inset-x-0 " + wrap} style={{ ...wrapStyle, padding: pad }}>
         <span
           className="mb-1.5 block h-[3px] w-8 rounded-full bg-[var(--color-accent)]"
           style={{
@@ -1761,7 +1858,7 @@ function Zocalo({
   return (
     <div
       className={"absolute inset-x-0 " + wrap}
-      style={{ backgroundColor: rgba(colorBarra, opacidad), padding: pad }}
+      style={{ ...wrapStyle, backgroundColor: rgba(colorBarra, opacidad), padding: pad }}
     >
       <p style={baseText} className="font-medium">
         {texto}

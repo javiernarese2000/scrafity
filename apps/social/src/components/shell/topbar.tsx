@@ -4,6 +4,7 @@ import { Menu } from "lucide-react";
 import { usePathname } from "next/navigation";
 
 import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { FullscreenToggle } from "./fullscreen-toggle";
 import { titleForPath } from "./nav";
 import { UserMenu } from "./user-menu";
 
@@ -26,6 +27,7 @@ export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
       </h1>
 
       <div className="ml-auto flex items-center gap-2">
+        <FullscreenToggle />
         <ThemeToggle />
         <UserMenu />
       </div>
