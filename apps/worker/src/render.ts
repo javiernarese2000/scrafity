@@ -62,25 +62,41 @@ export async function renderFromConfig(
     const overlay = join(dir, "overlay.png");
     await renderOverlayHtml(buildOverlayHtml(cfg, W, H), W, H, overlay);
 
-    // Marco / margen: si hay margen, el video se achica para entrar (sin
-    // recortar) dentro del recuadro interno y se centra sobre un fondo de color;
-    // el overlay (logo/zócalo) se mantiene full-frame, igual que el preview.
+    // Ajuste del video al cuadro:
+    //  - "cover": llena y recorta (force_original_aspect_ratio=increase + crop).
+    //  - "contener": entra completo, centrado, con bandas del color del marco.
+    // El margen achica el recuadro interno y lo enmarca con color. El overlay
+    // (logo/zócalo) queda full-frame, igual que el preview.
     const margen = Math.max(0, Math.min(35, Number(cfg.margen ?? 0)));
+    const contener = cfg.ajuste === "contener";
+    const col = ffColor(String(cfg.margenColor ?? "#000000"));
     let base: string;
-    if (margen > 0) {
+
+    if (margen === 0 && !contener) {
+      // Cover full-frame (lo de siempre).
+      base =
+        `[0:v]scale=${W}:${H}:force_original_aspect_ratio=increase,` +
+        `crop=${W}:${H},setsar=1[base];`;
+    } else {
+      // Fondo de color + video escalado dentro del recuadro interno.
       const mx = even((margen / 100) * W);
       const my = even((margen / 100) * H);
       const iw = even(W - 2 * mx);
       const ih = even(H - 2 * my);
-      const col = ffColor(String(cfg.margenColor ?? "#000000"));
-      base =
-        `color=c=${col}:s=${W}x${H}[bg];` +
-        `[0:v]scale=${iw}:${ih}:force_original_aspect_ratio=decrease,setsar=1[v];` +
-        `[bg][v]overlay=(W-w)/2:(H-h)/2:shortest=1[base];`;
-    } else {
-      base =
-        `[0:v]scale=${W}:${H}:force_original_aspect_ratio=increase,` +
-        `crop=${W}:${H},setsar=1[base];`;
+      if (contener) {
+        // Entra completo (decrease) y se centra → bandas del color de fondo.
+        base =
+          `color=c=${col}:s=${W}x${H}[bg];` +
+          `[0:v]scale=${iw}:${ih}:force_original_aspect_ratio=decrease,setsar=1[v];` +
+          `[bg][v]overlay=(W-w)/2:(H-h)/2:shortest=1[base];`;
+      } else {
+        // Cover dentro del recuadro con margen (increase + crop al recuadro).
+        base =
+          `color=c=${col}:s=${W}x${H}[bg];` +
+          `[0:v]scale=${iw}:${ih}:force_original_aspect_ratio=increase,` +
+          `crop=${iw}:${ih},setsar=1[v];` +
+          `[bg][v]overlay=${mx}:${my}:shortest=1[base];`;
+      }
     }
 
     const args = [

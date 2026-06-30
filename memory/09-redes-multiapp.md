@@ -675,3 +675,16 @@ Antes: bucket `videos` plano por tipo con nombres UUID (`sources/<uuid>`, `rende
 - **PENDIENTE usuario**: (1) agregar las 3 vars TikTok a Railway + Deploy; (2) en la app TikTok: Login Kit
   Configure for Web + redirect URI, y **agregar su cuenta como Target User (sandbox)** para autorizar la app
   sin auditar; (3) la **auditoría** de TikTok para publicar PÚBLICO (Direct Post) — hasta entonces, borradores.
+
+### Worker deployado en Railway (2026-06) — HECHO ✅
+- Servicio "scrafity" (worker) en el proyecto Railway passionate-kindness, Online. Root Directory
+  `apps/worker`, branch `redes`, su propio `apps/worker/railway.json` (Dockerfile del worker).
+- **Bug del deploy**: el `railway.json` de la RAÍZ (Dockerfile.social) se aplicaba a TODOS los servicios →
+  el worker intentaba buildear Dockerfile.social y fallaba ("pnpm-lock.yaml absent" con context=apps/worker).
+  Fix: `apps/worker/railway.json` propio (builder DOCKERFILE, dockerfilePath `apps/worker/Dockerfile`).
+  OJO: el "Config File Path" debe ser el **.json**, no el Dockerfile (el usuario puso el Dockerfile y dio
+  "invalid config-as-code file extension"). Con Root Directory=apps/worker, Railway autodetecta el railway.json.
+- Vars del worker: DATABASE_URL (pooler IPv4), NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,
+  DISPATCH_URL=`https://zoocial.up.railway.app/api/cron/despachar?key=<CRON_SECRET>`.
+- **El producto Redes ya es autónomo de la máquina del usuario** (panel + worker en la nube). Falta:
+  apagar el `zoo-worker` local; auditorías Meta/TikTok (público/clientes); Supabase Pro (prod real).

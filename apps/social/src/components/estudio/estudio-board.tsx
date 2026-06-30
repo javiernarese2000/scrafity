@@ -168,6 +168,7 @@ type ConfigEstudio = {
   zocaloMargen?: number;
   mayus?: boolean;
   efecto?: EfectoTexto;
+  ajuste?: "cover" | "contener";
   margen?: number;
   margenColor?: string;
 };
@@ -280,6 +281,9 @@ export function EstudioBoard({
   const [wmModo, setWmModo] = useState<WmModo>("mosaico");
   const [wmColor, setWmColor] = useState("#ffffff");
 
+  // Cómo entra el video al cuadro: "cover" (llena y recorta) o "contener"
+  // (entra completo, centrado, con bandas del color del marco).
+  const [ajuste, setAjuste] = useState<"cover" | "contener">("cover");
   // Marco / margen del video (lo achica y lo enmarca con un color para que el
   // contenido quede dentro de la zona segura).
   const [margen, setMargen] = useState(0); // % de inset uniforme
@@ -469,6 +473,7 @@ export function EstudioBoard({
       zocaloMargen,
       mayus,
       efecto,
+      ajuste,
       margen,
       margenColor,
     };
@@ -500,6 +505,7 @@ export function EstudioBoard({
     if (c.zocaloMargen != null) setZocaloMargen(c.zocaloMargen);
     if (c.mayus != null) setMayus(c.mayus);
     if (c.efecto) setEfecto(c.efecto);
+    if (c.ajuste) setAjuste(c.ajuste);
     if (c.margen != null) setMargen(c.margen);
     if (c.margenColor) setMargenColor(c.margenColor);
   }
@@ -736,6 +742,29 @@ export function EstudioBoard({
           </Group>
 
           <Group icon={Frame} title="Marco / margen">
+            <p className="mb-2 text-xs text-muted">Cómo entra el video al cuadro</p>
+            <div className="mb-4 grid grid-cols-2 gap-1.5">
+              {(
+                [
+                  { id: "cover", label: "Llenar" },
+                  { id: "contener", label: "Entrar completo" },
+                ] as const
+              ).map((o) => (
+                <button
+                  key={o.id}
+                  type="button"
+                  onClick={() => setAjuste(o.id)}
+                  className={
+                    "rounded-md border px-1 py-1.5 text-[11px] font-medium transition-colors " +
+                    (ajuste === o.id
+                      ? "border-accent bg-accent/10 text-fg"
+                      : "border-line text-muted hover:bg-elevated")
+                  }
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
             <p className="mb-3 text-xs text-muted">
               Achicá el video y enmarcalo con un color para que su contenido no
               quede tapado por la interfaz de la red.
@@ -747,20 +776,22 @@ export function EstudioBoard({
               value={margen}
               onChange={setMargen}
             />
-            {margen > 0 && (
+            {(margen > 0 || ajuste === "contener") && (
               <div className="mt-3 flex items-center gap-4">
                 <ColorField
-                  label="Color del marco"
+                  label={ajuste === "contener" ? "Color de fondo" : "Color del marco"}
                   value={margenColor}
                   onChange={setMargenColor}
                 />
-                <button
-                  type="button"
-                  onClick={() => setMargen(0)}
-                  className="ml-auto text-xs font-medium text-muted hover:text-fg hover:underline"
-                >
-                  Quitar
-                </button>
+                {margen > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setMargen(0)}
+                    className="ml-auto text-xs font-medium text-muted hover:text-fg hover:underline"
+                  >
+                    Quitar margen
+                  </button>
+                )}
               </div>
             )}
           </Group>
@@ -932,7 +963,7 @@ export function EstudioBoard({
               "relative overflow-hidden rounded-[1.4rem] bg-black shadow-[0_30px_80px_-20px_rgba(0,0,0,0.8)] ring-1 ring-white/10 " +
               asp.frame
             }
-            style={margen > 0 ? { backgroundColor: margenColor } : undefined}
+            style={{ backgroundColor: margenColor }}
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => {
               e.preventDefault();
@@ -944,9 +975,8 @@ export function EstudioBoard({
                 src={videoUrl}
                 className={
                   "absolute " +
-                  (margen > 0
-                    ? "object-contain"
-                    : "inset-0 size-full object-cover")
+                  (ajuste === "cover" ? "object-cover" : "object-contain") +
+                  (margen > 0 ? "" : " inset-0 size-full")
                 }
                 style={
                   margen > 0
