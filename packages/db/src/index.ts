@@ -20,10 +20,16 @@ export function getDb(): Database {
       throw new Error("DATABASE_URL no está definida");
     }
     // Supabase usa pgbouncer (transaction mode): sin prepared statements.
-    // Config mínima e igual a la versión probada en producción; el cache en
-    // globalThis (arriba) es lo único que evita la fuga de conexiones en dev.
+    // idle_timeout: recicla conexiones ociosas para que el pooler no las deje
+    // "muertas" tras inactividad (lo que colgaba el login post-logout).
+    // connect_timeout: si no logra conectar, falla rápido en vez de colgarse.
     const client =
-      globalForDb.__sqlClient ?? postgres(connectionString, { prepare: false });
+      globalForDb.__sqlClient ??
+      postgres(connectionString, {
+        prepare: false,
+        idle_timeout: 20,
+        connect_timeout: 15,
+      });
     globalForDb.__sqlClient = client;
     globalForDb.__dbInstance = drizzle(client, { schema });
   }
