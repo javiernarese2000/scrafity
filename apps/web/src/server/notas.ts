@@ -10,6 +10,7 @@ import TurndownService from "turndown";
 import { gfm } from "turndown-plugin-gfm";
 
 import type { ProviderName } from "@/ai";
+import { recuperarListas } from "@/lib/listado";
 import { generarVersionesCore } from "./generar";
 
 const turndown = new TurndownService({
@@ -85,6 +86,11 @@ export async function extraerNota(url: string): Promise<ExtractResult> {
       return { ok: false, error: "El contenido extraído es demasiado corto." };
     }
 
+    // Readability descarta algunas listas de datos (ej. calendarios en <ul>). Las
+    // recuperamos del HTML original y las sumamos al final del contenido.
+    const listas = recuperarListas(document as unknown as Document, md);
+    const contenido = listas ? `${md}\n\n${listas}` : md;
+
     const firstImg = article.content.match(
       /<img[^>]+src=["']([^"']+)["']/i,
     )?.[1];
@@ -94,7 +100,7 @@ export async function extraerNota(url: string): Promise<ExtractResult> {
     return {
       ok: true,
       titulo: article.title?.trim() ?? "(sin título)",
-      contenido: md,
+      contenido,
       fuente: parsed.hostname.replace(/^www\./, ""),
       imagenUrl,
     };
