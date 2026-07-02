@@ -2,6 +2,7 @@ import { articles, db, escenarios, sources } from "@scrapify/db";
 import { and, desc, eq, isNull } from "drizzle-orm";
 
 import { CuraduriaBoard, type EntradaRow } from "@/components/curaduria/curaduria-board";
+import { requireAdmin } from "@/lib/auth-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,7 @@ function resumen(md: string | null): string {
 }
 
 export default async function CuraduriaPage() {
+  await requireAdmin();
   const rows = await db
     .select({
       id: articles.id,

@@ -15,10 +15,12 @@ import type {
   GraphEscenario,
   GraphFuente,
 } from "@/components/escenarios/types";
+import { requireAdmin } from "@/lib/auth-guard";
 
 export const dynamic = "force-dynamic";
 
 export default async function EscenariosPage() {
+  await requireAdmin();
   const [fuentesRows, destinosRows, escRows, efRows, edRows, posRows] =
     await Promise.all([
       db.select().from(sources).orderBy(sources.createdAt),

@@ -20,6 +20,7 @@ export async function clasificarTags(
   titulo: string,
   contenido: string,
   proveedor: ProviderName | "auto",
+  categorias: string[] = CATEGORIAS,
 ): Promise<string[]> {
   try {
     const r = await generate(
@@ -28,7 +29,7 @@ export async function clasificarTags(
           "Clasificá la noticia. Devolvé SOLO 2 a 4 etiquetas separadas por comas, " +
           "en español, sin numerar ni explicar. La PRIMERA etiqueta es la categoría " +
           "general y DEBE ser EXACTAMENTE una de esta lista (elegí la más cercana): " +
-          CATEGORIAS.join(", ") +
+          categorias.join(", ") +
           ". Las siguientes son temas libres y específicos en minúsculas. Si el " +
           "contenido es atemporal/evergreen, agregá la etiqueta 'evergreen'.",
         prompt: `Título: ${titulo}\n\n${contenido.slice(0, 1200)}`,
@@ -141,6 +142,9 @@ export async function generarVersionesCore(
 
   const { similitudObjetivo } = await getAjustes();
 
+  // Si la nota ya fue clasificada al ingestar, no se reclasifica (evita gasto).
+  const yaClasificado = (art.tags?.length ?? 0) > 0;
+
   try {
     const [versionesGen, tags] = await Promise.all([
       Promise.all(
@@ -148,7 +152,9 @@ export async function generarVersionesCore(
           generarUnaVersion(titulo, contenido, params, similitudObjetivo),
         ),
       ),
-      clasificarTags(titulo, contenido, params.proveedor),
+      yaClasificado
+        ? Promise.resolve<string[]>([])
+        : clasificarTags(titulo, contenido, params.proveedor),
     ]);
 
     if (tags.length) {

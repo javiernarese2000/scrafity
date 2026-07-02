@@ -3,17 +3,20 @@ import crypto from "node:crypto";
 import {
   articles,
   db,
+  destinations,
   escenarioFuentes,
   escenarios,
   type FuenteProgreso,
   ingestRuns,
   sources,
 } from "@scrapify/db";
-import { and, eq, gte } from "drizzle-orm";
+import { and, eq, gte, inArray } from "drizzle-orm";
 import { XMLParser } from "fast-xml-parser";
 
 import type { ProviderName } from "@/ai";
+import { CATEGORIAS, canonizarCategoria } from "@/lib/categorias";
 import { getAjustes } from "./ajustes";
+import { clasificarTags } from "./generar";
 import { extraerNota } from "./notas";
 
 const parser = new XMLParser({
@@ -106,6 +109,12 @@ async function escenariosDeFuente(sourceId: string): Promise<EscenarioMatch[]> {
     }));
 }
 
+/** Empareja la categoría que devolvió la IA con la lista objetivo (case-insensitive). */
+function emparejarCategoria(raw: string, lista: string[]): string {
+  const k = raw.trim().toLowerCase();
+  return lista.find((c) => c.toLowerCase() === k) ?? canonizarCategoria(raw);
+}
+
 function coincide(esc: EscenarioMatch, texto: string): boolean {
   if (esc.keywords.length === 0) return true; // sin filtro = todo pasa
   const t = texto.toLowerCase();
@@ -133,8 +142,15 @@ export type ResultadoIngesta = {
  */
 export async function ingestarFuentes(opts?: {
   runId?: string;
+  // Alcance opcional (botón "Traer noticias"). Sin nada = todas las activas.
+  sourceIds?: string[];
+  // Filtro por categoría de la NOTA (clasificada al ingestar). Ingesta dirigida.
+  categorias?: string[];
+  maxPorFuente?: number;
+  palabra?: string;
 }): Promise<ResultadoIngesta> {
   const runId = opts?.runId;
+  const palabra = opts?.palabra?.trim().toLowerCase() || null;
   const res: ResultadoIngesta = {
     fuentes: 0,
     nuevas: 0,
@@ -143,12 +159,25 @@ export async function ingestarFuentes(opts?: {
     errores: [],
   };
 
-  const maxPorFuente = (await getAjustes()).maxPorFuente;
+  const maxPorFuente = opts?.maxPorFuente ?? (await getAjustes()).maxPorFuente;
 
+  const filtros = [eq(sources.tipo, "rss"), eq(sources.estado, "activa")];
+  if (opts?.sourceIds && opts.sourceIds.length > 0) {
+    filtros.push(inArray(sources.id, opts.sourceIds));
+  }
   const activas = await db
     .select()
     .from(sources)
-    .where(and(eq(sources.tipo, "rss"), eq(sources.estado, "activa")));
+    .where(and(...filtros));
+
+  // Categorías objetivo para clasificar (unión de las que publican los destinos;
+  // si no hay ninguna, la taxonomía canónica) y filtro pedido (ingesta dirigida).
+  const destinosCats = await db
+    .select({ categorias: destinations.categorias })
+    .from(destinations);
+  const union = [...new Set(destinosCats.flatMap((d) => d.categorias ?? []))];
+  const categoriasObjetivo = union.length > 0 ? union : CATEGORIAS;
+  const categoriasFiltro = (opts?.categorias ?? []).map((c) => c.toLowerCase());
 
   res.fuentes = activas.length;
 
@@ -224,17 +253,21 @@ export async function ingestarFuentes(opts?: {
         // Match de escenario: el PRIMERO que matchee por keywords Y tenga cupo
         // libre. (Antes elegía el primero y, si estaba lleno, descartaba la nota
         // sin probar los demás escenarios conectados a la fuente.)
+        // Filtro por palabra (corrida ad-hoc de "Traer noticias").
         const texto = `${item.titulo} ${item.resumen}`;
+        if (palabra && !texto.toLowerCase().includes(palabra)) {
+          res.saltadas += 1;
+          continue;
+        }
+
+        // Match de escenario OPCIONAL (params/ruteo). Si ninguno matchea o todos
+        // están sin cupo, la nota igual se crea (escenarioId null) — desacoplado.
         let esc: EscenarioMatch | null = null;
         for (const e of escs) {
           if (!coincide(e, texto)) continue;
           if (e.cupoDiario != null && (await notasHoy(e.id)) >= e.cupoDiario) continue;
           esc = e;
           break;
-        }
-        if (!esc) {
-          res.saltadas += 1;
-          continue;
         }
 
         // Extracción del cuerpo completo (keyless; Firecrawl será el plan B).
@@ -244,24 +277,46 @@ export async function ingestarFuentes(opts?: {
           continue;
         }
 
+        // Clasificación al ingestar (categoría REAL). Apunta a las categorías de
+        // los destinos. Se hace ANTES de insertar para poder filtrar.
+        let categoria: string | null = null;
+        let tags: string[] = [];
+        try {
+          tags = await clasificarTags(ext.titulo, ext.contenido, "auto", categoriasObjetivo);
+          categoria = tags.length ? emparejarCategoria(tags[0]!, categoriasObjetivo) : null;
+        } catch {
+          // sin categoría si la IA falla
+        }
+
+        // Ingesta dirigida por categoría: si se pidieron ciertas categorías y la
+        // nota no cae en ellas, se descarta (no se guarda).
+        if (
+          categoriasFiltro.length > 0 &&
+          (!categoria || !categoriasFiltro.includes(categoria.toLowerCase()))
+        ) {
+          res.saltadas += 1;
+          continue;
+        }
+
         const hash = crypto
           .createHash("sha256")
           .update(ext.contenido)
           .digest("hex");
-        // Se crea CRUDA (curacion 'pendiente'): la IA recién genera al aprobar
-        // en Curaduría. Ahorra tokens y filtra antes de publicar.
+        // Se crea CRUDA (curacion 'pendiente'): la IA recién genera al aprobar.
         const [art] = await db
           .insert(articles)
           .values({
             sourceId: fuente.id,
             curacion: "pendiente",
-            escenarioId: esc.id,
+            escenarioId: esc?.id ?? null,
             urlOriginal: item.link,
             titulo: ext.titulo,
             contenido: ext.contenido,
             hashContenido: hash,
             snapshotOriginal: ext.contenido,
             imagenUrl: ext.imagenUrl,
+            categoria,
+            tags,
           })
           .onConflictDoNothing()
           .returning();
@@ -270,7 +325,7 @@ export async function ingestarFuentes(opts?: {
         res.nuevas += 1;
         pf.nuevas += 1;
         procesadas += 1;
-        cupoUsado.set(esc.id, (cupoUsado.get(esc.id) ?? 0) + 1);
+        if (esc) cupoUsado.set(esc.id, (cupoUsado.get(esc.id) ?? 0) + 1);
         await persist("corriendo"); // tick en vivo
       }
 

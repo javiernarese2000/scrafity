@@ -9,7 +9,13 @@ import { cn } from "@/lib/cn";
 import { SidebarContent } from "./sidebar";
 import { Topbar } from "./topbar";
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({
+  children,
+  isAdmin = true,
+}: {
+  children: React.ReactNode;
+  isAdmin?: boolean;
+}) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
@@ -37,7 +43,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         )}
       >
         <div className="sticky top-0 h-dvh">
-          <SidebarContent collapsed={collapsed} onToggle={toggleCollapsed} />
+          <SidebarContent
+            collapsed={collapsed}
+            onToggle={toggleCollapsed}
+            isAdmin={isAdmin}
+          />
         </div>
       </aside>
 
@@ -68,7 +78,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               >
                 <X className="size-4" />
               </button>
-              <SidebarContent onNavigate={() => setMenuOpen(false)} />
+              <SidebarContent onNavigate={() => setMenuOpen(false)} isAdmin={isAdmin} />
             </motion.aside>
           </>
         )}

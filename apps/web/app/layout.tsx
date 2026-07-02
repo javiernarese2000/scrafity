@@ -3,6 +3,8 @@ import { Fraunces, Geist, Geist_Mono } from "next/font/google";
 
 import { AppShell } from "@/components/shell/app-shell";
 import { ThemeScript } from "@/components/theme/theme-script";
+import { esAdmin } from "@/lib/roles";
+import { createClient } from "@/lib/supabase/server";
 import "./globals.css";
 
 const fraunces = Fraunces({
@@ -28,22 +30,26 @@ export const metadata: Metadata = {
   description: "Agregador y reescritor de noticias con IA",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const sb = await createClient();
+  const {
+    data: { user },
+  } = await sb.auth.getUser();
+  const isAdmin = esAdmin(user);
+
   return (
     <html
       lang="es"
       suppressHydrationWarning
       className={`${fraunces.variable} ${geist.variable} ${geistMono.variable}`}
     >
-      <head>
-        <ThemeScript />
-      </head>
       <body>
-        <AppShell>{children}</AppShell>
+        <ThemeScript />
+        <AppShell isAdmin={isAdmin}>{children}</AppShell>
       </body>
     </html>
   );

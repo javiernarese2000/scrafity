@@ -87,6 +87,9 @@ export const sources = pgTable("sources", {
   tipo: sourceType("tipo").notNull(),
   url: text("url").notNull(),
   nombre: text("nombre"),
+  // Categoría/sección de la fuente (Deportes, Economía…). Permite "Traer por
+  // categoría" en Noticias. null = sin clasificar (fuente general).
+  categoria: text("categoria"),
   config: jsonb("config").$type<Record<string, unknown>>().default({}),
   estado: sourceStatus("estado").notNull().default("activa"),
   lastCheck: timestamp("last_check", { withTimezone: true }),
@@ -184,6 +187,11 @@ export const destinations = pgTable("destinations", {
   id: uuid("id").primaryKey().defaultRandom(),
   tipo: destinationType("tipo").notNull(),
   nombre: text("nombre").notNull(),
+  // Categorías que publica este sitio. La ingesta trae/filtra según ellas.
+  categorias: text("categorias")
+    .array()
+    .notNull()
+    .default(sql`'{}'::text[]`),
   configApi: jsonb("config_api").$type<Record<string, unknown>>().default({}),
   // Credenciales cifradas (nunca en texto plano).
   credencialesCifradas: text("credenciales_cifradas"),
@@ -204,6 +212,9 @@ export const publications = pgTable(
       .notNull()
       .references(() => destinations.id, { onDelete: "cascade" }),
     estado: publicationStatus("estado").notNull().default("pendiente"),
+    // Momento programado de publicación (Calendario). null = despacho inmediato
+    // por cadencia (comportamiento previo); con fecha futura, el despachador espera.
+    programadaEn: timestamp("programada_en", { withTimezone: true }),
     // Categoría (1er tag de la nota) para agrupar en la bandeja por columnas.
     categoria: text("categoria"),
     // Marca de prioridad: el despachador la suelta antes que el resto.

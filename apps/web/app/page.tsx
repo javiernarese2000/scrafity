@@ -27,6 +27,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/card";
 import { Reveal } from "@/components/ui/reveal";
 import { nombreCategoria } from "@/lib/categorias";
+import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -135,6 +136,17 @@ export default async function DashboardPage() {
     color: e.color,
   })).filter((d) => d.value > 0);
 
+  const sb = await createClient();
+  const {
+    data: { user },
+  } = await sb.auth.getUser();
+  const rawNombre =
+    (user?.user_metadata?.nombre as string | undefined)?.trim() ||
+    user?.email?.split("@")[0] ||
+    "";
+  const primer = rawNombre.split(/\s+/)[0] ?? "";
+  const nombre = primer ? primer.charAt(0).toUpperCase() + primer.slice(1) : "";
+
   const hora = new Date().getHours();
   const saludo = hora < 13 ? "Buen día" : hora < 20 ? "Buenas tardes" : "Buenas noches";
   const fecha = new Date().toLocaleDateString("es-AR", {
@@ -150,7 +162,7 @@ export default async function DashboardPage() {
         <div>
           <p className="font-mono text-xs uppercase tracking-widest text-accent">{fecha}</p>
           <h2 className="mt-1 font-display text-[2rem] font-medium tracking-tight text-fg">
-            {saludo}, Javier
+            {saludo}{nombre ? `, ${nombre}` : ""}
           </h2>
           <p className="mt-1 text-sm text-muted">
             Tenés{" "}

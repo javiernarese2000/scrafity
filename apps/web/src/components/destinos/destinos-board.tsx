@@ -1,6 +1,6 @@
 "use client";
 
-import { Globe, Plus, Send, Trash2 } from "lucide-react";
+import { Globe, Plus, Send, Tags, Trash2, X } from "lucide-react";
 import { useState, useTransition } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,7 @@ import {
   createDestino,
   deleteDestino,
   probarConexion,
+  setDestinoCategorias,
   type DestinoTipo,
 } from "@/server/destinos";
 
@@ -23,9 +24,68 @@ export type DestinoRow = {
   nombre: string;
   tipo: DestinoTipo;
   endpoint: string;
+  categorias: string[];
   activo: boolean;
   publicadas: number;
 };
+
+function CategoriasInput({
+  value,
+  onChange,
+}: {
+  value: string[];
+  onChange: (v: string[]) => void;
+}) {
+  const [txt, setTxt] = useState("");
+  function add() {
+    const c = txt.trim();
+    if (c && !value.some((x) => x.toLowerCase() === c.toLowerCase())) {
+      onChange([...value, c]);
+    }
+    setTxt("");
+  }
+  return (
+    <div>
+      {value.length > 0 && (
+        <div className="mb-2 flex flex-wrap gap-1.5">
+          {value.map((c) => (
+            <span
+              key={c}
+              className="inline-flex items-center gap-1 rounded-md bg-elevated px-2 py-1 text-xs text-fg"
+            >
+              {c}
+              <button
+                type="button"
+                onClick={() => onChange(value.filter((x) => x !== c))}
+                className="text-muted hover:text-danger"
+                aria-label={`Quitar ${c}`}
+              >
+                <X className="size-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="flex gap-2">
+        <input
+          value={txt}
+          onChange={(e) => setTxt(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              add();
+            }
+          }}
+          placeholder="Ej. Deportes"
+          className={inputCls}
+        />
+        <Button variant="outline" type="button" onClick={add}>
+          Agregar
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 export function DestinosBoard({ destinos }: { destinos: DestinoRow[] }) {
   const [pending, startTransition] = useTransition();
@@ -36,7 +96,12 @@ export function DestinosBoard({ destinos }: { destinos: DestinoRow[] }) {
   const [endpoint, setEndpoint] = useState("");
   const [username, setUsername] = useState("");
   const [appPassword, setAppPassword] = useState("");
+  const [categorias, setCategorias] = useState<string[]>([]);
   const [probando, setProbando] = useState(false);
+
+  // Edición de categorías de un destino existente.
+  const [editDest, setEditDest] = useState<DestinoRow | null>(null);
+  const [editCats, setEditCats] = useState<string[]>([]);
 
   const esWp = tipo === "wordpress_cliente";
   const wp = destinos.filter((d) => d.tipo === "wordpress_cliente").length;
@@ -54,7 +119,19 @@ export function DestinosBoard({ destinos }: { destinos: DestinoRow[] }) {
     setEndpoint("");
     setUsername("");
     setAppPassword("");
+    setCategorias([]);
     setTipo("wordpress_cliente");
+  }
+
+  function guardarCats() {
+    if (!editDest) return;
+    const id = editDest.id;
+    const cats = editCats;
+    setEditDest(null);
+    startTransition(async () => {
+      await setDestinoCategorias(id, cats);
+      show("Categorías guardadas");
+    });
   }
 
   async function probar() {
@@ -77,6 +154,7 @@ export function DestinosBoard({ destinos }: { destinos: DestinoRow[] }) {
         nombre: nombre.trim(),
         tipo,
         endpoint: endpoint.trim(),
+        categorias,
         username: esWp ? username.trim() : undefined,
         appPassword: esWp ? appPassword.trim() : undefined,
       });
@@ -132,7 +210,31 @@ export function DestinosBoard({ destinos }: { destinos: DestinoRow[] }) {
                     <p className="truncate font-mono text-xs text-muted">
                       {d.endpoint}
                     </p>
+                    {d.categorias.length > 0 && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {d.categorias.map((c) => (
+                          <span
+                            key={c}
+                            className="rounded bg-elevated px-1.5 py-0.5 text-[10px] text-muted"
+                          >
+                            {c}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      setEditDest(d);
+                      setEditCats(d.categorias);
+                    }}
+                    aria-label="Categorías"
+                    title="Categorías que publica"
+                  >
+                    <Tags className="size-4 text-muted" />
+                  </Button>
                   <Badge className="hidden sm:inline-flex">
                     {esWp ? "WordPress" : "Sitio propio"}
                   </Badge>
@@ -195,6 +297,9 @@ export function DestinosBoard({ destinos }: { destinos: DestinoRow[] }) {
               className={inputCls}
             />
           </Field>
+          <Field label="Categorías que publica">
+            <CategoriasInput value={categorias} onChange={setCategorias} />
+          </Field>
           {esWp && (
             <>
               <Field label="Usuario de WordPress">
@@ -243,6 +348,28 @@ export function DestinosBoard({ destinos }: { destinos: DestinoRow[] }) {
             </Button>
             <Button onClick={submitAdd} disabled={pending}>
               Agregar
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={!!editDest}
+        onClose={() => setEditDest(null)}
+        title={`Categorías · ${editDest?.nombre ?? ""}`}
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-muted">
+            Qué categorías publica este sitio. La ingesta las usa para traer y
+            filtrar las notas de este destino.
+          </p>
+          <CategoriasInput value={editCats} onChange={setEditCats} />
+          <div className="flex justify-end gap-2 pt-1">
+            <Button variant="ghost" onClick={() => setEditDest(null)}>
+              Cancelar
+            </Button>
+            <Button onClick={guardarCats} disabled={pending}>
+              Guardar
             </Button>
           </div>
         </div>

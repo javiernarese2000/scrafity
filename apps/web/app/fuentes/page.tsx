@@ -5,10 +5,12 @@ import {
   FuentesBoard,
   type FuenteRow,
 } from "@/components/fuentes/fuentes-board";
+import { requireAdmin } from "@/lib/auth-guard";
 
 export const dynamic = "force-dynamic";
 
 export default async function FuentesPage() {
+  await requireAdmin();
   const rows = await db.select().from(sources).orderBy(sources.createdAt);
 
   const counts = await db
@@ -22,6 +24,7 @@ export default async function FuentesPage() {
     nombre: r.nombre ?? r.url,
     tipo: r.tipo,
     url: r.url,
+    categoria: r.categoria,
     estado: r.estado,
     ultimaLectura: r.lastCheck
       ? r.lastCheck.toLocaleDateString("es")

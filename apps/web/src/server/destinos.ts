@@ -19,6 +19,7 @@ export async function createDestino(input: {
   nombre: string;
   tipo: DestinoTipo;
   endpoint: string;
+  categorias?: string[];
   // Solo para WordPress: usuario + contraseña de aplicación.
   username?: string;
   appPassword?: string;
@@ -37,9 +38,20 @@ export async function createDestino(input: {
   await db.insert(destinations).values({
     nombre: input.nombre,
     tipo: input.tipo,
+    categorias: input.categorias ?? [],
     configApi: { url: input.endpoint },
     credencialesCifradas,
   });
+  revalidatePath("/destinos");
+}
+
+/** Actualiza las categorías que publica un destino. */
+export async function setDestinoCategorias(id: string, categorias: string[]) {
+  const limpias = [...new Set(categorias.map((c) => c.trim()).filter(Boolean))];
+  await db
+    .update(destinations)
+    .set({ categorias: limpias, updatedAt: new Date() })
+    .where(eq(destinations.id, id));
   revalidatePath("/destinos");
 }
 

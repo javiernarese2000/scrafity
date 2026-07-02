@@ -7,6 +7,7 @@ import type {
   NotaView,
   ProveedorView,
 } from "@/components/moderacion/types";
+import { requireAdmin } from "@/lib/auth-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +21,7 @@ function relativo(date: Date): string {
 }
 
 export default async function ModeracionPage() {
+  await requireAdmin();
   const rows = await db
     .select({
       vId: versions.id,

@@ -18,12 +18,22 @@ export async function createFuente(input: {
   nombre: string;
   tipo: FuenteTipo;
   url: string;
+  categoria?: string | null;
 }) {
   await db.insert(sources).values({
     nombre: input.nombre,
     tipo: input.tipo,
     url: input.url,
+    categoria: input.categoria || null,
   });
+  revalidatePath("/fuentes");
+}
+
+export async function setFuenteCategoria(id: string, categoria: string | null) {
+  await db
+    .update(sources)
+    .set({ categoria: categoria || null, updatedAt: new Date() })
+    .where(eq(sources.id, id));
   revalidatePath("/fuentes");
 }
 
@@ -70,7 +80,12 @@ function aEstado(r: typeof ingestRuns.$inferSelect): EstadoIngesta {
  * Inicia la ingesta en segundo plano y devuelve el id de la corrida para
  * seguir el progreso. Si ya hay una corriendo, devuelve esa (no duplica).
  */
-export async function iniciarIngesta(): Promise<{ runId: string }> {
+export async function iniciarIngesta(opts?: {
+  sourceIds?: string[];
+  categorias?: string[];
+  maxPorFuente?: number;
+  palabra?: string;
+}): Promise<{ runId: string }> {
   const [enCurso] = await db
     .select()
     .from(ingestRuns)
@@ -80,7 +95,7 @@ export async function iniciarIngesta(): Promise<{ runId: string }> {
 
   const [run] = await db.insert(ingestRuns).values({}).returning();
   // Fire-and-forget: el server (Node) sigue ejecutando tras responder.
-  void ingestarFuentes({ runId: run!.id }).catch(async (e) => {
+  void ingestarFuentes({ runId: run!.id, ...opts }).catch(async (e) => {
     await db
       .update(ingestRuns)
       .set({

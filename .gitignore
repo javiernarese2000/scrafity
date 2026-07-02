@@ -8,10 +8,10 @@ dist/
 out/
 *.tsbuildinfo
 
-# env
+# env — ignora todos los .env* (incluidos .env.prod / .env.production), salvo el ejemplo
 .env
-.env.local
-.env*.local
+.env.*
+!.env.example
 
 # drizzle
 .drizzle/

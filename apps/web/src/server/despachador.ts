@@ -1,5 +1,5 @@
 import { articles, db, destinations, publications, versions } from "@scrapify/db";
-import { and, eq, gte } from "drizzle-orm";
+import { and, eq, gte, isNull, lte } from "drizzle-orm";
 
 import { parseCredenciales, publicarEnWordpress } from "./wordpress";
 
@@ -125,6 +125,25 @@ export type ResultadoDespacho = { despachadas: number; errores: number };
  */
 export async function despachar(): Promise<ResultadoDespacho> {
   const res: ResultadoDespacho = { despachadas: 0, errores: 0 };
+
+  // 1) Programadas del Calendario: se sueltan apenas llega su hora, sin importar
+  // la cadencia (esa es la promesa del calendario: "publicar a esta hora").
+  const vencidas = await db
+    .select({ id: publications.id })
+    .from(publications)
+    .where(
+      and(
+        eq(publications.estado, "en_cola"),
+        lte(publications.programadaEn, new Date()),
+      ),
+    );
+  for (const item of vencidas) {
+    const r = await publicarItem(item.id);
+    if (r.ok) res.despachadas += 1;
+    else res.errores += 1;
+  }
+
+  // 2) Sin fecha (programadaEn null): despacho automático por cadencia (previo).
   const destinos = await db.select().from(destinations);
   const hora = new Date().getHours();
 
@@ -158,6 +177,7 @@ export async function despachar(): Promise<ResultadoDespacho> {
         and(
           eq(publications.destinationId, d.id),
           eq(publications.estado, "en_cola"),
+          isNull(publications.programadaEn),
         ),
       );
 

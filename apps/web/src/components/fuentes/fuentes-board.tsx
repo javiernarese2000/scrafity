@@ -10,10 +10,12 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Field, Modal, inputCls } from "@/components/ui/modal";
 import { PageHeader, Stat } from "@/components/ui/page-header";
 import { Toast, useToast } from "@/components/ui/toast";
+import { CATEGORIAS } from "@/lib/categorias";
 import { cn } from "@/lib/cn";
 import {
   createFuente,
   deleteFuente,
+  setFuenteCategoria,
   setFuenteEstado,
   type FuenteEstado,
   type FuenteTipo,
@@ -25,6 +27,7 @@ export type FuenteRow = {
   nombre: string;
   tipo: FuenteTipo;
   url: string;
+  categoria: string | null;
   estado: FuenteEstado;
   ultimaLectura: string;
   ingestadas: number;
@@ -49,6 +52,7 @@ export function FuentesBoard({ fuentes }: { fuentes: FuenteRow[] }) {
   const [nombre, setNombre] = useState("");
   const [tipo, setTipo] = useState<FuenteTipo>("rss");
   const [url, setUrl] = useState("");
+  const [categoria, setCategoria] = useState("");
 
   const activas = fuentes.filter((f) => f.estado === "activa").length;
   const conError = fuentes.filter((f) => f.estado === "error").length;
@@ -72,12 +76,20 @@ export function FuentesBoard({ fuentes }: { fuentes: FuenteRow[] }) {
   function submitAdd() {
     if (!nombre.trim() || !url.trim()) return;
     startTransition(async () => {
-      await createFuente({ nombre: nombre.trim(), tipo, url: url.trim() });
+      await createFuente({ nombre: nombre.trim(), tipo, url: url.trim(), categoria: categoria || null });
       setNombre("");
       setUrl("");
       setTipo("rss");
+      setCategoria("");
       setOpenAdd(false);
       show("Fuente agregada");
+    });
+  }
+
+  function cambiarCategoria(f: FuenteRow, cat: string) {
+    startTransition(async () => {
+      await setFuenteCategoria(f.id, cat || null);
+      show(cat ? `${f.nombre} → ${cat}` : `${f.nombre} sin categoría`);
     });
   }
 
@@ -123,6 +135,20 @@ export function FuentesBoard({ fuentes }: { fuentes: FuenteRow[] }) {
                   </p>
                   <p className="truncate font-mono text-xs text-muted">{f.url}</p>
                 </div>
+                <select
+                  value={f.categoria ?? ""}
+                  onChange={(e) => cambiarCategoria(f, e.target.value)}
+                  disabled={pending}
+                  aria-label="Categoría"
+                  className="hidden rounded-lg border border-line bg-surface px-2 py-1 text-xs text-fg md:block"
+                >
+                  <option value="">Sin categoría</option>
+                  {CATEGORIAS.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
                 <Badge className="hidden sm:inline-flex">
                   {tipoLabel[f.tipo]}
                 </Badge>
@@ -193,6 +219,20 @@ export function FuentesBoard({ fuentes }: { fuentes: FuenteRow[] }) {
               placeholder="https://medio.com/feed"
               className={inputCls}
             />
+          </Field>
+          <Field label="Categoría (opcional)">
+            <select
+              value={categoria}
+              onChange={(e) => setCategoria(e.target.value)}
+              className={inputCls}
+            >
+              <option value="">Sin categoría</option>
+              {CATEGORIAS.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
           </Field>
           <div className="flex justify-end gap-2 pt-1">
             <Button variant="ghost" onClick={() => setOpenAdd(false)}>

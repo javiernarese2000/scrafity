@@ -5,10 +5,12 @@ import {
   DestinosBoard,
   type DestinoRow,
 } from "@/components/destinos/destinos-board";
+import { requireAdmin } from "@/lib/auth-guard";
 
 export const dynamic = "force-dynamic";
 
 export default async function DestinosPage() {
+  await requireAdmin();
   const rows = await db
     .select()
     .from(destinations)
@@ -27,6 +29,7 @@ export default async function DestinosPage() {
       nombre: r.nombre,
       tipo: r.tipo,
       endpoint: cfg.url ?? "—",
+      categorias: r.categorias ?? [],
       activo: r.estado === "activa",
       publicadas: byDest.get(r.id) ?? 0,
     };

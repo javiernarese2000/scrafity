@@ -72,15 +72,16 @@ export const retencion = inngest.createFunction(
 );
 
 /**
- * Despachador de la bandeja de salida: cada 10 min suelta de la cola según la
- * cadencia configurada por destino (cantidad, franja horaria, modo).
+ * Despachador: cada 2 min suelta (1) las publicaciones PROGRAMADAS cuya hora ya
+ * venció (Calendario) y (2) las de la cola sin fecha según la cadencia del
+ * destino. Frecuencia corta para que lo programado salga cerca de su hora.
  */
 export const despacharCola = inngest.createFunction(
   {
     id: "despachar-cola",
     concurrency: 1,
     triggers: [
-      { cron: "*/10 * * * *" },
+      { cron: "*/2 * * * *" },
       { event: "cola/despachar.requested" },
     ],
   },
