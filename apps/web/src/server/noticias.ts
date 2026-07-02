@@ -12,6 +12,7 @@ import { revalidatePath } from "next/cache";
 
 import type { ProviderName } from "@/ai";
 import { generarVersionesCore } from "./generar";
+import { extraerNota } from "./notas";
 
 export type NotaPreparada = {
   versionId: string;
@@ -238,6 +239,40 @@ export async function programarNota(input: {
   revalidatePath("/noticias");
   revalidatePath("/calendario");
   revalidatePath("/bandeja");
+}
+
+/**
+ * Vuelve a bajar y extraer el contenido de una nota ya ingestada (para tomar la
+ * mejora de extracción: listas/calendarios que Readability descartaba). Descarta
+ * los borradores viejos así se regeneran con el contenido nuevo.
+ */
+export async function reextraerNota(articleId: string) {
+  const [art] = await db
+    .select({ url: articles.urlOriginal })
+    .from(articles)
+    .where(eq(articles.id, articleId))
+    .limit(1);
+  if (!art) throw new Error("Nota no encontrada.");
+
+  const ext = await extraerNota(art.url);
+  if (!ext.ok) throw new Error(ext.error);
+
+  await db
+    .update(articles)
+    .set({ contenido: ext.contenido, snapshotOriginal: ext.contenido, updatedAt: new Date() })
+    .where(eq(articles.id, articleId));
+
+  await db
+    .update(versions)
+    .set({ estado: "rechazada", updatedAt: new Date() })
+    .where(
+      and(
+        eq(versions.articleId, articleId),
+        inArray(versions.estado, ["en_revision", "borrador"]),
+      ),
+    );
+
+  revalidatePath("/noticias");
 }
 
 /** Descarta una nota del feed: nunca se publica. */

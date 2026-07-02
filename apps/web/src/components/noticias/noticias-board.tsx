@@ -32,6 +32,7 @@ import {
   descartarNota,
   prepararNota,
   programarNota,
+  reextraerNota,
   regenerarNota,
   type NotaPreparada,
 } from "@/server/noticias";
@@ -191,6 +192,18 @@ export function NoticiasBoard({
     });
   }
 
+  function reextraer(nota: NotaFeed) {
+    startTransition(async () => {
+      try {
+        await reextraerNota(nota.id);
+        show("Contenido actualizado");
+        router.refresh();
+      } catch (e) {
+        show(e instanceof Error ? e.message : "No se pudo re-extraer.");
+      }
+    });
+  }
+
   const palabras = contenido.split(/\s+/).filter(Boolean).length;
 
   return (
@@ -263,6 +276,10 @@ export function NoticiasBoard({
                   <Button size="sm" variant="ghost" onClick={() => descartar(n)}>
                     <X className="size-4" />
                     Descartar
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => reextraer(n)} title="Volver a bajar el contenido (recupera listas/calendarios)">
+                    <RotateCw className="size-4" />
+                    Re-extraer
                   </Button>
                   <a
                     href={n.urlOriginal}
