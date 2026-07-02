@@ -20,6 +20,7 @@ import type { Plataforma } from "@/server/cuentas";
 export type PreviewData = {
   plataforma: Plataforma;
   videoUrl: string | null;
+  tipo?: string; // "video" | "imagen"
   handle: string; // @usuario o nombre de la cuenta
   cliente: string;
   caption: string;
@@ -51,24 +52,29 @@ function Avatar({ name, ring }: { name: string; ring?: boolean }) {
   );
 }
 
-function Video({ url, cover = true }: { url: string | null; cover?: boolean }) {
+function Video({
+  url,
+  cover = true,
+  tipo = "video",
+}: {
+  url: string | null;
+  cover?: boolean;
+  tipo?: string;
+}) {
   if (!url) {
     return (
       <div className="grid h-full w-full place-items-center bg-neutral-900 text-neutral-600">
-        <span className="text-xs">Sin video</span>
+        <span className="text-xs">Sin medio</span>
       </div>
     );
   }
+  const cls = "h-full w-full " + (cover ? "object-cover" : "object-contain");
+  if (tipo === "imagen") {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img key={url} src={url} alt="" className={cls} />;
+  }
   return (
-    <video
-      key={url}
-      src={url}
-      muted
-      loop
-      autoPlay
-      playsInline
-      className={"h-full w-full " + (cover ? "object-cover" : "object-contain")}
-    />
+    <video key={url} src={url} muted loop autoPlay playsInline className={cls} />
   );
 }
 
@@ -109,7 +115,7 @@ function RailAccion({
 function TikTokSkin(d: PreviewData) {
   return (
     <div className="relative h-full w-full bg-black">
-      <Video url={d.videoUrl} />
+      <Video url={d.videoUrl} tipo={d.tipo} />
       {/* Top */}
       <div className="absolute inset-x-0 top-0 flex items-center justify-center gap-4 px-4 pt-3 text-[12px] font-medium text-white/80">
         <span>Siguiendo</span>
@@ -156,7 +162,7 @@ function TikTokSkin(d: PreviewData) {
 function ReelSkin(d: PreviewData) {
   return (
     <div className="relative h-full w-full bg-black">
-      <Video url={d.videoUrl} />
+      <Video url={d.videoUrl} tipo={d.tipo} />
       {/* Top */}
       <div className="absolute inset-x-0 top-0 flex items-center justify-between px-4 pt-3 text-white">
         <span className="text-[15px] font-semibold drop-shadow">Reels</span>
@@ -231,7 +237,7 @@ function FeedSkin(d: PreviewData) {
           </p>
         )}
         <div className="aspect-square w-full bg-black">
-          <Video url={d.videoUrl} />
+          <Video url={d.videoUrl} tipo={d.tipo} />
         </div>
         {/* Reacciones */}
         <div className="flex items-center justify-between px-3 py-1.5 text-[11px] text-neutral-500">

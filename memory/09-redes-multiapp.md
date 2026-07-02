@@ -688,3 +688,16 @@ Antes: bucket `videos` plano por tipo con nombres UUID (`sources/<uuid>`, `rende
   DISPATCH_URL=`https://zoocial.up.railway.app/api/cron/despachar?key=<CRON_SECRET>`.
 - **El producto Redes ya es autónomo de la máquina del usuario** (panel + worker en la nube). Falta:
   apagar el `zoo-worker` local; auditorías Meta/TikTok (público/clientes); Supabase Pro (prod real).
+
+### Publicaciones con IMAGEN (no solo video) — Fase 1 HECHO (2026-06)
+- **Migración 0026**: `tipo` (text default 'video') en `video_renders` y `social_publications`.
+- **Estudio** acepta imagen o video: `mediaTipo` (detecta por file.type), preview con `<img>` o `<video>`,
+  input accept `video/*,image/*`, `enviarRender` pasa `tipo` a `encolarRender`. Todo el branding (logo/
+  zócalo/marca/marco/ajuste cover-contener/plantillas) se reusa igual.
+- **Worker**: `db.ts` claim devuelve `tipo`; `render.ts` extrajo `buildBase()` (cover/contener/margen) y
+  sumó `renderImageFromConfig` (imagen + overlay → **JPG** 1 frame, sin audio, `-frames:v 1 -q:v 3`);
+  `queue.ts` ramifica por `tipo` (output .jpg/.mp4, content-type, miniatura = el propio JPG, dur=0).
+- **Despachador**: rama imagen → `publicarFotoFacebook` (`/{page}/photos`) / `publicarImagenInstagram`
+  (media_type IMAGE + media_publish). TikTok con imagen → error "próximamente" (fase 2).
+- **Previews**: renders-board (modal) y componer PhonePreview muestran `<img>` si `tipo==='imagen'`.
+- **PENDIENTE fase 2**: TikTok fotos (carrusel), carruseles multi-imagen, Stories.

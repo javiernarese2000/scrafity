@@ -48,6 +48,44 @@ export function probeDuration(input: string): Promise<number> {
  *     con el mismo HTML/CSS/fuentes que el preview.
  *  2) FFmpeg escala el video a cover y superpone el PNG (overlay full-frame).
  */
+/**
+ * Filtro FFmpeg que ubica el medio [0:v] en el cuadro W×H según el ajuste
+ * (cover/contener) y el margen, dejando el resultado en [base]. Sirve para
+ * video y para imagen.
+ */
+function buildBase(cfg: Record<string, unknown>, W: number, H: number): string {
+  const margen = Math.max(0, Math.min(35, Number(cfg.margen ?? 0)));
+  const contener = cfg.ajuste === "contener";
+  const col = ffColor(String(cfg.margenColor ?? "#000000"));
+
+  if (margen === 0 && !contener) {
+    // Cover full-frame (lo de siempre).
+    return (
+      `[0:v]scale=${W}:${H}:force_original_aspect_ratio=increase,` +
+      `crop=${W}:${H},setsar=1[base];`
+    );
+  }
+  const mx = even((margen / 100) * W);
+  const my = even((margen / 100) * H);
+  const iw = even(W - 2 * mx);
+  const ih = even(H - 2 * my);
+  if (contener) {
+    // Entra completo (decrease) y se centra → bandas del color de fondo.
+    return (
+      `color=c=${col}:s=${W}x${H}[bg];` +
+      `[0:v]scale=${iw}:${ih}:force_original_aspect_ratio=decrease,setsar=1[v];` +
+      `[bg][v]overlay=(W-w)/2:(H-h)/2:shortest=1[base];`
+    );
+  }
+  // Cover dentro del recuadro con margen (increase + crop al recuadro).
+  return (
+    `color=c=${col}:s=${W}x${H}[bg];` +
+    `[0:v]scale=${iw}:${ih}:force_original_aspect_ratio=increase,` +
+    `crop=${iw}:${ih},setsar=1[v];` +
+    `[bg][v]overlay=${mx}:${my}:shortest=1[base];`
+  );
+}
+
 export async function renderFromConfig(
   input: string,
   output: string,
@@ -62,42 +100,7 @@ export async function renderFromConfig(
     const overlay = join(dir, "overlay.png");
     await renderOverlayHtml(buildOverlayHtml(cfg, W, H), W, H, overlay);
 
-    // Ajuste del video al cuadro:
-    //  - "cover": llena y recorta (force_original_aspect_ratio=increase + crop).
-    //  - "contener": entra completo, centrado, con bandas del color del marco.
-    // El margen achica el recuadro interno y lo enmarca con color. El overlay
-    // (logo/zócalo) queda full-frame, igual que el preview.
-    const margen = Math.max(0, Math.min(35, Number(cfg.margen ?? 0)));
-    const contener = cfg.ajuste === "contener";
-    const col = ffColor(String(cfg.margenColor ?? "#000000"));
-    let base: string;
-
-    if (margen === 0 && !contener) {
-      // Cover full-frame (lo de siempre).
-      base =
-        `[0:v]scale=${W}:${H}:force_original_aspect_ratio=increase,` +
-        `crop=${W}:${H},setsar=1[base];`;
-    } else {
-      // Fondo de color + video escalado dentro del recuadro interno.
-      const mx = even((margen / 100) * W);
-      const my = even((margen / 100) * H);
-      const iw = even(W - 2 * mx);
-      const ih = even(H - 2 * my);
-      if (contener) {
-        // Entra completo (decrease) y se centra → bandas del color de fondo.
-        base =
-          `color=c=${col}:s=${W}x${H}[bg];` +
-          `[0:v]scale=${iw}:${ih}:force_original_aspect_ratio=decrease,setsar=1[v];` +
-          `[bg][v]overlay=(W-w)/2:(H-h)/2:shortest=1[base];`;
-      } else {
-        // Cover dentro del recuadro con margen (increase + crop al recuadro).
-        base =
-          `color=c=${col}:s=${W}x${H}[bg];` +
-          `[0:v]scale=${iw}:${ih}:force_original_aspect_ratio=increase,` +
-          `crop=${iw}:${ih},setsar=1[v];` +
-          `[bg][v]overlay=${mx}:${my}:shortest=1[base];`;
-      }
-    }
+    const base = buildBase(cfg, W, H);
 
     const args = [
       "-y",
@@ -126,6 +129,50 @@ export async function renderFromConfig(
       output,
     ];
     await runWithProgress(args, dur, onProgress, signal);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+}
+
+/**
+ * Render de IMAGEN: compone la foto (cover/contener + margen) con el overlay
+ * (logo/zócalo/marca) y saca un JPG de un frame. Sin audio, mucho más rápido.
+ */
+export async function renderImageFromConfig(
+  input: string,
+  output: string,
+  cfg: Record<string, unknown>,
+): Promise<void> {
+  const [W, H] = DIMS[String(cfg.aspecto ?? "9:16")] ?? DIMS["9:16"]!;
+  const dir = await mkdtemp(join(tmpdir(), "render-img-"));
+  try {
+    const overlay = join(dir, "overlay.png");
+    await renderOverlayHtml(buildOverlayHtml(cfg, W, H), W, H, overlay);
+
+    const base = buildBase(cfg, W, H);
+    const args = [
+      "-y",
+      "-i",
+      input,
+      "-filter_complex",
+      base + `movie='${overlay}'[ov];[base][ov]overlay=0:0[vout]`,
+      "-map",
+      "[vout]",
+      "-frames:v",
+      "1",
+      "-q:v",
+      "3",
+      output,
+    ];
+    await new Promise<void>((resolve, reject) => {
+      const p = spawn("ffmpeg", args, { stdio: ["ignore", "ignore", "pipe"] });
+      let err = "";
+      p.stderr.on("data", (d: Buffer) => (err += d.toString()));
+      p.on("error", reject);
+      p.on("close", (code) =>
+        code === 0 ? resolve() : reject(new Error("ffmpeg img: " + err.slice(-800))),
+      );
+    });
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

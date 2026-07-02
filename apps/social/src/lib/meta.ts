@@ -210,3 +210,62 @@ export async function publicarReelInstagram(input: {
   }
   return { id: mediaId, url };
 }
+
+/** Publica una FOTO en una Página de Facebook. */
+export async function publicarFotoFacebook(input: {
+  pageId: string;
+  token: string;
+  imageUrl: string;
+  caption: string;
+}): Promise<ResultadoPub> {
+  const j = await postJson(`${GRAPH}/${input.pageId}/photos`, {
+    url: input.imageUrl,
+    caption: input.caption,
+    access_token: input.token,
+  });
+  const id = String(j.post_id ?? j.id ?? "");
+  return { id, url: `https://www.facebook.com/${id}` };
+}
+
+/** Publica una IMAGEN en Instagram (post de feed). */
+export async function publicarImagenInstagram(input: {
+  igUserId: string;
+  token: string;
+  imageUrl: string;
+  caption: string;
+}): Promise<ResultadoPub> {
+  const cont = await postJson(`${GRAPH}/${input.igUserId}/media`, {
+    image_url: input.imageUrl,
+    caption: input.caption,
+    access_token: input.token,
+  });
+  const creationId = String(cont.id ?? "");
+  if (!creationId) throw new Error("Instagram no devolvió el contenedor.");
+
+  // Las imágenes suelen estar listas al instante; reintenta unas veces por las dudas.
+  let mediaId = "";
+  for (let i = 0; i < 6; i++) {
+    try {
+      const pub = await postJson(`${GRAPH}/${input.igUserId}/media_publish`, {
+        creation_id: creationId,
+        access_token: input.token,
+      });
+      mediaId = String(pub.id ?? "");
+      break;
+    } catch (e) {
+      if (i === 5) throw e;
+      await sleep(3000);
+    }
+  }
+
+  let url = `https://www.instagram.com/`;
+  try {
+    const m = await getJson(
+      `${GRAPH}/${mediaId}?fields=permalink&access_token=${encodeURIComponent(input.token)}`,
+    );
+    if (m.permalink) url = String(m.permalink);
+  } catch {
+    // no crítico
+  }
+  return { id: mediaId, url };
+}

@@ -8,6 +8,7 @@ import {
   extractThumbnail,
   probeDuration,
   renderFromConfig,
+  renderImageFromConfig,
 } from "./render.js";
 import { descargar, subir, urlPublica } from "./storage.js";
 
@@ -38,49 +39,62 @@ export async function procesarUno(): Promise<boolean> {
     if (est && est !== "procesando") controller.abort();
   }, 2000);
 
-  console.log(`▶ render ${job.id} — ${job.titulo ?? "(sin título)"}`);
+  const esImagen = job.tipo === "imagen";
+  console.log(`▶ render ${job.id} [${job.tipo}] — ${job.titulo ?? "(sin título)"}`);
   try {
-    const src = join(dir, "in.mp4");
+    const srcExt =
+      job.source_path.split(".").pop()?.replace(/[^a-z0-9]/gi, "").slice(0, 5) ||
+      (esImagen ? "jpg" : "mp4");
+    const src = join(dir, `in.${srcExt}`);
     await descargar(job.source_path, src);
 
-    const out = join(dir, "out.mp4");
-    let last = -5;
-    await renderFromConfig(
-      src,
-      out,
-      job.config ?? {},
-      (pct) => {
-        if (pct - last >= 2) {
-          last = pct;
-          setProgreso(job.id, pct).catch(() => {});
-        }
-      },
-      controller.signal,
-    );
+    const ext = esImagen ? "jpg" : "mp4";
+    const out = join(dir, `out.${ext}`);
 
-    // Resultado y miniatura van a la misma carpeta del source (<cliente>/<mes>/),
-    // en out/ y thumb/. Si el source es viejo (esquema plano) se cae al de antes.
+    if (esImagen) {
+      await renderImageFromConfig(src, out, job.config ?? {});
+    } else {
+      let last = -5;
+      await renderFromConfig(
+        src,
+        out,
+        job.config ?? {},
+        (pct) => {
+          if (pct - last >= 2) {
+            last = pct;
+            setProgreso(job.id, pct).catch(() => {});
+          }
+        },
+        controller.signal,
+      );
+    }
+
+    // Resultado y miniatura van a la misma carpeta del source (<cliente>/<mes>/).
     const carpeta = job.source_path.replace(/\/src\/[^/]+$/, "");
     const nuevaRuta = carpeta !== job.source_path;
     const id6 = job.id.slice(0, 6);
-    const nombre = `${slugify(job.titulo) || "video"}-${id6}`;
-    const outPath = nuevaRuta ? `${carpeta}/out/${nombre}.mp4` : `renders/${job.id}.mp4`;
-    const thumbPath = nuevaRuta ? `${carpeta}/thumb/${nombre}.jpg` : `thumbs/${job.id}.jpg`;
+    const nombre = `${slugify(job.titulo) || "media"}-${id6}`;
+    const outPath = nuevaRuta ? `${carpeta}/out/${nombre}.${ext}` : `renders/${job.id}.${ext}`;
 
-    // Miniatura
-    let thumbUrl: string | null = null;
-    try {
-      const thumb = join(dir, "thumb.jpg");
-      await extractThumbnail(out, thumb);
-      await subir(thumbPath, thumb, "image/jpeg");
-      thumbUrl = urlPublica(thumbPath);
-    } catch {
-      // una miniatura que falla no debe frenar el render
+    await subir(outPath, out, esImagen ? "image/jpeg" : "video/mp4");
+    const outputUrl = urlPublica(outPath);
+
+    // Miniatura: en imagen es el mismo resultado; en video, un frame.
+    let thumbUrl: string | null = esImagen ? outputUrl : null;
+    if (!esImagen) {
+      try {
+        const thumb = join(dir, "thumb.jpg");
+        await extractThumbnail(out, thumb);
+        const thumbPath = nuevaRuta ? `${carpeta}/thumb/${nombre}.jpg` : `thumbs/${job.id}.jpg`;
+        await subir(thumbPath, thumb, "image/jpeg");
+        thumbUrl = urlPublica(thumbPath);
+      } catch {
+        // una miniatura que falla no debe frenar el render
+      }
     }
 
-    const dur = await probeDuration(out);
-    await subir(outPath, out);
-    await setListo(job.id, outPath, urlPublica(outPath), dur, thumbUrl);
+    const dur = esImagen ? 0 : await probeDuration(out);
+    await setListo(job.id, outPath, outputUrl, dur, thumbUrl);
     console.log(`✅ render ${job.id} listo en ${((Date.now() - t0) / 1000).toFixed(1)}s`);
   } catch (e) {
     if (e instanceof CanceladoError) {

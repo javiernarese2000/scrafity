@@ -7,6 +7,7 @@ export type Job = {
   config: Record<string, unknown>;
   source_path: string;
   titulo: string | null;
+  tipo: string;
 };
 
 /**
@@ -25,7 +26,7 @@ export async function claimNext(): Promise<Job | null> {
         limit 1
         for update skip locked
      )
-     returning id, config, source_path, titulo`;
+     returning id, config, source_path, titulo, tipo`;
   return rows[0] ?? null;
 }
 

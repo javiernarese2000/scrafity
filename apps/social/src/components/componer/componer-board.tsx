@@ -348,6 +348,7 @@ export function ComponerBoard({
             <PhonePreview
               plataforma={previewPlat}
               videoUrl={render?.outputUrl ?? null}
+              tipo={render?.tipo}
               handle={handlePreview}
               cliente={cliente?.nombre ?? "Tu marca"}
               caption={caption}

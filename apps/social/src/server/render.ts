@@ -66,12 +66,14 @@ export async function encolarRender(input: {
   titulo: string;
   clienteId: string | null;
   config: Record<string, unknown>;
+  tipo?: "video" | "imagen";
 }): Promise<string> {
   const [row] = await db
     .insert(videoRenders)
     .values({
       clienteId: input.clienteId,
       titulo: input.titulo.trim() || "Sin título",
+      tipo: input.tipo ?? "video",
       config: input.config,
       sourcePath: input.sourcePath,
       estado: "en_cola",
@@ -137,6 +139,7 @@ export async function estadoRender(id: string): Promise<EstadoRender | null> {
 export type RenderRow = {
   id: string;
   titulo: string | null;
+  tipo: string;
   clienteId: string | null;
   clienteNombre: string | null;
   estado: string;
@@ -154,6 +157,7 @@ export async function listarRenders(): Promise<RenderRow[]> {
     .select({
       id: videoRenders.id,
       titulo: videoRenders.titulo,
+      tipo: videoRenders.tipo,
       clienteId: videoRenders.clienteId,
       clienteNombre: clientes.nombre,
       estado: videoRenders.estado,
@@ -247,6 +251,7 @@ export async function publicarRender(input: {
     .select({
       clienteId: videoRenders.clienteId,
       titulo: videoRenders.titulo,
+      tipo: videoRenders.tipo,
       outputUrl: videoRenders.outputUrl,
       estado: videoRenders.estado,
     })
@@ -277,6 +282,7 @@ export async function publicarRender(input: {
       videoRenderId: input.renderId,
       videoUrl: r.outputUrl,
       videoTitulo: r.titulo,
+      tipo: r.tipo,
       caption: input.caption.trim() || null,
       estado: "en_cola" as const,
       programadaEn: cuando,

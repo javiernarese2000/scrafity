@@ -268,6 +268,8 @@ export const socialPublications = pgTable("social_publications", {
   }),
   videoUrl: text("video_url"),
   videoTitulo: text("video_titulo"),
+  // "video" | "imagen" — define cómo se publica (video vs foto).
+  tipo: text("tipo").notNull().default("video"),
   caption: text("caption"),
   // URL de la noticia que acompaña al video (opcional, va en el caption).
   urlNota: text("url_nota"),
@@ -356,9 +358,11 @@ export const videoRenders = pgTable("video_renders", {
     onDelete: "set null",
   }),
   titulo: text("titulo"),
+  // Tipo de medio: "video" (MP4, FFmpeg) o "imagen" (JPG, compuesta).
+  tipo: text("tipo").notNull().default("video"),
   // Config del Estudio (logo, zócalo, marca de agua, formato) + texto.
   config: jsonb("config").$type<Record<string, unknown>>().notNull(),
-  // Ruta en Storage del video original subido y del resultado.
+  // Ruta en Storage del medio original subido y del resultado.
   sourcePath: text("source_path").notNull(),
   // El original se borra a los 14 días (retención); el resultado queda.
   sourceEliminado: boolean("source_eliminado").notNull().default(false),

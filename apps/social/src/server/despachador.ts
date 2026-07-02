@@ -6,7 +6,12 @@ import { revalidatePath } from "next/cache";
 
 import { registrar } from "@/lib/auditoria";
 import { decrypt, encrypt } from "@/lib/crypto";
-import { publicarReelInstagram, publicarVideoFacebook } from "@/lib/meta";
+import {
+  publicarFotoFacebook,
+  publicarImagenInstagram,
+  publicarReelInstagram,
+  publicarVideoFacebook,
+} from "@/lib/meta";
 import {
   refreshToken,
   subirVideoTikTok,
@@ -32,12 +37,13 @@ export async function publicarUna(pubId: string): Promise<Resultado> {
       plataforma: socialPublications.plataforma,
       videoUrl: socialPublications.videoUrl,
       caption: socialPublications.caption,
+      tipo: socialPublications.tipo,
       socialAccountId: socialPublications.socialAccountId,
     });
 
   const pub = claimed[0];
   if (!pub) return { ok: true }; // ya publicada o tomada por otro
-  if (!pub.videoUrl) return falla(pubId, "La publicación no tiene video.");
+  if (!pub.videoUrl) return falla(pubId, "La publicación no tiene medio.");
   if (!pub.socialAccountId) return falla(pubId, "Sin cuenta destino.");
 
   const [acc] = await db
@@ -60,7 +66,12 @@ export async function publicarUna(pubId: string): Promise<Resultado> {
     let externalId: string;
     let url: string | null;
 
+    const esImagen = pub.tipo === "imagen";
+
     if (pub.plataforma === "tiktok") {
+      if (esImagen) {
+        return falla(pubId, "TikTok con imágenes: próximamente. Usá Facebook o Instagram.");
+      }
       // El video va a los BORRADORES del usuario; finaliza en la app de TikTok.
       const access = await accesoTikTok(pub.socialAccountId, acc.credencialesCifradas);
       externalId = await subirVideoTikTok(access, pub.videoUrl);
@@ -68,21 +79,15 @@ export async function publicarUna(pubId: string): Promise<Resultado> {
     } else {
       const token = decrypt(acc.credencialesCifradas);
       if (pub.plataforma === "facebook") {
-        const r = await publicarVideoFacebook({
-          pageId: acc.externalId,
-          token,
-          videoUrl: pub.videoUrl,
-          caption,
-        });
+        const r = esImagen
+          ? await publicarFotoFacebook({ pageId: acc.externalId, token, imageUrl: pub.videoUrl, caption })
+          : await publicarVideoFacebook({ pageId: acc.externalId, token, videoUrl: pub.videoUrl, caption });
         externalId = r.id;
         url = r.url;
       } else if (pub.plataforma === "instagram") {
-        const r = await publicarReelInstagram({
-          igUserId: acc.externalId,
-          token,
-          videoUrl: pub.videoUrl,
-          caption,
-        });
+        const r = esImagen
+          ? await publicarImagenInstagram({ igUserId: acc.externalId, token, imageUrl: pub.videoUrl, caption })
+          : await publicarReelInstagram({ igUserId: acc.externalId, token, videoUrl: pub.videoUrl, caption });
         externalId = r.id;
         url = r.url;
       } else {

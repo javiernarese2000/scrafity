@@ -256,6 +256,7 @@ export function EstudioBoard({
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoName, setVideoName] = useState<string>("");
   const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [mediaTipo, setMediaTipo] = useState<"video" | "imagen">("video");
 
   // Render en la cola
   const [rOpen, setROpen] = useState(false);
@@ -330,6 +331,7 @@ export function EstudioBoard({
     setVideoUrl(URL.createObjectURL(file));
     setVideoName(file.name);
     setVideoFile(file);
+    setMediaTipo(file.type.startsWith("image/") ? "imagen" : "video");
   }
   function cargarLogo(file?: File | null) {
     if (!file) return;
@@ -377,7 +379,7 @@ export function EstudioBoard({
 
   async function enviarRender() {
     if (!videoFile) {
-      show("Subí un video primero");
+      show("Subí un video o una imagen primero");
       return;
     }
     setROpen(true);
@@ -401,15 +403,16 @@ export function EstudioBoard({
       const up = await supabase.storage
         .from("videos")
         .uploadToSignedUrl(path, token, videoFile);
-      if (up.error) throw new Error("No se pudo subir el video.");
+      if (up.error) throw new Error("No se pudo subir el archivo.");
 
       setRFase("encolado");
       const cfg = { ...configActual(), texto } as Record<string, unknown>;
       const id = await encolarRender({
         sourcePath: path,
-        titulo: videoName || texto.slice(0, 40) || "Video",
+        titulo: videoName || texto.slice(0, 40) || "Media",
         clienteId: clienteId || null,
         config: cfg,
+        tipo: mediaTipo,
       });
 
       rT0.current = Date.now();
@@ -705,11 +708,11 @@ export function EstudioBoard({
       <div className="flex flex-1 overflow-hidden">
         {/* Rail izquierdo: media */}
         <aside className="hidden w-[280px] shrink-0 space-y-5 overflow-y-auto border-r border-line p-4 md:block">
-          <Group icon={Video} title="Video">
+          <Group icon={Video} title="Video o imagen">
             <input
               ref={videoInput}
               type="file"
-              accept="video/*"
+              accept="video/*,image/*"
               hidden
               onChange={(e) => cargarVideo(e.target.files?.[0])}
             />
@@ -736,7 +739,7 @@ export function EstudioBoard({
                 className="flex w-full flex-col items-center gap-1.5 rounded-lg border border-dashed border-line bg-surface px-3 py-6 text-muted transition-colors hover:border-accent hover:text-fg"
               >
                 <Upload className="size-5" />
-                <span className="text-xs">Subir o arrastrar video</span>
+                <span className="text-xs">Subir video o imagen</span>
               </button>
             )}
           </Group>
@@ -971,14 +974,12 @@ export function EstudioBoard({
             }}
           >
             {videoUrl ? (
-              <video
-                src={videoUrl}
-                className={
+              (() => {
+                const mediaCls =
                   "absolute " +
                   (ajuste === "cover" ? "object-cover" : "object-contain") +
-                  (margen > 0 ? "" : " inset-0 size-full")
-                }
-                style={
+                  (margen > 0 ? "" : " inset-0 size-full");
+                const mediaStyle =
                   margen > 0
                     ? {
                         top: `${margen}%`,
@@ -986,13 +987,22 @@ export function EstudioBoard({
                         right: `${margen}%`,
                         bottom: `${margen}%`,
                       }
-                    : undefined
-                }
-                autoPlay
-                loop
-                muted
-                playsInline
-              />
+                    : undefined;
+                return mediaTipo === "imagen" ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={videoUrl} alt="" className={mediaCls} style={mediaStyle} />
+                ) : (
+                  <video
+                    src={videoUrl}
+                    className={mediaCls}
+                    style={mediaStyle}
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                  />
+                );
+              })()
             ) : (
               <button
                 type="button"

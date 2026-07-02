@@ -332,14 +332,23 @@ export function RendersBoard({
               </button>
             </div>
             <div className="grid place-items-center bg-black">
-              {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-              <video
-                src={preview.outputUrl}
-                controls
-                autoPlay
-                playsInline
-                className="max-h-[70vh] w-full object-contain"
-              />
+              {preview.tipo === "imagen" ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={preview.outputUrl}
+                  alt=""
+                  className="max-h-[70vh] w-full object-contain"
+                />
+              ) : (
+                // eslint-disable-next-line jsx-a11y/media-has-caption
+                <video
+                  src={preview.outputUrl}
+                  controls
+                  autoPlay
+                  playsInline
+                  className="max-h-[70vh] w-full object-contain"
+                />
+              )}
             </div>
             <div className="flex items-center justify-between gap-2 border-t border-line/70 px-4 py-3">
               <span className="text-xs text-muted">
