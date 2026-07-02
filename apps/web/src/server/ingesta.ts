@@ -15,6 +15,7 @@ import { XMLParser } from "fast-xml-parser";
 
 import type { ProviderName } from "@/ai";
 import { CATEGORIAS, canonizarCategoria } from "@/lib/categorias";
+import { extraerLinksDeListado } from "@/lib/listado";
 import { getAjustes } from "./ajustes";
 import { clasificarTags } from "./generar";
 import { extraerNota } from "./notas";
@@ -161,7 +162,7 @@ export async function ingestarFuentes(opts?: {
 
   const maxPorFuente = opts?.maxPorFuente ?? (await getAjustes()).maxPorFuente;
 
-  const filtros = [eq(sources.tipo, "rss"), eq(sources.estado, "activa")];
+  const filtros = [inArray(sources.tipo, ["rss", "url"]), eq(sources.estado, "activa")];
   if (opts?.sourceIds && opts.sourceIds.length > 0) {
     filtros.push(inArray(sources.id, opts.sourceIds));
   }
@@ -231,10 +232,19 @@ export async function ingestarFuentes(opts?: {
     await persist("corriendo");
     try {
       const feedRes = await fetch(fuente.url, {
-        headers: { "user-agent": "ScrapifyBot/0.1 (+https://scrapify.app)" },
+        headers: {
+          "user-agent": "Mozilla/5.0 (compatible; ScrapifyBot/0.1; +https://scrapify.app)",
+          accept: "application/rss+xml, application/xml, text/html",
+        },
       });
-      if (!feedRes.ok) throw new Error(`feed respondió ${feedRes.status}`);
-      const items = parseFeed(await feedRes.text());
+      if (!feedRes.ok) throw new Error(`la fuente respondió ${feedRes.status}`);
+      const text = await feedRes.text();
+      // Autodetección: si no parsea como RSS/Atom, es una página HTML de listado
+      // (sección/tema) → sacamos los links de artículos.
+      let items = parseFeed(text);
+      if (items.length === 0) {
+        items = extraerLinksDeListado(text, fuente.url);
+      }
 
       const escs = await escenariosDeFuente(fuente.id);
       let procesadas = 0;
