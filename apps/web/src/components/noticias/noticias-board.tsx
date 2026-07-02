@@ -297,6 +297,15 @@ export function NoticiasBoard({
                 <p className="font-display text-lg font-medium text-fg">Programar nota</p>
                 <p className="truncate text-xs text-muted">{activa.fuente}</p>
               </div>
+              <a
+                href={activa.urlOriginal}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-sm text-muted transition-colors hover:bg-elevated hover:text-fg"
+              >
+                <ExternalLink className="size-4" />
+                Ver nota original
+              </a>
               <button
                 type="button"
                 onClick={() => !pending && setActiva(null)}
