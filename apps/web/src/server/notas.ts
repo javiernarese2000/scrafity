@@ -87,8 +87,9 @@ export async function extraerNota(url: string): Promise<ExtractResult> {
     }
 
     // Readability descarta algunas listas de datos (ej. calendarios en <ul>). Las
-    // recuperamos del HTML original y las sumamos al final del contenido.
-    const listas = recuperarListas(document as unknown as Document, md);
+    // recuperamos del HTML original. OJO: Readability MUTA el document que recibe
+    // (borra nodos), así que re-parseamos el HTML para tenerlo intacto.
+    const listas = recuperarListas(parseHTML(html).document as unknown as Document, md);
     const contenido = listas ? `${md}\n\n${listas}` : md;
 
     const firstImg = article.content.match(
