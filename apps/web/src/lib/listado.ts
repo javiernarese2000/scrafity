@@ -73,17 +73,21 @@ export function recuperarListas(doc: Document, mdActual: string): string {
  * Heurística: mismo dominio, no páginas de tema/autor, y el último segmento parece
  * nota (id `-nidNNN` o slug largo con guiones). Devuelve items compatibles con el feed.
  */
+// Slugs de páginas legales/footer que NO son notas (evita falsos positivos).
+const FOOTER = /(privacidad|terminos|condiciones|cookies|suscrib|contacto|nosotros|aviso-legal|publicidad|newsletter|boletin|sitemap)/i;
+
 /** ¿La URL parece un artículo (y no una página de listado/navegación)? */
 function esArticulo(pathname: string): boolean {
   const segs = pathname.split("/").filter(Boolean);
   const last = segs[segs.length - 1] ?? "";
   if (segs.some((s) => NAV_LISTADO.has(s))) return false;
-  return (
-    segs.includes("articles") || // BBC y similares (/articles/{id})
-    segs.includes("article") ||
-    /-nid\d{4,}/i.test(last) || // La Nación (/economia/…-nid123)
-    (segs.length >= 2 && last.includes("-") && last.length >= 25 && !/-tid\d+/i.test(last)) // slug largo
-  );
+  if (segs.includes("articles") || segs.includes("article")) return true; // BBC y similares
+  if (/-nid\d{4,}/i.test(last)) return true; // La Nación (/economia/…-nid123)
+  // Slug largo genérico (otros diarios); excluye páginas legales/footer poco profundas.
+  if (segs.length >= 2 && last.includes("-") && last.length >= 25 && !/-tid\d+/i.test(last)) {
+    return !(segs.length <= 2 && FOOTER.test(last));
+  }
+  return false;
 }
 
 export function extraerLinksDeListado(html: string, baseUrl: string): ListadoItem[] {
