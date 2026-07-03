@@ -2,6 +2,14 @@ import { parseHTML } from "linkedom";
 
 export type ListadoItem = { titulo: string; link: string; resumen: string };
 
+// Segmentos de URL que indican una página de LISTADO/navegación (no un artículo).
+const NAV_LISTADO = new Set([
+  "tema", "temas", "topics", "topic", "autor", "author", "tag", "tags",
+  "categoria", "categorias", "seccion", "secciones", "section", "sections",
+  "live", "video", "videos", "ws", "search", "buscar", "hub", "podcasts",
+  "programas",
+]);
+
 function resolverUrl(src: string | null, base: string): string | null {
   if (!src) return null;
   try {
@@ -93,12 +101,14 @@ export function extraerLinksDeListado(html: string, baseUrl: string): ListadoIte
 
     const segs = u.pathname.split("/").filter(Boolean);
     const last = segs[segs.length - 1] ?? "";
-    const primero = segs[0] ?? "";
-    if (primero === "tema" || primero === "autor" || primero === "tag") continue;
+    // Excluir páginas de listado/navegación (temas, tags, secciones, video…).
+    if (segs.some((s) => NAV_LISTADO.has(s))) continue;
 
     const pareceNota =
-      /-nid\d{4,}/i.test(last) ||
-      (segs.length >= 2 && last.includes("-") && last.length >= 25 && !/-tid\d+/i.test(last));
+      segs.includes("articles") || // BBC y similares (/articles/{id})
+      segs.includes("article") ||
+      /-nid\d{4,}/i.test(last) || // La Nación (/economia/…-nid123)
+      (segs.length >= 2 && last.includes("-") && last.length >= 25 && !/-tid\d+/i.test(last)); // slug largo genérico
     if (!pareceNota) continue;
 
     vistos.add(clean);
