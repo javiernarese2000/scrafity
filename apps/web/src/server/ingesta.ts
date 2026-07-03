@@ -239,9 +239,14 @@ export async function ingestarFuentes(opts?: {
       });
       if (!feedRes.ok) throw new Error(`la fuente respondió ${feedRes.status}`);
       const text = await feedRes.text();
-      // Autodetección: si no parsea como RSS/Atom, es una página HTML de listado
-      // (sección/tema) → sacamos los links de artículos.
-      let items = parseFeed(text);
+      // Autodetección: si no parsea como RSS/Atom (o el parser se rompe con HTML
+      // malformado), es una página HTML de listado → sacamos los links de artículos.
+      let items: FeedItem[] = [];
+      try {
+        items = parseFeed(text);
+      } catch {
+        items = [];
+      }
       if (items.length === 0) {
         items = extraerLinksDeListado(text, fuente.url);
       }
