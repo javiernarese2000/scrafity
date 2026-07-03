@@ -73,6 +73,19 @@ export function recuperarListas(doc: Document, mdActual: string): string {
  * Heurística: mismo dominio, no páginas de tema/autor, y el último segmento parece
  * nota (id `-nidNNN` o slug largo con guiones). Devuelve items compatibles con el feed.
  */
+/** ¿La URL parece un artículo (y no una página de listado/navegación)? */
+function esArticulo(pathname: string): boolean {
+  const segs = pathname.split("/").filter(Boolean);
+  const last = segs[segs.length - 1] ?? "";
+  if (segs.some((s) => NAV_LISTADO.has(s))) return false;
+  return (
+    segs.includes("articles") || // BBC y similares (/articles/{id})
+    segs.includes("article") ||
+    /-nid\d{4,}/i.test(last) || // La Nación (/economia/…-nid123)
+    (segs.length >= 2 && last.includes("-") && last.length >= 25 && !/-tid\d+/i.test(last)) // slug largo
+  );
+}
+
 export function extraerLinksDeListado(html: string, baseUrl: string): ListadoItem[] {
   let base: URL;
   try {
@@ -80,43 +93,40 @@ export function extraerLinksDeListado(html: string, baseUrl: string): ListadoIte
   } catch {
     return [];
   }
-  const { document } = parseHTML(html);
   const self = `${base.origin}${base.pathname}`.replace(/\/+$/, "");
   const vistos = new Set<string>();
   const items: ListadoItem[] = [];
 
-  for (const a of Array.from(document.querySelectorAll("a[href]"))) {
-    const abs = resolverUrl(a.getAttribute("href"), baseUrl);
-    if (!abs) continue;
+  const agregar = (href: string | null, titulo: string) => {
+    const abs = resolverUrl(href, baseUrl);
+    if (!abs) return;
     let u: URL;
     try {
       u = new URL(abs);
     } catch {
-      continue;
+      return;
     }
-    if (u.hostname !== base.hostname) continue;
-
+    if (u.hostname !== base.hostname) return;
     const clean = `${u.origin}${u.pathname}`.replace(/\/+$/, "");
-    if (clean === self || vistos.has(clean)) continue;
-
-    const segs = u.pathname.split("/").filter(Boolean);
-    const last = segs[segs.length - 1] ?? "";
-    // Excluir páginas de listado/navegación (temas, tags, secciones, video…).
-    if (segs.some((s) => NAV_LISTADO.has(s))) continue;
-
-    const pareceNota =
-      segs.includes("articles") || // BBC y similares (/articles/{id})
-      segs.includes("article") ||
-      /-nid\d{4,}/i.test(last) || // La Nación (/economia/…-nid123)
-      (segs.length >= 2 && last.includes("-") && last.length >= 25 && !/-tid\d+/i.test(last)); // slug largo genérico
-    if (!pareceNota) continue;
-
+    if (clean === self || vistos.has(clean) || !esArticulo(u.pathname)) return;
     vistos.add(clean);
-    items.push({
-      titulo: (a.textContent ?? "").replace(/\s+/g, " ").trim(),
-      link: clean,
-      resumen: "",
-    });
+    items.push({ titulo: titulo.replace(/\s+/g, " ").trim(), link: clean, resumen: "" });
+  };
+
+  try {
+    const { document } = parseHTML(html);
+    for (const a of Array.from(document.querySelectorAll("a[href]"))) {
+      agregar(a.getAttribute("href"), a.textContent ?? "");
+    }
+  } catch {
+    // linkedom puede fallar con HTML muy anidado/malformado ("Maximum nested
+    // tags exceeded"). Respaldo con regex, que ignora el anidamiento.
+    const re = /<a\b[^>]*\bhref=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(html))) {
+      agregar(m[1] ?? null, (m[2] ?? "").replace(/<[^>]+>/g, " "));
+    }
   }
+
   return items;
 }
