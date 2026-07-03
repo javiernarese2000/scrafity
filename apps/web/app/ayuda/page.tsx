@@ -1,17 +1,20 @@
 import {
-  ChevronDown,
+  CalendarDays,
+  CalendarPlus,
+  Clock,
+  Columns2,
+  DownloadCloud,
+  Image as ImageIcon,
   Images,
-  Inbox,
-  type LucideIcon,
+  LayoutDashboard,
   Lightbulb,
-  Library,
-  Newspaper,
-  Radio,
+  Link2,
+  type LucideIcon,
+  ChevronDown,
+  Pencil,
+  Rss,
   Send,
-  SendHorizontal,
-  Settings,
-  Sparkles,
-  Workflow,
+  Trash2,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -19,13 +22,35 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardBody } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 
+// El día del editor, en 3 pasos.
 const FLUJO = [
-  { icon: Radio, label: "Fuentes" },
-  { icon: Inbox, label: "Bandeja de entrada" },
-  { icon: Sparkles, label: "IA genera" },
-  { icon: Newspaper, label: "Moderación" },
-  { icon: SendHorizontal, label: "Bandeja de salida" },
-  { icon: Send, label: "WordPress / Feed" },
+  { icon: DownloadCloud, label: "Traer noticias" },
+  { icon: CalendarPlus, label: "Programar" },
+  { icon: Clock, label: "Sale sola a su hora" },
+];
+
+// Cómo programar una nota (la acción central del editor).
+const PASOS: { titulo: string; desc: string }[] = [
+  {
+    titulo: "Traé las noticias",
+    desc: "En Noticias tocá «Traer noticias» y elegí de qué categorías, sitios o fuentes traer. Las notas aparecen en el feed.",
+  },
+  {
+    titulo: "Abrí «Programar»",
+    desc: "En una noticia tocá «Programar». La IA reescribe la nota al instante y se abre a pantalla completa.",
+  },
+  {
+    titulo: "Revisá y ajustá",
+    desc: "En «Diff» ves original vs. reescrito; en «Editar» tocás el texto; con «Ver nota original» abrís la fuente. Elegí la imagen de portada.",
+  },
+  {
+    titulo: "Reescribí si querés",
+    desc: "Podés cambiar el tono o el proveedor de IA y tocar «Regenerar» para obtener otra versión, sin perder tu imagen ni tu selección.",
+  },
+  {
+    titulo: "Elegí sitio, día y hora",
+    desc: "Marcá el o los sitios de destino, el día y la hora, y tocá «Programar». La nota queda en el Calendario, lista para salir sola.",
+  },
 ];
 
 const SECCIONES: {
@@ -36,99 +61,77 @@ const SECCIONES: {
   href: string;
 }[] = [
   {
-    icon: Radio,
-    titulo: "Fuentes",
-    desc: "Feeds RSS de los medios. La ingesta lee las fuentes activas, deduplica y trae las notas en crudo.",
-    tip: "Conectá cada fuente a un escenario en el canvas, si no, no ingiere nada.",
-    href: "/fuentes",
+    icon: Rss,
+    titulo: "Noticias",
+    desc: "Tu bandeja de trabajo. Traés lo último de las fuentes y, desde cada nota, la programás (o la descartás).",
+    tip: "«Traer noticias» te deja elegir por categoría o sitio para no llenarte de temas que no publicás.",
+    href: "/noticias",
   },
   {
-    icon: Inbox,
-    titulo: "Bandeja de entrada",
-    desc: "Las notas ingestadas llegan acá en crudo. Aprobás las que querés (recién ahí la IA genera) y descartás el resto.",
-    tip: "Es un filtro barato: descartá la basura antes de gastar tokens de IA.",
-    href: "/curaduria",
+    icon: CalendarDays,
+    titulo: "Calendario",
+    desc: "Dónde ves y organizás lo que sale, por horario y por sitio (cada color es un sitio). Las notas se publican solas a su hora.",
+    tip: "Arrastrá un bloque para cambiarle la hora; clic para ver el detalle o publicar ya.",
+    href: "/calendario",
   },
   {
-    icon: Newspaper,
-    titulo: "Moderación",
-    desc: "Las versiones que la IA generó esperan tu revisión. Editás, regenerás, elegís versión y publicás o enviás a la cola.",
-    tip: "Solo llegan acá las notas de escenarios con «moderación = ON».",
-    href: "/moderacion",
+    icon: LayoutDashboard,
+    titulo: "Dashboard",
+    desc: "El pulso del día: cuánto entró, cuánto está programado y cuánto salió, de un vistazo.",
+    tip: "Es tu punto de partida cada mañana para saber cómo venís de contenido.",
+    href: "/",
   },
   {
-    icon: SendHorizontal,
-    titulo: "Bandeja de salida",
-    desc: "La cola de despacho por destino. Arrastrás notas entre categorías y a «Prioritarias», y el despachador las suelta con el ritmo que configures.",
-    tip: "Configurá el ritmo (ej. 2 cada 60 min) y prendé «Auto-despacho».",
-    href: "/bandeja",
-  },
-  {
-    icon: Library,
-    titulo: "Biblioteca",
-    desc: "La casa de toda nota: todas las versiones y estados. Editás, regenerás, cambiás la portada y publicás o republicás.",
-    tip: "¿No encontrás una nota? Siempre está acá, sin importar su estado.",
-    href: "/biblioteca",
-  },
-  {
-    icon: Workflow,
-    titulo: "Escenarios",
-    desc: "El grafo Fuentes → Escenario → Destinos. Definís N versiones, tono, proveedor, cupo y el switch «moderación».",
-    tip: "«Moderación = OFF» = la nota va sola a la Bandeja de salida (igual pasa por tu control ahí).",
-    href: "/escenarios",
-  },
-  {
-    icon: Send,
-    titulo: "Destinos",
-    desc: "WordPress de clientes (push por REST con contraseñas de aplicación) y sitios propios (pull por feed público).",
-    tip: "En el WP del cliente usá un usuario Editor/Administrador y HTTPS en producción.",
-    href: "/destinos",
+    icon: Link2,
+    titulo: "Pegar URL",
+    desc: "¿Viste una nota puntual que querés publicar? Pegás su link y entra al flujo como una noticia más.",
+    tip: "Ideal para una exclusiva o algo que no está en tus fuentes.",
+    href: "/pegar",
   },
   {
     icon: Images,
     titulo: "Multimedia",
-    desc: "Biblioteca global de imágenes con tags. Las reutilizás como portada desde cualquier nota con un buscador.",
-    tip: "Tagueá al subir (ej. «messi, deportes») para encontrarlas rápido después.",
+    desc: "Banco de imágenes para usar de portada. Las buscás y reutilizás desde cualquier nota al programar.",
+    tip: "Tagueá al subir (ej. «anses, economía») para encontrarlas rápido.",
     href: "/multimedia",
   },
   {
-    icon: Settings,
-    titulo: "Ajustes",
-    desc: "Configuración global que afecta de verdad: similitud objetivo, máximo por fuente, retención y estado de las claves de IA.",
-    tip: "Bajá la «similitud objetivo» si querés notas menos parecidas al original.",
-    href: "/ajustes",
+    icon: Trash2,
+    titulo: "Papelera",
+    desc: "Lo que descartaste. Nada se pierde de golpe: podés revisar antes de que se limpie.",
+    tip: "Si descartaste algo por error, buscalo acá.",
+    href: "/papelera",
   },
 ];
 
 const RECOMENDACIONES = [
-  "Conectá cada fuente a un escenario; si no, sus notas se saltean en la ingesta.",
-  "Usá keywords en las conexiones del canvas para filtrar por tema (ej. solo fútbol de un medio deportivo).",
-  "Moderación = ON para control total; OFF para automático (igual pasa por la Bandeja de salida antes de publicarse).",
-  "Nada se publica sin pasar por la Bandeja de salida: es tu tablero de control de lo que sale.",
-  "Si una nota quedó muy parecida al original, abrila en Biblioteca y tocá «Regenerar».",
-  "Cargá la API key de DeepSeek para tener respaldo de IA y más volumen.",
+  "Confiá en la reescritura, pero mirá el «Diff» en las notas sensibles antes de programar.",
+  "Balanceá el día: fijate que no se junten muchas notas del mismo tema seguidas (los colores por sitio te ayudan a verlo).",
+  "Programá con tiempo: dejá el día armado y el calendario dispara todo solo, aunque no estés.",
+  "Si una nota de calendario o lista trae info incompleta, usá «Re-extraer» o «Ver nota original» para completarla.",
+  "¿Necesitás que salga ya, sin esperar la hora? En el detalle de la nota en el Calendario, tocá «Publicar ahora».",
 ];
 
 const FAQ = [
   {
-    q: "Aprobé una nota y no aparece en Moderación. ¿Dónde está?",
-    a: "Si el escenario tiene «moderación = OFF», la nota va directo a la Bandeja de salida (no a Moderación). Y siempre, en cualquier estado, la encontrás en Biblioteca.",
+    q: "Programé notas y no las veo salir. ¿Tengo que hacer algo?",
+    a: "No: salen solas a su hora (el despachador corre cada 2 minutos) y el calendario se refresca solo para mostrar el candado cuando se publicaron. Si querés forzar una salida inmediata, usá «Despachar ahora» arriba del calendario.",
   },
   {
-    q: "La ingesta trae pocas notas. ¿Por qué?",
-    a: "Tres motivos habituales: la fuente no está conectada a ningún escenario, el cupo diario del escenario ya se llenó, o son URLs ya ingestadas (dedup). Los cupos se reinician a medianoche.",
+    q: "«Traer noticias» me trae 0 noticias.",
+    a: "Casi siempre es porque esas notas ya se trajeron antes (no se duplican). Probá traer de otra categoría o fuente. Y si una nota ya ingestada quedó incompleta, usala con «Re-extraer» en vez de volver a traerla.",
   },
   {
-    q: "La similitud me da alta (50%+).",
-    a: "Suele ser por citas textuales y datos que no se pueden cambiar. Igual podés bajar el objetivo en Ajustes y usar «Regenerar» en la nota; reintenta hasta acercarse al umbral.",
+    q: "A una nota le falta información (por ejemplo un calendario de fechas).",
+    a: "Algunas notas traen datos en listas o tablas que la extracción no capta del todo. Tocá «Re-extraer» en la tarjeta para volver a bajar el contenido, o usá «Ver nota original» dentro de Programar para completarlo a mano.",
   },
   {
-    q: "Veo categorías duplicadas en la Bandeja de salida.",
-    a: "Las columnas son las categorías reales de tu WordPress. Si hay duplicados por plural u ortografía, limpialos en WordPress (Entradas → Categorías) y tocá «Refrescar categorías».",
+    q: "No veo Fuentes, Destinos, Escenarios, Ajustes ni Usuarios.",
+    a: "Son secciones de administración: las configura un administrador (qué fuentes, qué sitios, qué categorías publica cada sitio). Como editor te enfocás en el contenido: traer, programar y organizar el calendario.",
   },
   {
-    q: "No se publica solo. ¿Tengo que hacer algo?",
-    a: "El despacho/ingesta automáticos corren con el servicio Inngest. Sin eso, funcionan con los botones manuales o con el «Auto-despacho» mientras tengas la Bandeja abierta.",
+    q: "¿Puedo publicar la misma nota en varios sitios?",
+    a: "Sí. Al programar, marcá todos los sitios de destino que quieras. Se agenda una salida por cada sitio; después las ves en el calendario con el color de cada uno.",
   },
 ];
 
@@ -145,12 +148,12 @@ export default function AyudaPage() {
     <div className="mx-auto max-w-5xl">
       <PageHeader
         title="Ayuda"
-        subtitle="Cómo funciona Scrapify de punta a punta, qué hace cada sección y recomendaciones."
+        subtitle="Cómo trabajar el día a día: traer noticias, programarlas y dejar que el calendario las publique solo."
       />
 
-      {/* El recorrido */}
+      {/* El día en 3 pasos */}
       <Card className="mb-8 p-5">
-        <p className="mb-4 text-sm font-medium text-fg">El recorrido</p>
+        <p className="mb-4 text-sm font-medium text-fg">Tu día, en 3 pasos</p>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-3">
           {FLUJO.map((f, i) => (
             <span key={f.label} className="flex items-center gap-3">
@@ -163,16 +166,45 @@ export default function AyudaPage() {
           ))}
         </div>
         <p className="mt-4 text-sm text-muted">
-          Cada nota cruda pasa por <strong className="font-medium text-fg">dos controles humanos</strong>:
-          la <strong className="font-medium text-fg">Bandeja de entrada</strong> (aprobás antes de
-          gastar IA) y la <strong className="font-medium text-fg">Bandeja de salida</strong> (la ves
-          antes de que se publique). Si el escenario pide moderación, además pasa por{" "}
-          <strong className="font-medium text-fg">Moderación</strong>.
+          El editor no piensa en «aprobar notas»: piensa en{" "}
+          <strong className="font-medium text-fg">qué publica hoy y a qué sitio va</strong>. Traés lo
+          último de tus fuentes, elegís qué programar y el{" "}
+          <strong className="font-medium text-fg">calendario lo dispara solo</strong> a la hora que
+          pusiste, aunque no estés.
         </p>
       </Card>
 
-      {/* Las secciones */}
-      <h2 className="mb-4 font-display text-xl font-medium text-fg">Las secciones</h2>
+      {/* Cómo programar una nota */}
+      <h2 className="mb-4 font-display text-xl font-medium text-fg">Cómo programar una nota</h2>
+      <Card className="mb-10">
+        <CardBody className="space-y-4">
+          {PASOS.map((p, i) => (
+            <div key={p.titulo} className="flex items-start gap-3.5">
+              <span className="grid size-7 shrink-0 place-items-center rounded-full bg-brand text-sm font-semibold text-brand-foreground">
+                {i + 1}
+              </span>
+              <div>
+                <p className="text-sm font-medium text-fg">{p.titulo}</p>
+                <p className="mt-0.5 text-sm leading-relaxed text-muted">{p.desc}</p>
+              </div>
+            </div>
+          ))}
+          <div className="flex flex-wrap gap-2 pt-1 text-xs text-muted">
+            <span className="inline-flex items-center gap-1 rounded-md bg-elevated px-2 py-1">
+              <Columns2 className="size-3.5" /> Diff = original vs. IA
+            </span>
+            <span className="inline-flex items-center gap-1 rounded-md bg-elevated px-2 py-1">
+              <Pencil className="size-3.5" /> Editar = ajustar el texto
+            </span>
+            <span className="inline-flex items-center gap-1 rounded-md bg-elevated px-2 py-1">
+              <ImageIcon className="size-3.5" /> Portada = imagen de la nota
+            </span>
+          </div>
+        </CardBody>
+      </Card>
+
+      {/* Las secciones que usás */}
+      <h2 className="mb-4 font-display text-xl font-medium text-fg">Las secciones que usás</h2>
       <div className="mb-10 grid gap-4 sm:grid-cols-2">
         {SECCIONES.map((s) => (
           <Link key={s.titulo} href={s.href}>
@@ -193,6 +225,40 @@ export default function AyudaPage() {
         ))}
       </div>
 
+      {/* El calendario en detalle */}
+      <h2 className="mb-4 font-display text-xl font-medium text-fg">Cómo funciona el calendario</h2>
+      <Card className="mb-10">
+        <CardBody className="space-y-3 text-sm text-fg">
+          <p className="flex items-start gap-2.5">
+            <CalendarDays className="mt-0.5 size-4 shrink-0 text-brand" />
+            Cada nota es un bloque con <strong className="mx-1 font-medium">color por sitio</strong>.
+            Cambiás entre vista <strong className="mx-1 font-medium">Día / Semana / Mes</strong>.
+          </p>
+          <p className="flex items-start gap-2.5">
+            <CalendarPlus className="mt-0.5 size-4 shrink-0 text-brand" />
+            <span>
+              <strong className="font-medium">Arrastrá</strong> un bloque para cambiarle la hora, o
+              hacé clic para ver el detalle, <strong className="font-medium">reprogramar</strong> o{" "}
+              <strong className="font-medium">publicar ya</strong>.
+            </span>
+          </p>
+          <p className="flex items-start gap-2.5">
+            <Clock className="mt-0.5 size-4 shrink-0 text-brand" />
+            <span>
+              <strong className="font-medium">Se dispara solo:</strong> a su hora, la nota se publica
+              sin que estés. Cuando sale, queda <strong className="font-medium">bloqueada con un
+              candado</strong> y ya no se puede mover.
+            </span>
+          </p>
+          <p className="flex items-start gap-2.5">
+            <Send className="mt-0.5 size-4 shrink-0 text-brand" />
+            El <strong className="mx-1 font-medium">reloj</strong> (arriba a la derecha) te da la hora
+            de un vistazo, y <strong className="mx-1 font-medium">«Despachar ahora»</strong> fuerza la
+            salida de todo lo que ya venció.
+          </p>
+        </CardBody>
+      </Card>
+
       {/* Recomendaciones */}
       <h2 className="mb-4 font-display text-xl font-medium text-fg">Recomendaciones</h2>
       <Card className="mb-10">
@@ -207,9 +273,7 @@ export default function AyudaPage() {
       </Card>
 
       {/* FAQ */}
-      <h2 className="mb-4 font-display text-xl font-medium text-fg">
-        Preguntas frecuentes
-      </h2>
+      <h2 className="mb-4 font-display text-xl font-medium text-fg">Preguntas frecuentes</h2>
       <div className="space-y-2.5">
         {FAQ.map((item) => (
           <details
@@ -226,10 +290,11 @@ export default function AyudaPage() {
       </div>
 
       <div className="mt-10 flex items-center gap-2">
-        <Badge tone="brand">Tip</Badge>
+        <Badge tone="brand">Regla de oro</Badge>
         <p className="text-sm text-muted">
-          Si te perdés, recordá la regla de oro: <strong className="font-medium text-fg">toda
-          nota está en Biblioteca</strong>, pase lo que pase.
+          Programá el día con tiempo y{" "}
+          <strong className="font-medium text-fg">dejá que el calendario trabaje por vos</strong>: sale
+          todo solo, a la hora que pusiste.
         </p>
       </div>
     </div>
