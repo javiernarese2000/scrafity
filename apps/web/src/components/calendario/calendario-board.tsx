@@ -207,6 +207,16 @@ export function CalendarioBoard({ destinos }: { destinos: Destino[] }) {
     recargar();
   }, [recargar]);
 
+  // Auto-refresco de los eventos cada 30s: al dispararse una programada, aparece
+  // publicada (con candado) sin recargar toda la página. Solo re-pide los datos
+  // del calendario; se saltea mientras arrastrás un bloque.
+  useEffect(() => {
+    const t = setInterval(() => {
+      if (!dragRef.current) recargar();
+    }, 30000);
+    return () => clearInterval(t);
+  }, [recargar]);
+
   useEffect(() => {
     const t = setInterval(() => {
       const n = new Date();
@@ -367,7 +377,8 @@ export function CalendarioBoard({ destinos }: { destinos: Destino[] }) {
             Programá y organizá tus publicaciones por horario y destino.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <RelojPuntos />
           <Button variant="outline" onClick={despacharYa} disabled={despachando}>
             <Send className={"size-4" + (despachando ? " animate-pulse" : "")} />
             {despachando ? "Despachando…" : "Despachar ahora"}
@@ -774,6 +785,65 @@ export function CalendarioBoard({ destinos }: { destinos: Destino[] }) {
       </Modal>
 
       <Toast message={message} />
+    </div>
+  );
+}
+
+// Fuente 3x5 de puntos para el reloj (dígitos + dos puntos).
+const FONT_PUNTOS: Record<string, string[]> = {
+  "0": ["111", "101", "101", "101", "111"],
+  "1": ["010", "110", "010", "010", "111"],
+  "2": ["111", "001", "111", "100", "111"],
+  "3": ["111", "001", "111", "001", "111"],
+  "4": ["101", "101", "111", "001", "001"],
+  "5": ["111", "100", "111", "001", "111"],
+  "6": ["111", "100", "111", "101", "111"],
+  "7": ["111", "001", "010", "010", "010"],
+  "8": ["111", "101", "111", "101", "111"],
+  "9": ["111", "101", "111", "001", "111"],
+  ":": ["0", "0", "1", "0", "1"],
+};
+
+/** Reloj HH:MM con tipografía de puntos (dot-matrix), para ver la hora rápido. */
+function RelojPuntos() {
+  const [hhmm, setHhmm] = useState("--:--");
+  useEffect(() => {
+    const tick = () => {
+      const d = new Date();
+      setHhmm(
+        `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`,
+      );
+    };
+    tick();
+    const t = setInterval(tick, 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  return (
+    <div
+      className="flex items-center gap-[3px] rounded-lg border border-line bg-elevated/50 px-2.5 py-1.5"
+      title="Hora actual"
+    >
+      {hhmm.split("").map((ch, i) => {
+        const pat = FONT_PUNTOS[ch] ?? FONT_PUNTOS["0"]!;
+        return (
+          <div key={i} className="flex flex-col gap-[2px]">
+            {pat.map((row, r) => (
+              <div key={r} className="flex gap-[2px]">
+                {row.split("").map((bit, c) => (
+                  <span
+                    key={c}
+                    className={
+                      "size-[3px] rounded-full " +
+                      (bit === "1" ? "bg-accent" : "bg-fg/10")
+                    }
+                  />
+                ))}
+              </div>
+            ))}
+          </div>
+        );
+      })}
     </div>
   );
 }
