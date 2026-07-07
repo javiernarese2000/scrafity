@@ -12,6 +12,12 @@ export async function register() {
 
   const { despachar } = await import("@/server/despachador");
   let corriendo = false;
+  let ciclo = 0;
+  // Red de seguridad: si la memoria del proceso se dispara (fuga real o
+  // acumulada, cualquiera sea la causa), reinicia SOLO en vez de esperar a que
+  // alguien note el sitio caído y haga redeploy a mano. Railway relanza el
+  // contenedor automáticamente (restartPolicy ON_FAILURE en railway.json).
+  const LIMITE_MB = 450;
   const correr = async () => {
     // Si la corrida anterior sigue viva (colgada por algo puntual de red/DB),
     // se saltea esta vez en vez de apilar corridas en paralelo — eso agotaba
@@ -30,6 +36,16 @@ export async function register() {
       console.error("[despachador]", e);
     } finally {
       corriendo = false;
+    }
+
+    ciclo += 1;
+    const rssMb = Math.round(process.memoryUsage().rss / 1024 / 1024);
+    if (ciclo % 8 === 0) console.log(`[memoria] RSS: ${rssMb} MB`);
+    if (rssMb > LIMITE_MB) {
+      console.error(
+        `[memoria] RSS ${rssMb}MB supera el límite (${LIMITE_MB}MB) — reinicio preventivo`,
+      );
+      process.exit(1);
     }
   };
 

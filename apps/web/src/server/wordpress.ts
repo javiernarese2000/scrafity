@@ -4,6 +4,15 @@ import sanitizeHtml from "sanitize-html";
 import { canonizarCategoria, claveCategoria } from "@/lib/categorias";
 import { decrypt } from "@/lib/crypto";
 
+// Si el WordPress del cliente responde lento o se cuelga, el fetch no debe
+// quedar esperando para siempre (eso venía reteniendo memoria en el despachador
+// automático hasta agotar el proceso). Mismo criterio que el statement_timeout
+// de la base de datos.
+const TIMEOUT_MS = 20_000;
+function conTimeout(): AbortSignal {
+  return AbortSignal.timeout(TIMEOUT_MS);
+}
+
 export type WpCredenciales = {
   username: string;
   appPassword: string;
@@ -36,6 +45,7 @@ export async function probarConexionWp(
 ): Promise<{ ok: true; usuario: string }> {
   const res = await fetch(`${apiBase(url)}/wp/v2/users/me?context=edit`, {
     headers: { Authorization: authHeader(cred) },
+    signal: conTimeout(),
   });
   if (!res.ok) {
     const detalle = await res.text().catch(() => "");
@@ -67,7 +77,7 @@ export async function listarCategoriasWp(
 ): Promise<WpCategoria[]> {
   const res = await fetch(
     `${apiBase(url)}/wp/v2/categories?per_page=100&orderby=name&order=asc&_fields=id,name`,
-    { headers: { Authorization: authHeader(cred) } },
+    { headers: { Authorization: authHeader(cred) }, signal: conTimeout() },
   );
   if (!res.ok) {
     const detalle = await res.text().catch(() => "");
@@ -90,7 +100,7 @@ async function resolverCategoriaWp(
   try {
     const q = await fetch(
       `${base}/wp/v2/categories?per_page=100&_fields=id,name`,
-      { headers: { Authorization: authHeader(cred) } },
+      { headers: { Authorization: authHeader(cred) }, signal: conTimeout() },
     );
     const existentes = q.ok ? ((await q.json()) as WpCategoria[]) : [];
     const canonico = canonizarCategoria(nombre);
@@ -104,6 +114,7 @@ async function resolverCategoriaWp(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ name: canonico }),
+      signal: conTimeout(),
     });
     if (crear.ok) {
       const data = (await crear.json()) as { id?: number };
@@ -126,7 +137,7 @@ async function resolverTagsWp(
     try {
       const q = await fetch(
         `${base}/wp/v2/tags?search=${encodeURIComponent(nombre)}&_fields=id,name`,
-        { headers: { Authorization: authHeader(cred) } },
+        { headers: { Authorization: authHeader(cred) }, signal: conTimeout() },
       );
       const existentes = q.ok ? ((await q.json()) as WpCategoria[]) : [];
       const match = existentes.find(
@@ -143,6 +154,7 @@ async function resolverTagsWp(
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ name: nombre }),
+        signal: conTimeout(),
       });
       if (crear.ok) {
         const data = (await crear.json()) as { id?: number };
@@ -162,7 +174,7 @@ async function subirMedia(
   imagenUrl: string,
 ): Promise<number | null> {
   try {
-    const img = await fetch(imagenUrl);
+    const img = await fetch(imagenUrl, { signal: conTimeout() });
     if (!img.ok) return null;
     const buf = Buffer.from(await img.arrayBuffer());
     const tipo = img.headers.get("content-type") ?? "image/jpeg";
@@ -176,6 +188,7 @@ async function subirMedia(
         "Content-Disposition": `attachment; filename="${nombre}"`,
       },
       body: buf,
+      signal: conTimeout(),
     });
     if (!res.ok) return null;
     const data = (await res.json()) as { id?: number };
@@ -293,6 +306,7 @@ export async function publicarEnWordpress(
       ...(categoriaId ? { categories: [categoriaId] } : {}),
       ...(tagIds.length ? { tags: tagIds } : {}),
     }),
+    signal: conTimeout(),
   });
 
   if (!res.ok) {
