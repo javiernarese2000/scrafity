@@ -23,12 +23,16 @@ export function getDb(): Database {
     // idle_timeout: recicla conexiones ociosas para que el pooler no las deje
     // "muertas" tras inactividad (lo que colgaba el login post-logout).
     // connect_timeout: si no logra conectar, falla rápido en vez de colgarse.
+    // statement_timeout: si UNA query se cuelga (red, lock, pooler lento), se
+    // corta a los 20s en vez de quedar esperando para siempre — eso acumulaba
+    // corridas colgadas del despachador automático hasta agotar el proceso.
     const client =
       globalForDb.__sqlClient ??
       postgres(connectionString, {
         prepare: false,
         idle_timeout: 20,
         connect_timeout: 15,
+        connection: { statement_timeout: 20_000 },
       });
     globalForDb.__sqlClient = client;
     globalForDb.__dbInstance = drizzle(client, { schema });

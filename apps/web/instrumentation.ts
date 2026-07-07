@@ -11,7 +11,16 @@ export async function register() {
   g.__despachadorActivo = true;
 
   const { despachar } = await import("@/server/despachador");
+  let corriendo = false;
   const correr = async () => {
+    // Si la corrida anterior sigue viva (colgada por algo puntual de red/DB),
+    // se saltea esta vez en vez de apilar corridas en paralelo — eso agotaba
+    // el proceso hasta necesitar un redeploy para recuperarse.
+    if (corriendo) {
+      console.warn("[despachador] corrida anterior aún activa, se saltea este ciclo");
+      return;
+    }
+    corriendo = true;
     try {
       const r = await despachar();
       if (r.despachadas > 0 || r.errores > 0) {
@@ -19,6 +28,8 @@ export async function register() {
       }
     } catch (e) {
       console.error("[despachador]", e);
+    } finally {
+      corriendo = false;
     }
   };
 
