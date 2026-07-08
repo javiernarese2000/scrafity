@@ -73,22 +73,36 @@ export function BibliotecaBoard({ notas }: { notas: NotaCard[] }) {
 
   function toggleArchivar(n: NotaCard) {
     startTransition(async () => {
-      await setArchivada(n.id, !n.archivada);
-      show(n.archivada ? "Desarchivada" : "Archivada");
+      try {
+        await setArchivada(n.id, !n.archivada);
+        show(n.archivada ? "Desarchivada" : "Archivada");
+      } catch {
+        show("No se pudo actualizar. Reintentá.");
+      }
     });
   }
 
   function handleRegenerar(n: NotaCard) {
     startTransition(async () => {
-      await regenerar(n.id);
-      show("Regenerando… aparecerá en unos segundos");
+      try {
+        await regenerar(n.id);
+        show("Regenerando… aparecerá en unos segundos");
+      } catch {
+        show("No se pudo regenerar. Reintentá.");
+      }
     });
   }
 
   function handleEliminar(n: NotaCard) {
     startTransition(async () => {
-      await eliminarNota(n.id);
-      show("Movida a la papelera");
+      try {
+        await eliminarNota(n.id);
+        show("Movida a la papelera");
+      } catch {
+        // Sin esto, un fallo puntual (red/DB) quedaba silencioso: no había
+        // aviso y la nota parecía "eliminada" cuando en realidad no se guardó.
+        show("No se pudo eliminar. Reintentá — si persiste, avisá.");
+      }
     });
   }
 

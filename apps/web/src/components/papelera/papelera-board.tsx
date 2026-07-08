@@ -32,31 +32,54 @@ export function PapeleraBoard({ items }: { items: PapeleraRow[] }) {
     setLista((prev) => prev.filter((x) => x.id !== id));
   }
 
+  // Si el servidor falla tras haber quitado la fila de la vista (optimista),
+  // hay que devolverla — si no, queda "eliminada" solo en la pantalla, sin
+  // avisar que en realidad no se guardó nada.
   function restaurar(r: PapeleraRow) {
     quitar(r.id);
     startTransition(async () => {
-      await restaurarNota(r.id);
-      show("Restaurada");
+      try {
+        await restaurarNota(r.id);
+        show("Restaurada");
+      } catch {
+        setLista((prev) => [...prev, r]);
+        show("No se pudo restaurar. Reintentá.");
+      }
     });
   }
   function borrar(r: PapeleraRow) {
     quitar(r.id);
     startTransition(async () => {
-      await eliminarDefinitivo(r.id);
-      show("Eliminada definitivamente");
+      try {
+        await eliminarDefinitivo(r.id);
+        show("Eliminada definitivamente");
+      } catch {
+        setLista((prev) => [...prev, r]);
+        show("No se pudo eliminar. Reintentá.");
+      }
     });
   }
   function vaciar() {
+    const previa = lista;
     setLista([]);
     startTransition(async () => {
-      await vaciarPapelera();
-      show("Papelera vaciada");
+      try {
+        await vaciarPapelera();
+        show("Papelera vaciada");
+      } catch {
+        setLista(previa);
+        show("No se pudo vaciar la papelera. Reintentá.");
+      }
     });
   }
   function limpiar() {
     startTransition(async () => {
-      const r = await limpiarAhora();
-      show(`${r.aPapelera} a papelera · ${r.purgadas} purgadas`);
+      try {
+        const r = await limpiarAhora();
+        show(`${r.aPapelera} a papelera · ${r.purgadas} purgadas`);
+      } catch {
+        show("No se pudo ejecutar la limpieza. Reintentá.");
+      }
     });
   }
 
