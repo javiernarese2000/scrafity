@@ -13,28 +13,53 @@ export async function register() {
   const { despachar } = await import("@/server/despachador");
   let corriendo = false;
   let ciclo = 0;
-  // Red de seguridad: si la memoria del proceso se dispara (fuga real o
-  // acumulada, cualquiera sea la causa), reinicia SOLO en vez de esperar a que
-  // alguien note el sitio caído y haga redeploy a mano. Railway relanza el
-  // contenedor automáticamente (restartPolicy ON_FAILURE en railway.json).
+  let saltosSeguidos = 0;
+
   const LIMITE_MB = 450;
+  // Ninguna corrida puede durar más de esto — si algo interno se cuelga (un
+  // fetch o una query que ignoró su propio timeout), esto la corta igual, en
+  // vez de dejar `corriendo` en true para siempre (lo que pasó: la memoria
+  // NUNCA llegaba a chequearse porque el código cortaba antes con un return).
+  const TIMEOUT_CICLO_MS = 90_000;
+  // Si aun así queda trabado varios ciclos seguidos, reinicio forzado sin
+  // esperar al límite de memoria (un colgado no necesariamente usa memoria).
+  const MAX_SALTOS_SEGUIDOS = 5;
+
+  function conTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+    return Promise.race([
+      p,
+      new Promise<T>((_, reject) =>
+        setTimeout(() => reject(new Error(`ciclo del despachador colgado (>${ms}ms)`)), ms),
+      ),
+    ]);
+  }
+
   const correr = async () => {
-    // Si la corrida anterior sigue viva (colgada por algo puntual de red/DB),
-    // se saltea esta vez en vez de apilar corridas en paralelo — eso agotaba
-    // el proceso hasta necesitar un redeploy para recuperarse.
     if (corriendo) {
-      console.warn("[despachador] corrida anterior aún activa, se saltea este ciclo");
+      saltosSeguidos += 1;
+      console.warn(
+        `[despachador] corrida anterior aún activa (${saltosSeguidos}/${MAX_SALTOS_SEGUIDOS}), se saltea este ciclo`,
+      );
+      if (saltosSeguidos >= MAX_SALTOS_SEGUIDOS) {
+        console.error(
+          `[despachador] colgado ${saltosSeguidos} ciclos seguidos — reinicio forzado`,
+        );
+        process.exit(1);
+      }
       return;
     }
+    saltosSeguidos = 0;
     corriendo = true;
     try {
-      const r = await despachar();
+      const r = await conTimeout(despachar(), TIMEOUT_CICLO_MS);
       if (r.despachadas > 0 || r.errores > 0) {
         console.log(`[despachador] ${r.despachadas} publicadas, ${r.errores} con error`);
       }
     } catch (e) {
-      console.error("[despachador]", e);
+      console.error("[despachador]", e instanceof Error ? e.message : e);
     } finally {
+      // Se libera SIEMPRE (el race garantiza que esto se alcanza como máximo
+      // a los TIMEOUT_CICLO_MS), así el próximo ciclo puede reintentar.
       corriendo = false;
     }
 
