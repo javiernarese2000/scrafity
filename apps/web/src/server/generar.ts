@@ -5,6 +5,7 @@ import { generate, type ProviderName } from "@/ai";
 import { buildRewritePrompt, parseRewrite } from "@/ai/prompt";
 import { CATEGORIAS, canonizarCategoria } from "@/lib/categorias";
 import { computeSimilarity } from "@/lib/diff";
+import { costoUSD } from "@/lib/costos";
 import { getAjustes } from "./ajustes";
 
 export type GenerarParams = {
@@ -174,6 +175,7 @@ export async function generarVersionesCore(
         proveedor: v.provider,
         tokensIn: v.tokensIn,
         tokensOut: v.tokensOut,
+        costo: costoUSD(v.provider, v.tokensIn, v.tokensOut).toFixed(6),
         estado: "en_revision",
       });
     }

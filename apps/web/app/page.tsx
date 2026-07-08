@@ -20,6 +20,7 @@ import Link from "next/link";
 
 import { AutoRefresh } from "@/components/dashboard/auto-refresh";
 import { Donut } from "@/components/charts/donut";
+import { CostosIA, type DiaCosto, type ProveedorCosto } from "@/components/dashboard/costos-ia";
 import { MetricCard } from "@/components/dashboard/metric-card";
 import { Pulso, type Bucket } from "@/components/dashboard/pulso";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +28,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/card";
 import { Reveal } from "@/components/ui/reveal";
 import { nombreCategoria } from "@/lib/categorias";
+import { costoUSD } from "@/lib/costos";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -75,6 +77,7 @@ export default async function DashboardPage() {
   const inicioHoy = new Date();
   inicioHoy.setHours(0, 0, 0, 0);
   const hace24h = new Date(Date.now() - 24 * 3_600_000);
+  const hace7dias = new Date(inicioHoy.getTime() - 6 * 24 * 3_600_000);
 
   const n = (rows: { n: number }[]) => Number(rows[0]?.n ?? 0);
 
@@ -89,6 +92,7 @@ export default async function DashboardPage() {
     versEstado,
     fuentesRows,
     escenariosRows,
+    versionesCosto7d,
   ] = await Promise.all([
     db.select({ n: count() }).from(articles).where(and(gte(articles.createdAt, inicioHoy), isNull(articles.deletedAt))).then(n),
     db.select({ n: count() }).from(articles).where(and(eq(articles.curacion, "pendiente"), isNull(articles.deletedAt))).then(n),
@@ -109,6 +113,15 @@ export default async function DashboardPage() {
       .select({ nombre: escenarios.nombre, activo: escenarios.activo, moderacion: escenarios.moderacion })
       .from(escenarios)
       .orderBy(desc(escenarios.createdAt)),
+    db
+      .select({
+        createdAt: versions.createdAt,
+        proveedor: versions.proveedor,
+        tokensIn: versions.tokensIn,
+        tokensOut: versions.tokensOut,
+      })
+      .from(versions)
+      .where(gte(versions.createdAt, hace7dias)),
   ]);
 
   const escenariosActivos = escenariosRows.filter((e) => e.activo);
@@ -135,6 +148,45 @@ export default async function DashboardPage() {
     value: estadoMap.get(e.estado) ?? 0,
     color: e.color,
   })).filter((d) => d.value > 0);
+
+  // Gasto de IA: costo SIEMPRE calculado al vuelo desde tokens (no de la
+  // columna `costo` guardada) para que quede consistente aunque cambien las
+  // tarifas — sin necesitar un backfill de datos viejos.
+  const versionesHoy = versionesCosto7d.filter((v) => v.createdAt >= inicioHoy);
+  const costoDe = (v: (typeof versionesCosto7d)[number]) =>
+    costoUSD(v.proveedor, v.tokensIn, v.tokensOut);
+
+  const costoHoy = versionesHoy.reduce((a, v) => a + costoDe(v), 0);
+  const tokensHoy = versionesHoy.reduce(
+    (a, v) => a + (v.tokensIn ?? 0) + (v.tokensOut ?? 0),
+    0,
+  );
+  const notasHoy = versionesHoy.length;
+  const costoPorNota = notasHoy > 0 ? costoHoy / notasHoy : 0;
+
+  const serie7d: DiaCosto[] = Array.from({ length: 7 }, (_, i) => {
+    const dia = new Date(inicioHoy.getTime() - (6 - i) * 24 * 3_600_000);
+    const fin = new Date(dia.getTime() + 24 * 3_600_000);
+    const costo = versionesCosto7d
+      .filter((v) => v.createdAt >= dia && v.createdAt < fin)
+      .reduce((a, v) => a + costoDe(v), 0);
+    return { dia: dia.toLocaleDateString("es-AR", { weekday: "short" }), costo };
+  });
+
+  const porProveedor: ProveedorCosto[] = [
+    {
+      proveedor: "deepseek",
+      label: "DeepSeek",
+      costo: versionesHoy.filter((v) => v.proveedor === "deepseek").reduce((a, v) => a + costoDe(v), 0),
+      color: "var(--color-info)",
+    },
+    {
+      proveedor: "claude",
+      label: "Claude",
+      costo: versionesHoy.filter((v) => v.proveedor === "claude").reduce((a, v) => a + costoDe(v), 0),
+      color: "var(--color-accent)",
+    },
+  ];
 
   const sb = await createClient();
   const {
@@ -237,6 +289,18 @@ export default async function DashboardPage() {
       {/* Pulso (entrada vs salida) */}
       <Reveal delay={0.1}>
         <Pulso entrada={entrada} salida={salida} leyenda={leyenda} />
+      </Reveal>
+
+      {/* Gasto de IA */}
+      <Reveal delay={0.12}>
+        <CostosIA
+          costoHoy={costoHoy}
+          tokensHoy={tokensHoy}
+          notasHoy={notasHoy}
+          costoPorNota={costoPorNota}
+          serie7d={serie7d}
+          porProveedor={porProveedor}
+        />
       </Reveal>
 
       {/* Estados + fuentes */}
