@@ -6,7 +6,30 @@ export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
 
   // Evita montar dos intervalos si register() se re-ejecuta (HMR, re-sync).
-  const g = globalThis as unknown as { __despachadorActivo?: boolean };
+  const g = globalThis as unknown as {
+    __despachadorActivo?: boolean;
+    __handlersGlobalesActivos?: boolean;
+  };
+
+  // Red de seguridad de última instancia: por default, Node.js MATA el proceso
+  // entero ante cualquier promesa rechazada que nadie atrapó (ej. una promesa
+  // interna del driver `postgres` al cancelar una conexión por timeout — no
+  // es algo que un try/catch de la app pueda interceptar). Esto es lo que
+  // causó la caída real (no un cuelgue): "unhandledRejection" tumbando todo.
+  // Sin este handler, Node vuelve a este comportamiento por default.
+  if (!g.__handlersGlobalesActivos) {
+    g.__handlersGlobalesActivos = true;
+    process.on("unhandledRejection", (reason) => {
+      console.error(
+        "[unhandledRejection]",
+        reason instanceof Error ? reason.message : reason,
+      );
+    });
+    process.on("uncaughtException", (err) => {
+      console.error("[uncaughtException]", err instanceof Error ? err.message : err);
+    });
+  }
+
   if (g.__despachadorActivo) return;
   g.__despachadorActivo = true;
 
