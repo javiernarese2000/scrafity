@@ -3,7 +3,8 @@
 // proveedor cambia sus tarifas.
 const TARIFAS: Record<string, { in: number; out: number }> = {
   deepseek: { in: 0.27, out: 1.1 },
-  claude: { in: 3.0, out: 15.0 },
+  // Claude Haiku 4.5 (rápido/económico) — bajar si se vuelve a Sonnet u Opus.
+  claude: { in: 1.0, out: 5.0 },
 };
 
 /** Costo estimado en USD de una generación, según proveedor y tokens. */

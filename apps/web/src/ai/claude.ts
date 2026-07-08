@@ -2,8 +2,8 @@ import Anthropic from "@anthropic-ai/sdk";
 
 import type { AIProvider, GenerateInput, GenerateResult } from "./provider";
 
-// Sonnet por defecto (calidad/costo). Opus 4.8 para casos de alta exigencia.
-const MODEL = "claude-sonnet-4-6";
+// Haiku 4.5: rápido y barato, buen equilibrio para reescritura de notas.
+const MODEL = "claude-haiku-4-5-20251001";
 
 export const claudeProvider: AIProvider = {
   name: "claude",
