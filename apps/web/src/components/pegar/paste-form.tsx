@@ -99,8 +99,8 @@ export function PasteForm() {
           proveedor: provMap[proveedor] ?? "claude",
         });
         router.push("/moderacion");
-      } catch {
-        setError("Falló la generación. Revisá la API key del proveedor.");
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Falló la generación.");
       }
     });
   }
