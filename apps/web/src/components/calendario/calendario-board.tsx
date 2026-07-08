@@ -218,10 +218,16 @@ export function CalendarioBoard({ destinos }: { destinos: Destino[] }) {
   }, [recargar]);
 
   useEffect(() => {
-    const t = setInterval(() => {
+    // El valor inicial de nowMin se calcula en SSR (servidor en UTC), así que la
+    // línea "ahora" arranca desfasada (ej. 22h UTC cuando en AR son las 19h).
+    // Se corrige apenas monta en el cliente (horario local del navegador), no
+    // recién a los 30s.
+    const tick = () => {
       const n = new Date();
       setNowMin(n.getHours() * 60 + n.getMinutes());
-    }, 30000);
+    };
+    tick();
+    const t = setInterval(tick, 30000);
     return () => clearInterval(t);
   }, []);
 
