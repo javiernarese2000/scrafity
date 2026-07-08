@@ -110,6 +110,17 @@ export async function extraerNota(url: string): Promise<ExtractResult> {
   }
 }
 
+export type GenerarVersionesResult =
+  | { ok: true; articleId: string }
+  | { ok: false; error: string };
+
+/**
+ * Next.js borra el mensaje real de cualquier error que se LANCE (throw) desde
+ * una Server Action en producción (por seguridad, reemplaza por un "digest"
+ * genérico). Por eso acá se atrapa el error y se devuelve como DATO, no como
+ * excepción — así el mensaje real (qué proveedor de IA falló y por qué) sí
+ * llega al usuario.
+ */
 export async function generarVersiones(input: {
   url: string;
   fuente: string;
@@ -119,7 +130,7 @@ export async function generarVersiones(input: {
   nVersiones: number;
   tono: string;
   proveedor: ProviderName | "auto";
-}): Promise<{ articleId: string }> {
+}): Promise<GenerarVersionesResult> {
   const hash = crypto.createHash("sha256").update(input.contenido).digest("hex");
 
   const [art] = await db
@@ -134,13 +145,20 @@ export async function generarVersiones(input: {
     })
     .returning();
 
-  await generarVersionesCore(art!.id, {
-    nVersiones: input.nVersiones,
-    tono: input.tono,
-    proveedor: input.proveedor,
-  });
+  try {
+    await generarVersionesCore(art!.id, {
+      nVersiones: input.nVersiones,
+      tono: input.tono,
+      proveedor: input.proveedor,
+    });
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Falló la generación.",
+    };
+  }
 
   revalidatePath("/moderacion");
   revalidatePath("/biblioteca");
-  return { articleId: art!.id };
+  return { ok: true, articleId: art!.id };
 }

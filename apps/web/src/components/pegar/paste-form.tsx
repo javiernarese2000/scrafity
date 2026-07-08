@@ -87,21 +87,21 @@ export function PasteForm() {
     if (!extracted) return;
     setError(null);
     startGenerate(async () => {
-      try {
-        await generarVersiones({
-          url: url.trim(),
-          fuente: extracted.fuente,
-          titulo: extracted.titulo,
-          contenido: extracted.contenido,
-          imagenUrl: extracted.imagenUrl,
-          nVersiones,
-          tono,
-          proveedor: provMap[proveedor] ?? "claude",
-        });
-        router.push("/moderacion");
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Falló la generación.");
+      const res = await generarVersiones({
+        url: url.trim(),
+        fuente: extracted.fuente,
+        titulo: extracted.titulo,
+        contenido: extracted.contenido,
+        imagenUrl: extracted.imagenUrl,
+        nVersiones,
+        tono,
+        proveedor: provMap[proveedor] ?? "claude",
+      });
+      if (!res.ok) {
+        setError(res.error);
+        return;
       }
+      router.push("/moderacion");
     });
   }
 
