@@ -4,6 +4,7 @@ import crypto from "node:crypto";
 
 import { Readability } from "@mozilla/readability";
 import { articles, db } from "@scrapify/db";
+import { eq } from "drizzle-orm";
 import { parseHTML } from "linkedom";
 import { revalidatePath } from "next/cache";
 import TurndownService from "turndown";
@@ -133,32 +134,55 @@ export async function generarVersiones(input: {
 }): Promise<GenerarVersionesResult> {
   const hash = crypto.createHash("sha256").update(input.contenido).digest("hex");
 
-  const [art] = await db
-    .insert(articles)
-    .values({
-      urlOriginal: input.url,
-      titulo: input.titulo,
-      contenido: input.contenido,
-      hashContenido: hash,
-      snapshotOriginal: input.contenido,
-      imagenUrl: input.imagenUrl,
-    })
-    .returning();
+  // Dedup por contenido: si esta URL/nota ya se ingestó antes (ej. por "Traer
+  // noticias"), no reintentar el insert — buscarla y avisar con un mensaje claro
+  // en vez de que el conflicto de la base explote como error crudo (con todo el
+  // contenido adentro, lo que además inundó los logs de Railway).
+  const [existente] = await db
+    .select({ id: articles.id })
+    .from(articles)
+    .where(eq(articles.hashContenido, hash))
+    .limit(1);
+  if (existente) {
+    return {
+      ok: false,
+      error: "Esta nota ya está cargada (probablemente por Traer noticias). Buscala en Noticias o Biblioteca.",
+    };
+  }
 
   try {
-    await generarVersionesCore(art!.id, {
+    const [art] = await db
+      .insert(articles)
+      .values({
+        urlOriginal: input.url,
+        titulo: input.titulo,
+        contenido: input.contenido,
+        hashContenido: hash,
+        snapshotOriginal: input.contenido,
+        imagenUrl: input.imagenUrl,
+      })
+      .onConflictDoNothing()
+      .returning();
+    if (!art) {
+      return { ok: false, error: "Esta nota ya está cargada (contenido duplicado)." };
+    }
+
+    await generarVersionesCore(art.id, {
       nVersiones: input.nVersiones,
       tono: input.tono,
       proveedor: input.proveedor,
     });
+
+    revalidatePath("/moderacion");
+    revalidatePath("/biblioteca");
+    return { ok: true, articleId: art.id };
   } catch (e) {
+    // Log conciso: NUNCA el error crudo completo (trae el contenido de la nota
+    // adentro y puede inundar los logs, como pasó con la nota de ANSES).
+    console.error("[generarVersiones]", e instanceof Error ? e.message : e);
     return {
       ok: false,
       error: e instanceof Error ? e.message : "Falló la generación.",
     };
   }
-
-  revalidatePath("/moderacion");
-  revalidatePath("/biblioteca");
-  return { ok: true, articleId: art!.id };
 }
